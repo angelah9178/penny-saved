@@ -15,12 +15,14 @@ Core features:
 - Dashboard lists all purchase entries with status, price, date, and reason
 - Statistics show avoided impulse purchases count and total money saved.
 - Statistics can be filtered by this month, last 3 months, last 6 months, last year, and all-time.
-- User can add examples of cost examples.
-- Opportunity cost statistics refers to what the user could have bought with the money they saved.
+- User can add comparable incoming income stream and typical cost examples.
+    - For example, $20 per meal or $10 earned per hour.
+- Opportunity cost statistics refers to how much money the user has saved in terms of a comparison example.
 - Opportunity cost statistics compare how much the user saved against the user's predefined cost examples. 
     - Users can create examples with a label, unit name, and dollar value, such as "hours worked" at "$10/hour". The app will calculate and display messages like: "The amount you have saved is equal to X hours worked!"
+    - Another example: 
 - After the user indicates they did not buy an item for the 48 hour check-in, the item goes to the Saved section and the opportunity cost statistics update.
-- Totals include only confirmed Saved items.
+- Total amount saved include only confirmed Saved items.
 - Users can edit entries while they are Waiting. They can also delete Waiting entries, and edit Saved/Purchased comments.
 - The website should be responsive.
 - The dashboard is split into 4 different sections:
