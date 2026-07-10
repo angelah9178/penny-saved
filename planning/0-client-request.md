@@ -15,7 +15,7 @@ Core features:
 - Dashboard lists all purchase entries with status, price, date, and reason
 - Statistics show avoided impulse purchases count and total money saved.
 - Statistics can be filtered by this month, last 3 months, last 6 months, last year, and all-time.
-- User can add comparable incoming income stream and typical cost examples.
+- User can add comparable income stream and typical cost examples.
     - For example, $20 per meal or $10 earned per hour.
 - Opportunity cost statistics refers to how much money the user has saved in terms of a comparison example.
 - Opportunity cost statistics compare how much the user saved against the user's predefined cost examples. 
