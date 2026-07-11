@@ -10,45 +10,52 @@ flowchart TD
     C --> E[Dashboard]
     D --> E
 
-    E --> F[Top: total amount saved statistics]
-    F --> G[Apply statistics filter]
-    G --> H[Show avoided purchase count and total saved]
-    H --> I[Show opportunity cost examples]
-    I --> J[Calculate saved amount as equivalent units]
-    J --> K[Needs check-in section]
-    K --> L[List items where 48 hours have passed]
-    L --> M[All impulse purchases section]
-    M --> N[List item status, price, date, and reason]
-    N --> O[Bottom: hidden Purchased section]
-    O --> P[User can manually open Purchased items]
+    E --> F[User filters savings statistics]
+    F --> G[App selects Saved items in date range]
+    G --> H[App totals confirmed saved prices]
+    H --> I[App counts avoided impulse purchases]
+    I --> J[App displays filtered statistics]
 
-    I --> Q{Create new opportunity cost example?}
-    Q -- Yes --> R[Open new opportunity cost example screen]
-    R --> S[Enter label, unit name, and dollar value]
-    S --> T[Save example]
-    T --> U[Example is available for opportunity cost calculations]
+    E --> K[User views opportunity cost]
+    K --> L[App loads saved amount]
+    L --> M[App loads comparison examples]
+    M --> N[App divides saved amount by each example value]
+    N --> O[App displays equivalent units saved]
 
-    L --> V{Complete check-in?}
-    V -- I did not buy it --> W[Add optional comment]
-    W --> X[Move item to Saved]
-    X --> Y[Add price to total saved]
-    Y --> Z[Update statistics and opportunity cost calculations]
-    V -- I bought it --> AA[Add optional comment]
-    AA --> AB[Move item to hidden Purchased]
-    AB --> AC[Include in purchase statistics only]
+    E --> P[User creates opportunity cost example]
+    P --> Q[App validates label, unit name, and dollar value]
+    Q --> R[App saves comparison example]
+    R --> S[App makes example available for future calculations]
 
-    M --> AD{Add new impulse purchase?}
-    AD -- Yes --> AE[Open add item screen]
-    AE --> AF[Enter item name, price, and reason]
-    AF --> AG[Save entry with date added]
-    AG --> AH[New entry starts as Waiting]
+    E --> T[User adds impulse purchase]
+    T --> U[App validates item name, price, and reason]
+    U --> V[App records date added]
+    V --> W[App creates entry with Waiting status]
 
-    M --> AI{Edit Waiting item?}
-    AI -- Yes --> AJ[Update item details]
-    M --> AK{Delete Waiting item?}
-    AK -- Yes --> AL[Remove Waiting item]
-    X --> AM{Edit Saved comment?}
-    AM -- Yes --> AN[Update comment only]
-    P --> AO{Edit Purchased comment?}
-    AO -- Yes --> AP[Update comment only]
+    E --> X[User checks item after 48 hours]
+    X --> Y[App confirms item is eligible for check-in]
+    Y --> Z{User bought the item?}
+    Z -- No --> AA[App saves optional comment]
+    AA --> AB[App changes status to Saved]
+    AB --> AC[App adds price to total saved]
+    AC --> AD[App updates statistics and opportunity cost]
+    Z -- Yes --> AE[App saves optional comment]
+    AE --> AF[App changes status to Purchased]
+    AF --> AG[App excludes price from total saved]
+    AG --> AH[App includes item in purchase statistics]
+
+    E --> AI[User edits Waiting item]
+    AI --> AJ[App validates updated item details]
+    AJ --> AK[App saves item changes]
+
+    E --> AL[User deletes Waiting item]
+    AL --> AM[App removes item from active purchase list]
+
+    E --> AN[User edits Saved or Purchased comment]
+    AN --> AO[App updates comment only]
+    AO --> AP[App keeps item status and statistics unchanged]
+
+    E --> AQ[User opens hidden Purchased section]
+    AQ --> AR[App loads Purchased items]
+    AR --> AS[App displays purchased entries separately from Saved total]
 ```
