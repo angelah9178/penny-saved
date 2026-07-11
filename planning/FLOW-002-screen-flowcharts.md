@@ -10,81 +10,60 @@ flowchart TD
     C --> E[Dashboard screen]
     D --> E
 
-    E --> F[Dashboard: Statistics summary]
-    E --> G[Dashboard: Needs check-in section]
-    E --> H[Dashboard: Waiting section]
-    E --> I[Dashboard: Saved section]
-    E --> J[Dashboard: Purchased section toggle]
-    E --> K[Add item screen]
-    E --> L[Settings screen]
+    E --> F{Choose screen or section}
 
-    K --> M[New purchase form]
-    M --> N[Item name field]
-    N --> O[Price field]
-    O --> P[Reason wanted field]
-    P --> Q[Save item]
-    Q --> E
-    M --> R[Cancel]
-    R --> E
+    F -- Add item --> G[Add item screen]
+    G --> H[New purchase form]
+    H --> I[Item name, price, and reason fields]
+    I --> J{Save or cancel?}
+    J -- Save --> E
+    J -- Cancel --> E
 
-    H --> S[Waiting item detail / edit screen]
-    S --> T[Edit item name, price, or reason]
-    T --> U[Save changes]
-    U --> E
-    S --> V[Delete Waiting item]
-    V --> E
-    S --> W[Cancel]
+    F -- Needs check-in --> K[Check-in screen or modal]
+    K --> L[Review item details]
+    L --> M[Optional comment field]
+    M --> N{Check-in choice}
+    N -- I did not buy it --> O[Saved confirmation]
+    N -- I bought it --> P[Purchased confirmation]
+    O --> E
+    P --> E
+
+    F -- Waiting --> Q[Waiting item detail / edit screen]
+    Q --> R{Edit, delete, or back?}
+    R -- Edit --> S[Save item changes]
+    R -- Delete --> T[Delete Waiting item]
+    R -- Back --> E
+    S --> E
+    T --> E
+
+    F -- Saved --> U[Saved item detail screen]
+    U --> V{Edit comment or back?}
+    V -- Edit comment --> W[Save comment]
+    V -- Back --> E
     W --> E
 
-    G --> X[Check-in screen or modal]
-    X --> Y[Review item details]
-    Y --> Z[Optional comment field]
-    Z --> AA{Check-in choice}
-    AA -- I did not buy it --> AB[Saved confirmation]
-    AA -- I bought it --> AC[Purchased confirmation]
-    AB --> E
-    AC --> E
+    F -- Purchased --> X{Open hidden Purchased section?}
+    X -- No --> E
+    X -- Yes --> Y[Purchased item detail screen]
+    Y --> Z{Edit comment or back?}
+    Z -- Edit comment --> AA[Save comment]
+    Z -- Back --> E
+    AA --> E
 
-    I --> AD[Saved item detail screen]
-    AD --> AE[Edit comment]
-    AE --> AF[Save comment]
-    AF --> E
-    AD --> AG[Back]
-    AG --> E
+    F -- Statistics --> AB[Statistics filter control]
+    AB --> AC[Select this month, 3 months, 6 months, year, or all-time]
+    AC --> AD[Refresh statistics summary]
+    AD --> E
 
-    J --> AH{Purchased section open?}
-    AH -- No --> AI[Keep Purchased hidden]
-    AH -- Yes --> AJ[Show Purchased section]
-    AJ --> AK[Purchased item detail screen]
-    AK --> AL[Edit comment]
-    AL --> AM[Save comment]
-    AM --> E
-    AK --> AN[Back]
-    AN --> E
-    AI --> E
-
-    F --> AO[Statistics filter control]
-    AO --> AP{Selected period}
-    AP -- This month --> AQ[Refresh statistics view]
-    AP -- Last 3 months --> AQ
-    AP -- Last 6 months --> AQ
-    AP -- Last year --> AQ
-    AP -- All-time --> AQ
-    AQ --> E
-
-    L --> AR[Opportunity cost examples screen]
-    AR --> AS[Examples list]
-    AR --> AT[Add example form]
-    AS --> AU[Edit example screen]
-    AS --> AV[Delete example action]
-    AT --> AW[Label field]
-    AW --> AX[Unit name field]
-    AX --> AY[Dollar value field]
-    AY --> AZ[Save example]
-    AZ --> L
-    AU --> BA[Save edited example]
-    BA --> L
-    AV --> L
-    L --> BB[Back to dashboard]
-    BB --> E
+    F -- Settings --> AE[Opportunity cost examples screen]
+    AE --> AF{Manage examples}
+    AF -- Add --> AG[Example form]
+    AG --> AH[Label, unit name, and dollar value fields]
+    AH --> AI[Save example]
+    AI --> AE
+    AF -- Edit --> AJ[Edit example screen]
+    AJ --> AK[Save edited example]
+    AK --> AE
+    AF -- Delete --> AE
+    AF -- Back --> E
 ```
