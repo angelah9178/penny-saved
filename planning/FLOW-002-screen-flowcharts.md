@@ -10,60 +10,45 @@ flowchart TD
     C --> E[Dashboard screen]
     D --> E
 
-    E --> F{Choose screen or section}
+    E --> F[Top: total amount saved statistics]
+    F --> G[Statistics filter control]
+    G --> H[Opportunity cost examples]
+    H --> I[New opportunity cost example button]
+    I --> J[Needs check-in section]
+    J --> K[All impulse purchases section]
+    K --> L[Add new impulse purchase button]
+    L --> M[Bottom: hidden Purchased section]
+    M --> N[Purchased section toggle]
 
-    F -- Add item --> G[Add item screen]
-    G --> H[New purchase form]
-    H --> I[Item name, price, and reason fields]
-    I --> J{Save or cancel?}
-    J -- Save --> E
-    J -- Cancel --> E
+    I --> O[New opportunity cost example screen]
+    O --> P[Label field]
+    P --> Q[Unit name field]
+    Q --> R[Dollar value field]
+    R --> S[Save example confirmation]
 
-    F -- Needs check-in --> K[Check-in screen or modal]
-    K --> L[Review item details]
-    L --> M[Optional comment field]
-    M --> N{Check-in choice}
-    N -- I did not buy it --> O[Saved confirmation]
-    N -- I bought it --> P[Purchased confirmation]
-    O --> E
-    P --> E
+    J --> T[Check-in screen or modal]
+    T --> U[Review item details]
+    U --> V[Optional comment field]
+    V --> W{Check-in choice}
+    W -- I did not buy it --> X[Saved confirmation]
+    W -- I bought it --> Y[Purchased confirmation]
 
-    F -- Waiting --> Q[Waiting item detail / edit screen]
-    Q --> R{Edit, delete, or back?}
-    R -- Edit --> S[Save item changes]
-    R -- Delete --> T[Delete Waiting item]
-    R -- Back --> E
-    S --> E
-    T --> E
+    L --> Z[Add item screen]
+    Z --> AA[Item name field]
+    AA --> AB[Price field]
+    AB --> AC[Reason wanted field]
+    AC --> AD[Save item confirmation]
 
-    F -- Saved --> U[Saved item detail screen]
-    U --> V{Edit comment or back?}
-    V -- Edit comment --> W[Save comment]
-    V -- Back --> E
-    W --> E
+    K --> AE[Waiting item detail / edit screen]
+    AE --> AF{Edit or delete Waiting item?}
+    AF -- Edit --> AG[Save item changes]
+    AF -- Delete --> AH[Delete item confirmation]
 
-    F -- Purchased --> X{Open hidden Purchased section?}
-    X -- No --> E
-    X -- Yes --> Y[Purchased item detail screen]
-    Y --> Z{Edit comment or back?}
-    Z -- Edit comment --> AA[Save comment]
-    Z -- Back --> E
-    AA --> E
+    K --> AI[Saved item detail screen]
+    AI --> AJ[Edit saved comment]
+    AJ --> AK[Save comment confirmation]
 
-    F -- Statistics --> AB[Statistics filter control]
-    AB --> AC[Select this month, 3 months, 6 months, year, or all-time]
-    AC --> AD[Refresh statistics summary]
-    AD --> E
-
-    F -- Settings --> AE[Opportunity cost examples screen]
-    AE --> AF{Manage examples}
-    AF -- Add --> AG[Example form]
-    AG --> AH[Label, unit name, and dollar value fields]
-    AH --> AI[Save example]
-    AI --> AE
-    AF -- Edit --> AJ[Edit example screen]
-    AJ --> AK[Save edited example]
-    AK --> AE
-    AF -- Delete --> AE
-    AF -- Back --> E
+    N --> AL[Purchased item detail screen]
+    AL --> AM[Edit purchased comment]
+    AM --> AN[Save comment confirmation]
 ```
