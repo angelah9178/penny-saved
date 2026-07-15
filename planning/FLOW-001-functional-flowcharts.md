@@ -12,7 +12,7 @@ flowchart TD
 
     E --> F[User filters savings statistics]
     F --> G[App selects Saved items in date range]
-    G --> H[App totals confirmed saved prices]
+    G --> H[App totals confirmed savings]
     H --> I[App counts avoided impulse purchases]
     I --> J[App displays filtered statistics]
 
@@ -51,7 +51,7 @@ flowchart TD
     E --> AL[User deletes Waiting item]
     AL --> AM[App removes item from active purchase list]
 
-    E --> AN[User picks a Saved entry]
+    E --> AN[User selects a Saved entry from the Saved list]
     AN --> AO[User edits Saved or Purchased comment]
     AO --> AP[App updates comment only]
     AP --> AQ[App keeps item status and statistics unchanged]
