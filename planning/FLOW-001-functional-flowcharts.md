@@ -51,11 +51,12 @@ flowchart TD
     E --> AL[User deletes Waiting item]
     AL --> AM[App removes item from active purchase list]
 
-    E --> AN[User edits Saved or Purchased comment]
-    AN --> AO[App updates comment only]
-    AO --> AP[App keeps item status and statistics unchanged]
+    E --> AN[User picks a Saved entry]
+    AN --> AO[User edits Saved or Purchased comment]
+    AO --> AP[App updates comment only]
+    AP --> AQ[App keeps item status and statistics unchanged]
 
-    E --> AQ[User opens hidden Purchased section]
-    AQ --> AR[App loads Purchased items]
-    AR --> AS[App displays purchased entries separately from Saved total]
+    E --> AR[User opens hidden Purchased section]
+    AR --> AS[App loads Purchased items]
+    AS --> AT[App displays purchased entries separately from Saved total]
 ```
