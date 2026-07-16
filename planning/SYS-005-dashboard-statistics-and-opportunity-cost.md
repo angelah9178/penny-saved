@@ -13,6 +13,20 @@ The dashboard has four sections:
 
 Purchased should be hidden or collapsed by default and manually opened at the bottom of the page.
 
+## Create a New Entry
+
+The dashboard should provide a prominent **Add new impulse purchase** button.
+
+When the user clicks the button:
+
+1. Open a separate Add Item screen.
+2. Ask the user for the item name, price, and reason wanted.
+3. Submit the form to `POST /api/entries` using the request contract defined in `SYS-004`.
+4. After a successful response, show a confirmation and return the user to the dashboard.
+5. Display the newly created entry in the Waiting section.
+
+The backend sets the entry's initial status to `waiting`, records `created_at`, and calculates when the entry becomes eligible for check-in. The frontend should not allow the user to choose the initial status or date added.
+
 ## Dashboard Grouping
 
 The backend should return entries grouped into dashboard sections so the frontend does not duplicate business rules.
@@ -167,4 +181,3 @@ The amount you have saved is equal to 25 hours worked.
 ```
 
 The frontend should not calculate the source saved amount. It should use the backend summary response.
-
