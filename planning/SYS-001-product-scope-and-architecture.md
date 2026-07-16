@@ -48,27 +48,27 @@ The app tracks:
 
 Frontend:
 
-- TypeScript
-- React
-- Vite
-- React Router
-- TanStack Query
-- npm
+- TypeScript: Adds static typing for frontend code, API response shapes, and shared UI state.
+- React: Provides the component model for screens, forms, dashboard sections, and reusable UI.
+- Vite: Runs the local frontend dev server and builds the production frontend bundle.
+- React Router: Handles client-side navigation between auth, dashboard, add item, details, and settings screens.
+- TanStack Query: Manages API request state, caching, loading states, errors, and refreshes after mutations.
+- npm: Installs frontend dependencies and runs frontend scripts.
 
 Backend:
 
-- Python
-- FastAPI
-- SQLAlchemy
-- Alembic
-- Pydantic
-- pip
-- Ruff
-- Pytest
+- Python: Implements backend application logic, services, and tests.
+- FastAPI: Exposes the HTTP API and provides request validation, routing, and dependency injection.
+- SQLAlchemy: Defines database models and handles database queries.
+- Alembic: Manages PostgreSQL schema migrations.
+- Pydantic: Defines request and response schemas for API validation and serialization.
+- pip: Installs backend runtime and development dependencies.
+- Ruff: Lints and formats Python code.
+- Pytest: Runs backend unit and API tests.
 
 Database:
 
-- PostgreSQL
+- PostgreSQL: Stores users, sessions, impulse purchase entries, and opportunity cost examples.
 
 ## High-Level Architecture
 
