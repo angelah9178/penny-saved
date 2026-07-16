@@ -53,6 +53,7 @@ Frontend:
 - Vite: Runs the local frontend dev server and builds the production frontend bundle.
 - React Router: Handles client-side navigation between auth, dashboard, add item, details, and settings screens.
 - TanStack Query: Manages API request state, caching, loading states, errors, and refreshes after mutations.
+- Vitest: Runs frontend unit and component tests for TypeScript and React code.
 - npm: Installs frontend dependencies and runs frontend scripts.
 
 Backend:
