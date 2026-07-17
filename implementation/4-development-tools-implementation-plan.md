@@ -128,7 +128,8 @@ Target behavior:
 | `make db-reset` | Stops the database and deletes only the named local development volume after an explicit confirmation prompt. Never run this in CI or production. |
 | `make db-upgrade` | Runs `alembic upgrade head` using backend configuration. |
 | `make db-downgrade` | Runs `alembic downgrade -1`; it is a local-development command only. |
-| `make db-revision message=\"...\"` | Creates an Alembic revision; autogeneration is reviewed, never blindly accepted. |
+| `make seed-demo` | Seeds deterministic demo accounts, entries in every dashboard bucket, and opportunity-cost examples for manual testing. It refuses to run when `APP_ENV=production`. |
+| `make db-revision message="..."` | Creates an Alembic revision; autogeneration is reviewed, never blindly accepted. |
 | `make frontend-dev` | Runs the Vite development server. |
 | `make backend-dev` | Runs the FastAPI development server on port 8000 with reload enabled. |
 | `make dev` | Starts local dependencies, applies migrations, then runs frontend and backend dev servers concurrently with signal cleanup. |
@@ -152,6 +153,34 @@ Target behavior:
 
 The Makefile must check for required commands (`docker`, `node`, `npm`, and Python) and provide actionable errors. It must not install Docker, Node, system Python, or operating-system packages automatically.
 
+## Demo Data Workflow
+
+`make seed-demo` runs a backend-owned command such as `python -m app.scripts.seed_demo` after migrations have been applied. The seeder uses the same models, password hashing, and service-level validation as the application; it must not insert plaintext passwords, bypass foreign keys, or depend on frontend code.
+
+The command creates predefined records under clearly labeled demo accounts, for example:
+
+| Data | Required demo coverage |
+|---|---|
+| Demo user | A documented email and development-only password for local sign-in. |
+| Waiting entries | At least two entries created less than 48 hours ago. |
+| Needs-check-in entries | At least two waiting entries created more than 48 hours ago. |
+| Saved entries | Multiple checked-in entries across current and prior time ranges. |
+| Purchased entries | At least one resolved purchased entry. |
+| Comments | One saved and one purchased entry with editable comments. |
+| Opportunity-cost examples | At least two examples that produce whole and fractional equivalents. |
+
+Use fixed UUIDs or stable lookup keys and timestamp values relative to the seed command's UTC clock. This makes the data predictable while preserving the 48-hour lifecycle behavior. Seed prices and check-in dates must exercise all statistics filters, including an empty-result range where practical.
+
+The seed command must be idempotent: a second run updates/recreates the same known demo records instead of adding duplicates. It must never modify non-demo users or rows. A separate future `make reset-demo` target may remove and recreate only records marked or identified as demo data; it requires an explicit confirmation and must have the same production guard.
+
+Before changing any data, the seeder checks that:
+
+- `APP_ENV` is `development` or `test`, never `production`.
+- The database host is local or explicitly identified as a disposable demo environment.
+- Migrations are at the current Alembic head.
+
+The root README must publish the demo login credentials and the exact `make db-up && make db-upgrade && make seed-demo && make dev` workflow. Do not use demo accounts or passwords in shared staging/production environments.
+
 ## First-Run Workflow
 
 ```text
@@ -161,8 +190,9 @@ The Makefile must check for required commands (`docker`, `node`, `npm`, and Pyth
 4. Run make install.
 5. Run make db-up.
 6. Run make db-upgrade.
-7. Run make dev.
-8. Open http://localhost:5173.
+7. Run make seed-demo to populate manual-test data.
+8. Run make dev.
+9. Open http://localhost:5173.
 ```
 
 `make dev` may perform steps 5–6 automatically after the developer has completed installation and configuration, but it must show which commands it runs and stop if migration fails.
@@ -202,7 +232,7 @@ The required merge gate is `make check` behavior distributed across the above jo
 ## Migration Workflow
 
 1. Change SQLAlchemy models and any required repository/schema behavior.
-2. Run `make db-revision message=\"describe_change\"`.
+2. Run `make db-revision message="describe_change"`.
 3. Review the migration SQL, names, downgrade, data safety, and indexes.
 4. Run `make db-upgrade`.
 5. Run relevant tests and the migration CI sequence.
@@ -252,6 +282,7 @@ Amazon AWS is the transactional email provider when an email-dependent feature e
 - `make check` succeeds locally and CI executes its equivalent checks.
 - The test suite cannot connect to development or production databases by accident.
 - Local database data persists across `db-down`/`db-up` and only `db-reset` can remove it.
+- `make seed-demo` is idempotent, covers every manual-test dashboard state, and refuses production connections.
 - No development command writes secrets into tracked files.
 - Migrations are forward-only in shared environments and are tested with PostgreSQL.
 - Production design keeps the database private, uses HTTPS, and has a documented backup-before-migration sequence.
