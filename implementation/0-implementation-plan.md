@@ -9,6 +9,7 @@ The implementation documents are:
 1. `1-database-implementation-plan.md` — PostgreSQL schema, constraints, indexes, migrations, query design, and database testing.
 2. `2-frontend-implementation-plan.md` — React application structure, routes, components, API integration, state, validation, accessibility, and frontend testing.
 3. `3-backend-implementation-plan.md` — FastAPI structure, configuration, authentication, services, transactions, API behavior, security, and backend testing.
+4. `4-development-tools-implementation-plan.md` — local developer workflow, Makefile targets, environments, quality tooling, CI, and deployment operations.
 
 If an implementation detail conflicts with a `SYS-*` product rule, the `SYS-*` rule wins and the implementation document must be corrected. Intentional changes require updating both layers of documentation.
 
