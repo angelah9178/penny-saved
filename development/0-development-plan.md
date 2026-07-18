@@ -6,19 +6,9 @@ This directory converts the approved `implementation/` design into reviewable de
 
 The implementation design remains the technical source of truth. If development exposes a design conflict, update the relevant `implementation/` document (and the governing `planning/SYS-*` document when product behavior changes) in the same PR or in a prerequisite documentation PR.
 
-## Status and Tracking Rules
+## Tracking Rule
 
-Use these values consistently in every tracking table:
-
-| Status | Meaning |
-|---|---|
-| `Not started` | No implementation work is in progress. |
-| `In progress` | A branch or draft PR is actively being worked. |
-| `Blocked` | Work cannot proceed; record the reason in Notes. |
-| `In review` | A PR is open and ready for review. |
-| `Done` | The PR is merged and its acceptance checks pass on the default branch. |
-
-When work begins, add the owner and branch. When a PR opens, replace `—` in the PR column with its link or number. A task becomes `Done` only after merge; local completion is `In review` at most.
+In the master tracker, leave the Tracking cell empty while a task is unfinished. Add `[x]` only after its PR is merged and its acceptance checks pass on the default branch.
 
 ## Category Documents
 
@@ -35,32 +25,32 @@ When work begins, add the owner and branch. When a PR opens, replace `—` in th
 
 Update this table as the canonical portfolio-level view. Detailed acceptance criteria live in the category documents.
 
-| ID | PR title | Category | Depends on | Status | Owner | PR | Notes |
-|---|---|---|---|---|---|---|---|
-| DEV-001 | Scaffold frontend and backend workspaces | Foundation | — | Not started | — | — | — |
-| DEV-002 | Add local environment and PostgreSQL workflow | Foundation | DEV-001 | Not started | — | — | — |
-| DEV-003 | Establish backend application foundation | Foundation | DEV-001, DEV-002 | Not started | — | — | — |
-| DEV-004 | Establish frontend application foundation | Foundation | DEV-001 | Not started | — | — | — |
-| DEV-005 | Add initial database models and migration | Foundation | DEV-002, DEV-003 | Not started | — | — | — |
-| DEV-006 | Add quality commands and continuous integration | Foundation | DEV-001, DEV-003, DEV-004, DEV-005 | Not started | — | — | — |
-| DEV-007 | Add deterministic development demo data | Foundation | DEV-005 | Not started | — | — | — |
-| DEV-008 | Implement authentication and session API | Authentication | DEV-005 | Not started | — | — | — |
-| DEV-009 | Implement authentication UI and route guards | Authentication | DEV-004, DEV-008 | Not started | — | — | — |
-| DEV-010 | Implement entry CRUD and dashboard API | Entries | DEV-005, DEV-008 | Not started | — | — | — |
-| DEV-011 | Build dashboard entry lists | Entries | DEV-009, DEV-010 | Not started | — | — | — |
-| DEV-012 | Build entry create, edit, and delete flows | Entries | DEV-010, DEV-011 | Not started | — | — | — |
-| DEV-013 | Implement atomic entry check-in API | Check-in | DEV-010 | Not started | — | — | — |
-| DEV-014 | Build the check-in experience | Check-in | DEV-011, DEV-013 | Not started | — | — | — |
-| DEV-015 | Add resolved-entry comment editing | Check-in | DEV-013, DEV-014 | Not started | — | — | — |
-| DEV-016 | Implement statistics aggregate API | Statistics | DEV-013 | Not started | — | — | — |
-| DEV-017 | Implement opportunity-cost example API | Statistics | DEV-005, DEV-008 | Not started | — | — | — |
-| DEV-018 | Build statistics and equivalents UI | Statistics | DEV-016, DEV-017 | Not started | — | — | — |
-| DEV-019 | Build opportunity-cost settings UI | Statistics | DEV-017, DEV-018 | Not started | — | — | — |
-| DEV-020 | Complete shared UX, accessibility, and responsive behavior | Hardening | DEV-012, DEV-015, DEV-018, DEV-019 | Not started | — | — | — |
-| DEV-021 | Add security and abuse protections | Hardening | DEV-008, DEV-010, DEV-017 | Not started | — | — | — |
-| DEV-022 | Add production observability and operational configuration | Release | DEV-003, DEV-021 | Not started | — | — | — |
-| DEV-023 | Add end-to-end smoke coverage | Release | DEV-007, DEV-020, DEV-021 | Not started | — | — | — |
-| DEV-024 | Validate release and document operations | Release | DEV-006, DEV-022, DEV-023 | Not started | — | — | — |
+| Tracking | ID | PR title | Category | Depends on |
+|---|---|---|---|---|
+|  | DEV-001 | Scaffold frontend and backend workspaces | Foundation | — |
+|  | DEV-002 | Add local environment and PostgreSQL workflow | Foundation | DEV-001 |
+|  | DEV-003 | Establish backend application foundation | Foundation | DEV-001, DEV-002 |
+|  | DEV-004 | Establish frontend application foundation | Foundation | DEV-001 |
+|  | DEV-005 | Add initial database models and migration | Foundation | DEV-002, DEV-003 |
+|  | DEV-006 | Add quality commands and continuous integration | Foundation | DEV-001, DEV-003, DEV-004, DEV-005 |
+|  | DEV-007 | Add deterministic development demo data | Foundation | DEV-005 |
+|  | DEV-008 | Implement authentication and session API | Authentication | DEV-005 |
+|  | DEV-009 | Implement authentication UI and route guards | Authentication | DEV-004, DEV-008 |
+|  | DEV-010 | Implement entry CRUD and dashboard API | Entries | DEV-005, DEV-008 |
+|  | DEV-011 | Build dashboard entry lists | Entries | DEV-009, DEV-010 |
+|  | DEV-012 | Build entry create, edit, and delete flows | Entries | DEV-010, DEV-011 |
+|  | DEV-013 | Implement atomic entry check-in API | Check-in | DEV-010 |
+|  | DEV-014 | Build the check-in experience | Check-in | DEV-011, DEV-013 |
+|  | DEV-015 | Add resolved-entry comment editing | Check-in | DEV-013, DEV-014 |
+|  | DEV-016 | Implement statistics aggregate API | Statistics | DEV-013 |
+|  | DEV-017 | Implement opportunity-cost example API | Statistics | DEV-005, DEV-008 |
+|  | DEV-018 | Build statistics and equivalents UI | Statistics | DEV-016, DEV-017 |
+|  | DEV-019 | Build opportunity-cost settings UI | Statistics | DEV-017, DEV-018 |
+|  | DEV-020 | Complete shared UX, accessibility, and responsive behavior | Hardening | DEV-012, DEV-015, DEV-018, DEV-019 |
+|  | DEV-021 | Add security and abuse protections | Hardening | DEV-008, DEV-010, DEV-017 |
+|  | DEV-022 | Add production observability and operational configuration | Release | DEV-003, DEV-021 |
+|  | DEV-023 | Add end-to-end smoke coverage | Release | DEV-007, DEV-020, DEV-021 |
+|  | DEV-024 | Validate release and document operations | Release | DEV-006, DEV-022, DEV-023 |
 
 ## Delivery Milestones
 
@@ -96,12 +86,12 @@ DEV-006 may begin once its four prerequisites exist and should be kept current a
 Every `DEV-*` PR must:
 
 - Link its task ID and use the listed title, optionally with a conventional prefix such as `feat:` or `chore:`.
-- Stay within the stated scope; discovered follow-up work receives a new task or is recorded in Notes.
+- Stay within the stated scope; discovered follow-up work receives a new task.
 - Include implementation, tests, migrations, configuration examples, and documentation needed for that slice.
 - Preserve the standard API error envelope, UTC timestamps, UUID identifiers, integer cents, ownership checks, and server-owned business rules.
 - Add no secrets, real `.env` files, database dumps, credentials, raw session tokens, or plaintext passwords.
 - Pass the relevant local checks and all required CI jobs.
-- Update this tracker and its category tracker when the PR is opened and merged.
+- Add `[x]` to the master tracker and update the category tracker after the PR is merged.
 
 ## Definition of Ready
 
