@@ -25,7 +25,7 @@ In the master tracker, leave the Tracking cell empty while a task is unfinished.
 
 Update this table as the canonical portfolio-level view. Detailed acceptance criteria live in the category documents.
 
-| Tracking | ID | PR title | Category | Depends on |
+|  | ID | PR title | Category | Depends on |
 |---|---|---|---|---|
 |  | DEV-001 | Scaffold frontend and backend workspaces | Foundation | — |
 |  | DEV-002 | Add local environment and PostgreSQL workflow | Foundation | DEV-001 |
