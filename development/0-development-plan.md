@@ -10,6 +10,10 @@ The implementation design remains the technical source of truth. If development 
 
 In the master tracker, use `[ ]` while a task is unfinished. Change it to `[x]` only after its PR is merged and its acceptance checks pass on the default branch.
 
+## Implementation Record Rule
+
+Every implemented task must add a matching `development/DEV-xyz.md` record. Keep it brief, but include the task's objective, what changed, what it achieved, important usage or safety information, verification performed, and any remaining limitations or follow-up work.
+
 ## Development Categories
 
 | Category | Detailed tasks |
@@ -26,8 +30,8 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 
 |  | ID | PR title | Category | Depends on |
 |---|---|---|---|---|
-| &#91;&#160;&#93; | DEV-001 | Scaffold frontend and backend workspaces | Foundation | — |
-| &#91;&#160;&#93; | DEV-002 | Add local environment and PostgreSQL workflow | Foundation | DEV-001 |
+| &#91;x&#93; | DEV-001 | Scaffold frontend and backend workspaces | Foundation | — |
+| &#91;x&#93; | DEV-002 | Add local environment and PostgreSQL workflow | Foundation | DEV-001 |
 | &#91;&#160;&#93; | DEV-003 | Establish backend application foundation | Foundation | DEV-001, DEV-002 |
 | &#91;&#160;&#93; | DEV-004 | Establish frontend application foundation | Foundation | DEV-001 |
 | &#91;&#160;&#93; | DEV-005 | Add initial database models and migration | Foundation | DEV-002, DEV-003 |
