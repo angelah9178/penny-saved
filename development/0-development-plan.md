@@ -30,30 +30,30 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 
 |  | ID | PR title | Category | Depends on |
 |---|---|---|---|---|
-| &#91;x&#93; | DEV-001 | Scaffold frontend and backend workspaces | Foundation | — |
-| &#91;x&#93; | DEV-002 | Add local environment and PostgreSQL workflow | Foundation | DEV-001 |
-| &#91;&#160;&#93; | DEV-003 | Establish backend application foundation | Foundation | DEV-001, DEV-002 |
-| &#91;&#160;&#93; | DEV-004 | Establish frontend application foundation | Foundation | DEV-001 |
-| &#91;&#160;&#93; | DEV-005 | Add initial database models and migration | Foundation | DEV-002, DEV-003 |
-| &#91;&#160;&#93; | DEV-006 | Add quality commands and continuous integration | Foundation | DEV-001, DEV-003, DEV-004, DEV-005 |
-| &#91;&#160;&#93; | DEV-007 | Add deterministic development demo data | Foundation | DEV-005 |
-| &#91;&#160;&#93; | DEV-008 | Implement authentication and session API | Authentication | DEV-005 |
-| &#91;&#160;&#93; | DEV-009 | Implement authentication UI and route guards | Authentication | DEV-004, DEV-008 |
-| &#91;&#160;&#93; | DEV-010 | Implement entry CRUD and dashboard API | Entries | DEV-005, DEV-008 |
-| &#91;&#160;&#93; | DEV-011 | Build dashboard entry lists | Entries | DEV-009, DEV-010 |
-| &#91;&#160;&#93; | DEV-012 | Build entry create, edit, and delete flows | Entries | DEV-010, DEV-011 |
-| &#91;&#160;&#93; | DEV-013 | Implement atomic entry check-in API | Check-in | DEV-010 |
-| &#91;&#160;&#93; | DEV-014 | Build the check-in experience | Check-in | DEV-011, DEV-013 |
-| &#91;&#160;&#93; | DEV-015 | Add resolved-entry comment editing | Check-in | DEV-013, DEV-014 |
-| &#91;&#160;&#93; | DEV-016 | Implement statistics aggregate API | Statistics | DEV-013 |
-| &#91;&#160;&#93; | DEV-017 | Implement opportunity-cost example API | Statistics | DEV-005, DEV-008 |
-| &#91;&#160;&#93; | DEV-018 | Build statistics and equivalents UI | Statistics | DEV-016, DEV-017 |
-| &#91;&#160;&#93; | DEV-019 | Build opportunity-cost settings UI | Statistics | DEV-017, DEV-018 |
-| &#91;&#160;&#93; | DEV-020 | Complete shared UX, accessibility, and responsive behavior | Hardening | DEV-012, DEV-015, DEV-018, DEV-019 |
-| &#91;&#160;&#93; | DEV-021 | Add security and abuse protections | Hardening | DEV-008, DEV-010, DEV-017 |
-| &#91;&#160;&#93; | DEV-022 | Add production observability and operational configuration | Release | DEV-003, DEV-021 |
-| &#91;&#160;&#93; | DEV-023 | Add end-to-end smoke coverage | Release | DEV-007, DEV-020, DEV-021 |
-| &#91;&#160;&#93; | DEV-024 | Validate release and document operations | Release | DEV-006, DEV-022, DEV-023 |
+| &#91;x&#93; | [DEV-001](#dev-001--scaffold-frontend-and-backend-workspaces) | Scaffold frontend and backend workspaces | Foundation | — |
+| &#91;x&#93; | [DEV-002](#dev-002--add-local-environment-and-postgresql-workflow) | Add local environment and PostgreSQL workflow | Foundation | DEV-001 |
+| &#91;&#160;&#93; | [DEV-003](#dev-003--establish-backend-application-foundation) | Establish backend application foundation | Foundation | DEV-001, DEV-002 |
+| &#91;&#160;&#93; | [DEV-004](#dev-004--establish-frontend-application-foundation) | Establish frontend application foundation | Foundation | DEV-001 |
+| &#91;&#160;&#93; | [DEV-005](#dev-005--add-initial-database-models-and-migration) | Add initial database models and migration | Foundation | DEV-002, DEV-003 |
+| &#91;&#160;&#93; | [DEV-006](#dev-006--add-quality-commands-and-continuous-integration) | Add quality commands and continuous integration | Foundation | DEV-001, DEV-003, DEV-004, DEV-005 |
+| &#91;&#160;&#93; | [DEV-007](#dev-007--add-deterministic-development-demo-data) | Add deterministic development demo data | Foundation | DEV-005 |
+| &#91;&#160;&#93; | [DEV-008](#dev-008--implement-authentication-and-session-api) | Implement authentication and session API | Authentication | DEV-005 |
+| &#91;&#160;&#93; | [DEV-009](#dev-009--implement-authentication-ui-and-route-guards) | Implement authentication UI and route guards | Authentication | DEV-004, DEV-008 |
+| &#91;&#160;&#93; | [DEV-010](#dev-010--implement-entry-crud-and-dashboard-api) | Implement entry CRUD and dashboard API | Entries | DEV-005, DEV-008 |
+| &#91;&#160;&#93; | [DEV-011](#dev-011--build-dashboard-entry-lists) | Build dashboard entry lists | Entries | DEV-009, DEV-010 |
+| &#91;&#160;&#93; | [DEV-012](#dev-012--build-entry-create-edit-and-delete-flows) | Build entry create, edit, and delete flows | Entries | DEV-010, DEV-011 |
+| &#91;&#160;&#93; | [DEV-013](#dev-013--implement-atomic-entry-check-in-api) | Implement atomic entry check-in API | Check-in | DEV-010 |
+| &#91;&#160;&#93; | [DEV-014](#dev-014--build-the-check-in-experience) | Build the check-in experience | Check-in | DEV-011, DEV-013 |
+| &#91;&#160;&#93; | [DEV-015](#dev-015--add-resolved-entry-comment-editing) | Add resolved-entry comment editing | Check-in | DEV-013, DEV-014 |
+| &#91;&#160;&#93; | [DEV-016](#dev-016--implement-statistics-aggregate-api) | Implement statistics aggregate API | Statistics | DEV-013 |
+| &#91;&#160;&#93; | [DEV-017](#dev-017--implement-opportunity-cost-example-api) | Implement opportunity-cost example API | Statistics | DEV-005, DEV-008 |
+| &#91;&#160;&#93; | [DEV-018](#dev-018--build-statistics-and-equivalents-ui) | Build statistics and equivalents UI | Statistics | DEV-016, DEV-017 |
+| &#91;&#160;&#93; | [DEV-019](#dev-019--build-opportunity-cost-settings-ui) | Build opportunity-cost settings UI | Statistics | DEV-017, DEV-018 |
+| &#91;&#160;&#93; | [DEV-020](#dev-020--complete-shared-ux-accessibility-and-responsive-behavior) | Complete shared UX, accessibility, and responsive behavior | Hardening | DEV-012, DEV-015, DEV-018, DEV-019 |
+| &#91;&#160;&#93; | [DEV-021](#dev-021--add-security-and-abuse-protections) | Add security and abuse protections | Hardening | DEV-008, DEV-010, DEV-017 |
+| &#91;&#160;&#93; | [DEV-022](#dev-022--add-production-observability-and-operational-configuration) | Add production observability and operational configuration | Release | DEV-003, DEV-021 |
+| &#91;&#160;&#93; | [DEV-023](#dev-023--add-end-to-end-smoke-coverage) | Add end-to-end smoke coverage | Release | DEV-007, DEV-020, DEV-021 |
+| &#91;&#160;&#93; | [DEV-024](#dev-024--validate-release-and-document-operations) | Validate release and document operations | Release | DEV-006, DEV-022, DEV-023 |
 
 ## Delivery Milestones
 
