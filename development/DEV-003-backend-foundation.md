@@ -71,3 +71,39 @@ API tests use the async HTTPX2 ASGI transport required by the current FastAPI/St
 ## Boundaries and Follow-up
 
 DEV-003 does not add database models, migrations, authentication, business services, or feature routes. DEV-005 adds the initial schema and Alembic migration. Later hardening work will add readiness checks, trusted-host/proxy deployment settings, and further security controls.
+
+## Next Steps
+
+You can now start the backend server and confirm that its basic health endpoint works.
+
+From the repository root, make sure the local environment files and backend dependencies exist:
+
+```bash
+make env-setup
+make backend-install
+```
+
+Review `backend/.env`, then start the server:
+
+```bash
+cd backend
+../.venv/bin/python -m uvicorn app.main:app --reload --port 8000
+```
+
+Open `http://localhost:8000/api/health` in a browser, or run:
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+The expected response is:
+
+```json
+{"status":"ok"}
+```
+
+You can also open `http://localhost:8000/docs` to view FastAPI's generated API documentation. At this stage, it contains only the health endpoint.
+
+The health endpoint does not query PostgreSQL, so it can respond before database tables and migrations exist. You may start the local PostgreSQL container with `make db-up`, but database-backed application features will not work until DEV-005 adds the models and initial migration.
+
+After confirming the backend starts successfully, the next independent foundation task is DEV-004, which builds the frontend application foundation. DEV-005 can begin after the backend foundation and database workflow are available.
