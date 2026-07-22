@@ -12,7 +12,7 @@ In the master tracker, use `[ ]` while a task is unfinished. Change it to `[x]` 
 
 ## Implementation Record Rule
 
-Every implemented task must add a matching `development/DEV-xyz.md` record. Keep it brief, but include the task's objective, what changed, what it achieved, important usage or safety information, verification performed, and any remaining limitations or follow-up work.
+Every implemented task must add a matching record in `development/`, using a descriptive filename such as `DEV-003-backend-foundation.md`. DEV-004's record will be `DEV-004-frontend-foundation.md`. Keep each record brief, but include the task's objective, what changed, what it achieved, important usage or safety information, verification performed, and any remaining limitations or follow-up work.
 
 ## Development Categories
 
@@ -32,7 +32,7 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 |---|---|---|---|---|
 | &#91;x&#93; | DEV-001 | Scaffold frontend and backend workspaces | Foundation | — |
 | &#91;x&#93; | DEV-002 | Add local environment and PostgreSQL workflow | Foundation | DEV-001 |
-| &#91;&#160;&#93; | DEV-003 | Establish backend application foundation | Foundation | DEV-001, DEV-002 |
+| &#91;x&#93; | DEV-003 | Establish backend application foundation | Foundation | DEV-001, DEV-002 |
 | &#91;&#160;&#93; | DEV-004 | Establish frontend application foundation | Foundation | DEV-001 |
 | &#91;&#160;&#93; | DEV-005 | Add initial database models and migration | Foundation | DEV-002, DEV-003 |
 | &#91;&#160;&#93; | DEV-006 | Add quality commands and continuous integration | Foundation | DEV-001, DEV-003, DEV-004, DEV-005 |
