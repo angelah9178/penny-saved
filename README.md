@@ -48,6 +48,19 @@ Run `make help` to list all available commands.
 
 `make db-downgrade` also requires confirmation and is restricted to a local database with `APP_ENV=development`. Never downgrade a shared, test, staging, or production database. Tests must supply an explicit `TEST_DATABASE_URL`; they must not derive it from `DATABASE_URL`.
 
+## Backend foundation
+
+After creating `backend/.env` and installing dependencies, run the backend from the repository root with:
+
+```bash
+cd backend
+../.venv/bin/python -m uvicorn app.main:app --reload --port 8000
+```
+
+The process-liveness endpoint is available at `http://localhost:8000/api/health`. It returns `{"status":"ok"}` and does not require a database connection. Startup still requires valid configuration and creates the database engine used by later API work.
+
+Production startup requires an HTTPS frontend origin, secure session cookies, a non-placeholder PostgreSQL URL, and environment-provided values rather than the local dotenv file.
+
 ## Baseline checks
 
 Frontend commands are run from `frontend/`:
