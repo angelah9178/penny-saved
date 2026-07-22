@@ -10,7 +10,7 @@ ALEMBIC := ../$(VENV)/bin/python -m alembic
 LOCAL_DB_GUARD := ./scripts/require-local-database.sh
 POSTGRES_VOLUME := penny_saved_postgres_data
 
-.PHONY: help env-setup install frontend-install backend-install db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision check-docker check-alembic
+.PHONY: help env-setup install frontend-install backend-install backend-dev db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision check-docker check-alembic
 
 help: ## List available development commands.
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -41,6 +41,11 @@ backend-install: ## Create .venv and install pinned backend development dependen
 	@test -x $(VENV_PYTHON) || $(PYTHON) -m venv $(VENV)
 	$(VENV_PYTHON) -m pip install --upgrade pip
 	$(VENV_PYTHON) -m pip install -r backend/requirements-dev.txt
+
+backend-dev: ## Start the FastAPI development server with automatic reload.
+	@test -x $(VENV_PYTHON) || { echo "Missing .venv. Run 'make backend-install'." >&2; exit 1; }
+	@test -f backend/.env || { echo "Missing backend/.env. Run 'make env-setup' and review its values." >&2; exit 1; }
+	cd backend && ../$(VENV_PYTHON) -m uvicorn app.main:app --reload --port 8000
 
 check-docker:
 	@command -v docker >/dev/null || { echo "Docker Engine with Compose v2 is required." >&2; exit 1; }

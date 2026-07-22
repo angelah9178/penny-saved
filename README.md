@@ -53,8 +53,7 @@ Run `make help` to list all available commands.
 After creating `backend/.env` and installing dependencies, run the backend from the repository root with:
 
 ```bash
-cd backend
-../.venv/bin/python -m uvicorn app.main:app --reload --port 8000
+make backend-dev
 ```
 
 The process-liveness endpoint is available at `http://localhost:8000/api/health`. It returns `{"status":"ok"}` and does not require a database connection. Startup still requires valid configuration and creates the database engine used by later API work.

@@ -83,12 +83,13 @@ make env-setup
 make backend-install
 ```
 
-Review `backend/.env`, then start the server:
+Review `backend/.env`, then start the server from the repository root:
 
 ```bash
-cd backend
-../.venv/bin/python -m uvicorn app.main:app --reload --port 8000
+make backend-dev
 ```
+
+This Makefile target runs the equivalent of `cd backend && ../.venv/bin/python -m uvicorn app.main:app --reload --port 8000`. It also checks that the virtual environment and `backend/.env` exist before starting the server.
 
 Open `http://localhost:8000/api/health` in a browser, or run:
 
