@@ -8,6 +8,28 @@ Establish the shared FastAPI infrastructure required by later backend features, 
 
 DEV-003 added a FastAPI application factory and process lifespan. Startup creates one async SQLAlchemy engine and session factory; shutdown disposes the engine. Request dependencies can obtain a scoped async session that rolls back unfinished work during cleanup.
 
+### Database engine and session factory
+
+The SQLAlchemy engine manages the backend's pool of connections to PostgreSQL. One engine is normally created when the backend process starts and reused until the process shuts down.
+
+The session factory creates temporary database sessions from that engine. Each API request that needs database access receives its own session for reading or changing data:
+
+```text
+API request
+    ↓
+Session factory creates a session
+    ↓
+The session reads or changes data
+    ↓
+Successful changes are committed
+    ↓
+The session closes
+```
+
+If a request fails or leaves a transaction unfinished, cleanup rolls back that unfinished work before closing the session. This prevents incomplete changes from accidentally remaining active.
+
+The engine and sessions are asynchronous. When a request is waiting for PostgreSQL, the backend can continue handling other requests instead of blocking the entire server.
+
 Typed Pydantic settings cover the application environment, PostgreSQL URL, frontend origin, session-cookie behavior, session lifetime, and log level. Local development and tests may load `backend/.env`, while a process explicitly started as production ignores the local dotenv file. Production validation requires HTTPS, secure cookies, and a database URL without the documented placeholder credential.
 
 The HTTP foundation now includes:
