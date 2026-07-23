@@ -58,6 +58,56 @@ The HTTP foundation now includes:
 - Safe unexpected-error responses correlated with server logs through the request ID.
 - An injectable UTC clock for deterministic lifecycle and statistics tests.
 
+### Standard API error envelopes
+
+A standard error envelope means every API error uses the same basic JSON structure:
+
+```json
+{
+  "error": {
+    "code": "error_type",
+    "message": "A safe explanation."
+  }
+}
+```
+
+This gives the frontend one predictable place to find the machine-readable error code and safe user-facing message.
+
+The backend handles these error categories:
+
+- **Expected errors:** Known application problems, such as invalid login credentials or attempting an action that is not allowed for an entry's current state.
+- **Validation errors:** One or more submitted fields are missing or invalid. These errors may include a `fields` object so the frontend can display a message beside the affected input.
+- **Malformed JSON:** The request body is not valid JSON, such as a body with a missing closing brace.
+- **HTTP errors:** General request problems, such as requesting a route that does not exist or using an unsupported request method.
+- **Unexpected errors:** Unplanned server or programming failures. The response contains a generic message instead of internal exception details.
+
+An example validation response is:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "One or more fields are invalid.",
+    "fields": {
+      "email": "Invalid value."
+    }
+  }
+}
+```
+
+An unexpected failure returns a safe response:
+
+```json
+{
+  "error": {
+    "code": "internal_server_error",
+    "message": "An unexpected error occurred."
+  }
+}
+```
+
+The full unexpected error is recorded in the server logs with the request ID. This lets a developer investigate the failure without exposing sensitive implementation details to the user.
+
 ## Important Files
 
 ```text
