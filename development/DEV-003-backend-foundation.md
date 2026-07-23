@@ -37,6 +37,12 @@ DEV-003 starts from the merged DEV-002 state. Before beginning:
 
 ## Commit 1 — Add Typed Backend Configuration
 
+Typed settings define the expected type and validation rules for each configuration
+value. Pydantic converts environment-variable text into values such as integers, booleans,
+and environment enums, then stops the application early if required configuration is
+missing, malformed, or unsafe. This gives the rest of the backend one reliable
+`Settings` object instead of repeatedly reading and converting raw environment strings.
+
 Suggested commit message:
 
 ```text
