@@ -128,17 +128,17 @@ The full unexpected error is recorded in the server logs with the request ID. Th
 
 ## Important Files
 
-```text
-backend/app/main.py
-backend/app/api/router.py
-backend/app/api/errors.py
-backend/app/api/routes/health.py
-backend/app/core/config.py
-backend/app/core/logging.py
-backend/app/core/time.py
-backend/app/db/session.py
-backend/app/schemas/common.py
-```
+| File | Why it is important |
+|---|---|
+| `backend/app/main.py` | Creates and configures the FastAPI application. It connects the lifespan, middleware, CORS, request IDs, logging, error handlers, and API routes in one place. |
+| `backend/app/api/router.py` | Defines the shared `/api` route prefix and collects individual route modules. Future feature routes are registered here. |
+| `backend/app/api/errors.py` | Defines the standard error envelope and converts validation, HTTP, expected, and unexpected failures into safe, consistent API responses. |
+| `backend/app/api/routes/health.py` | Implements `/api/health`, which confirms that the backend process is running without requiring database tables or feature APIs. |
+| `backend/app/core/config.py` | Reads and validates typed environment settings. It prevents the backend from starting with missing or unsafe production configuration. |
+| `backend/app/core/logging.py` | Formats operational logs as structured JSON so requests and failures can be searched using fields such as request ID, route, and status. |
+| `backend/app/core/time.py` | Provides the authoritative UTC clock through an injectable interface. Tests can replace it instead of waiting for or depending on real time. |
+| `backend/app/db/session.py` | Creates the async SQLAlchemy engine and session factory, then provides safe per-request database sessions with rollback cleanup. |
+| `backend/app/schemas/common.py` | Defines shared response models for health and errors, giving the backend and generated API documentation explicit response contracts. |
 
 ## What It Achieved
 
