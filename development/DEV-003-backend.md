@@ -8,7 +8,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 |---|---|---|---|
 | &#91;x&#93; | [1](#commit-1--add-typed-backend-configuration) | Add typed backend settings | — |
 | &#91;x&#93; | [2](#commit-2--add-an-injectable-utc-clock) | Add injectable UTC clock | Commit 1 |
-| &#91;&#160;&#93; | [3](#commit-3--add-async-database-session-and-application-lifespan) | Add async database lifecycle | Commit 1 |
+| &#91;x&#93; | [3](#commit-3--add-async-database-session-and-application-lifespan) | Add async database lifecycle | Commit 1 |
 | &#91;&#160;&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
 | &#91;&#160;&#93; | [5](#commit-5--add-request-ids-and-structured-request-logging) | Add request-correlated structured logging | Commit 4 |
 | &#91;&#160;&#93; | [6](#commit-6--add-the-standard-error-envelope) | Add safe API error handling | Commits 4, 5 |
@@ -131,6 +131,33 @@ pytest tests/test_time.py
 ```
 
 ## Commit 3 — Add Async Database Session and Application Lifespan
+
+Commit 3 builds the bridge between FastAPI and PostgreSQL. Commit 1 gives the backend the
+validated database address; Commit 3 uses that address to connect to PostgreSQL and manage
+database work safely.
+
+When FastAPI starts, it creates one async SQLAlchemy engine and one session factory. The
+engine manages a reusable pool of PostgreSQL connections, while the factory creates a
+separate session for each request that needs database access.
+
+For each database-backed request, the application:
+
+1. Creates an isolated session.
+2. Gives the session to the route or service.
+3. Uses it for that request's queries and changes.
+4. Rolls back unfinished work if the request fails.
+5. Closes the session when the request finishes.
+
+When FastAPI shuts down, it disposes the engine and closes the pooled connections. The
+application shares one engine instead of creating an expensive new engine for every
+request. Database operations are asynchronous, so FastAPI can continue handling other
+requests while one request waits for PostgreSQL.
+
+Without this shared foundation, future features would need to create and clean up their
+own connections. That could cause leaked connections, shared transaction state, partial
+changes after failures, too many PostgreSQL connections, and duplicated setup code.
+Commit 3 does not add tables or product data; it provides the safe, reusable database
+infrastructure that later backend features will use.
 
 Suggested commit message:
 
