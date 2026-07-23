@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.errors import register_error_handlers
 from app.api.router import api_router
 from app.core.config import AppEnvironment, Settings, get_settings
 from app.core.logging import (
@@ -37,6 +38,7 @@ def create_app(
         redoc_url="/redoc" if expose_api_docs else None,
     )
     app.state.settings = resolved_settings
+    register_error_handlers(app)
     app.add_middleware(
         RequestContextMiddleware,
         environment=resolved_settings.app_env,

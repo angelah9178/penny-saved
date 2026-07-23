@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import traceback
 from contextvars import ContextVar, Token
 from datetime import UTC, datetime
 from time import perf_counter
@@ -46,6 +47,17 @@ class JsonFormatter(logging.Formatter):
             value = getattr(record, field, None)
             if value is not None:
                 payload[field] = value
+        if record.exc_info:
+            exception_type, _, exception_traceback = record.exc_info
+            payload["exception_type"] = exception_type.__name__
+            payload["stack_trace"] = [
+                {
+                    "file": frame.filename,
+                    "line": frame.lineno,
+                    "function": frame.name,
+                }
+                for frame in traceback.extract_tb(exception_traceback)
+            ]
         return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
 
 
@@ -131,6 +143,7 @@ class RequestContextMiddleware:
             return
 
         request_id = _resolve_request_id(scope)
+        scope.setdefault("state", {})["request_id"] = request_id
         token = _set_request_id(request_id)
         started_at = perf_counter()
         response_status = 500

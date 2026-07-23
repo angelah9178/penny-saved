@@ -11,7 +11,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [3](#commit-3--add-async-database-session-and-application-lifespan) | Add async database lifecycle | Commit 1 |
 | &#91;x&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
 | &#91;x&#93; | [5](#commit-5--add-request-ids-and-structured-request-logging) | Add request-correlated structured logging | Commit 4 |
-| &#91;&#160;&#93; | [6](#commit-6--add-the-standard-error-envelope) | Add safe API error handling | Commits 4, 5 |
+| &#91;x&#93; | [6](#commit-6--add-the-standard-error-envelope) | Add safe API error handling | Commits 4, 5 |
 | &#91;&#160;&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-003 backend foundation | Commits 1–6 |
 
 ## Objective
@@ -191,6 +191,26 @@ middleware, and error handlers into one runnable backend application. The applic
 object receives HTTP requests, sends each request to its matching API route, and returns
 the route's response.
 
+In simpler terms, the factory is the backend's initial setup function. A new FastAPI
+object does not know anything about this project's routes, database, allowed frontend,
+logging, or error-handling rules. The factory creates the object and attaches those
+project-specific pieces before the server begins accepting requests.
+
+An empty FastAPI object is like an empty restaurant building. The factory initially
+equips and configures the building with what this particular restaurant needs:
+
+- API routes are the menu and service counters.
+- Database access is the storage and supply system.
+- CORS rules are the entrance policy.
+- Logging is the activity record.
+- Error handlers are the procedures for handling problems.
+- Application settings are the restaurant's operating rules.
+
+FastAPI provides the generic building, while this project's `create_app()` factory turns
+it into an A Penny Saved backend that is ready to serve requests. The factory performs
+the initial setup; it does not perform all the ongoing work after the application starts.
+Routes, services, and database sessions handle that work.
+
 Using a factory keeps application setup in one place. Production can create an app with
 real environment settings, while tests can create fresh, isolated apps with controlled
 settings and dependency overrides.
@@ -288,6 +308,36 @@ pytest tests/test_logging.py tests/api/test_request_context.py
 ```
 
 ## Commit 6 — Add the Standard Error Envelope
+
+Commit 5 creates backend request logs and request IDs for both successful and failed
+requests. Commit 6 defines the safe, predictable HTTP error response that the frontend
+receives when a request fails.
+
+Every API error uses this standard envelope:
+
+```json
+{
+  "error": {
+    "code": "machine_readable_code",
+    "message": "Safe user-facing summary.",
+    "fields": {
+      "optional_field": "Optional field-specific error."
+    }
+  }
+}
+```
+
+The fields have distinct purposes:
+
+- `code` is a stable value the frontend can use for error-handling logic.
+- `message` is a safe summary that can be shown to the user.
+- `fields` is optional and maps specific input fields to validation messages.
+
+Validation errors, malformed JSON, database availability failures, and unexpected
+exceptions are translated into this same shape with the appropriate HTTP status. Internal
+exception text, tracebacks, SQL, and credentials are never returned to the frontend.
+Unexpected failures are correlated through the `X-Request-ID` response header and the
+matching backend log from Commit 5.
 
 Suggested commit message:
 

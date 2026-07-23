@@ -83,3 +83,18 @@ def test_configuration_is_isolated_from_root_logger() -> None:
     assert logger.name == LOGGER_NAME
     assert logger.propagate is False
     assert logging.getLogger().handlers == root_handlers
+
+
+def test_exception_log_includes_safe_stack_without_exception_message() -> None:
+    stream = StringIO()
+    logger = configure_logging(AppEnvironment.TEST, LogLevel.INFO, stream=stream)
+
+    try:
+        raise RuntimeError("exception-message-secret")
+    except RuntimeError:
+        logger.exception("request.unhandled_exception")
+
+    payload = json.loads(stream.getvalue())
+    assert payload["exception_type"] == "RuntimeError"
+    assert payload["stack_trace"]
+    assert "exception-message-secret" not in stream.getvalue()
