@@ -9,7 +9,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [1](#commit-1--add-typed-backend-configuration) | Add typed backend settings | — |
 | &#91;x&#93; | [2](#commit-2--add-an-injectable-utc-clock) | Add injectable UTC clock | Commit 1 |
 | &#91;x&#93; | [3](#commit-3--add-async-database-session-and-application-lifespan) | Add async database lifecycle | Commit 1 |
-| &#91;&#160;&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
+| &#91;x&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
 | &#91;&#160;&#93; | [5](#commit-5--add-request-ids-and-structured-request-logging) | Add request-correlated structured logging | Commit 4 |
 | &#91;&#160;&#93; | [6](#commit-6--add-the-standard-error-envelope) | Add safe API error handling | Commits 4, 5 |
 | &#91;&#160;&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-003 backend foundation | Commits 1–6 |
@@ -184,6 +184,28 @@ pytest tests/test_db_session.py
 ```
 
 ## Commit 4 — Create the FastAPI Factory and Health API
+
+The FastAPI factory is a function that creates and configures the FastAPI application
+object. It assembles the validated settings, database lifecycle, API routes, CORS rules,
+middleware, and error handlers into one runnable backend application. The application
+object receives HTTP requests, sends each request to its matching API route, and returns
+the route's response.
+
+Using a factory keeps application setup in one place. Production can create an app with
+real environment settings, while tests can create fresh, isolated apps with controlled
+settings and dependency overrides.
+
+Commit 4 also adds two health endpoints with different purposes:
+
+- `GET /api/health` checks whether the FastAPI process is alive and responding. It does
+  not need to contact PostgreSQL.
+- `GET /api/ready` checks whether the application can reach PostgreSQL and is ready to
+  serve database-backed requests.
+
+The backend process can be alive while PostgreSQL is unavailable. In that case,
+`/api/health` can succeed while `/api/ready` reports that the application is unavailable.
+Monitoring and deployment tools can use this distinction to avoid sending normal traffic
+to an application that cannot currently complete database work.
 
 Suggested commit message:
 
