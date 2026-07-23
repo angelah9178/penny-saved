@@ -1,0 +1,213 @@
+# DEV-003 — Establish Backend Application Foundation
+
+## Commit Tracker
+
+Change `[ ]` to `[x]` only after the commit's implementation and commit gate are complete.
+
+|  | Commit | Title | Depends on |
+|---|---|---|---|
+| &#91;&#160;&#93; | [1](#commit-1--add-typed-backend-configuration) | Add typed backend settings | — |
+| &#91;&#160;&#93; | [2](#commit-2--add-an-injectable-utc-clock) | Add injectable UTC clock | Commit 1 |
+| &#91;&#160;&#93; | [3](#commit-3--add-async-database-session-and-application-lifespan) | Add async database lifecycle | Commit 1 |
+| &#91;&#160;&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
+| &#91;&#160;&#93; | [5](#commit-5--add-request-ids-and-structured-request-logging) | Add request-correlated structured logging | Commit 4 |
+| &#91;&#160;&#93; | [6](#commit-6--add-the-standard-error-envelope) | Add safe API error handling | Commits 4, 5 |
+| &#91;&#160;&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-003 backend foundation | Commits 1–6 |
+
+## Objective
+
+Build the backend foundation in small, independently testable commits. DEV-003 provides
+validated configuration, deterministic UTC time, async database lifecycle management, a
+FastAPI application factory, health endpoints, request-correlated logs, and safe error
+responses.
+
+Complete and commit each section in order. Every commit must leave the backend checks
+green before work begins on the next commit.
+
+## Commit 1 — Add Typed Backend Configuration
+
+Suggested commit message:
+
+```text
+Add typed backend settings
+```
+
+Implement:
+
+- Add `backend/app/core/config.py` using `pydantic-settings`.
+- Define and validate `APP_ENV`, `DATABASE_URL`, `FRONTEND_ORIGIN`,
+  `SESSION_COOKIE_NAME`, `SESSION_TTL_SECONDS`, `SESSION_COOKIE_SECURE`, and
+  `LOG_LEVEL`.
+- Load `backend/.env` only in development.
+- Require valid PostgreSQL configuration, an exact frontend origin, and secure production
+  cookies.
+- Add cached settings access and a cache-clear seam for tests.
+- Add tests for defaults, overrides, malformed values, and production requirements.
+
+Commit gate:
+
+```text
+ruff format --check .
+ruff check .
+pytest tests/test_config.py
+```
+
+## Commit 2 — Add an Injectable UTC Clock
+
+Suggested commit message:
+
+```text
+Add injectable UTC clock
+```
+
+Implement:
+
+- Add `backend/app/core/time.py`.
+- Define the clock abstraction and production UTC implementation.
+- Reject naive datetimes and normalize aware non-UTC datetimes to UTC.
+- Expose `get_clock()` as an overrideable FastAPI dependency.
+- Add deterministic system-clock, fixed-clock, normalization, and dependency tests.
+
+Commit gate:
+
+```text
+ruff format --check .
+ruff check .
+pytest tests/test_time.py
+```
+
+## Commit 3 — Add Async Database Session and Application Lifespan
+
+Suggested commit message:
+
+```text
+Add async database lifecycle
+```
+
+Implement:
+
+- Add `backend/app/db/session.py`.
+- Create one async SQLAlchemy engine and session factory per application lifespan.
+- Store application-owned database resources on FastAPI application state.
+- Yield one isolated `AsyncSession` per request.
+- Roll back unfinished transactions during dependency cleanup.
+- Dispose the engine during application shutdown.
+- Add lifecycle, session cleanup, rollback, and disposal tests.
+
+Commit gate:
+
+```text
+ruff format --check .
+ruff check .
+pytest tests/test_db_session.py
+```
+
+## Commit 4 — Create the FastAPI Factory and Health API
+
+Suggested commit message:
+
+```text
+Add FastAPI factory and health routes
+```
+
+Implement:
+
+- Add the FastAPI factory, versioned API router, and health routes.
+- Register the database lifespan.
+- Configure credentialed CORS for the validated frontend origin.
+- Add `GET /api/health` for liveness.
+- Add `GET /api/ready` for bounded PostgreSQL readiness.
+- Add tests for response contracts, readiness, routing, OpenAPI behavior, and CORS.
+
+Commit gate:
+
+```text
+ruff format --check .
+ruff check .
+pytest tests/api/test_health.py
+```
+
+## Commit 5 — Add Request IDs and Structured Request Logging
+
+Suggested commit message:
+
+```text
+Add request-correlated structured logging
+```
+
+Implement:
+
+- Add request ID middleware and structured logging configuration.
+- Validate or generate request IDs and return them in responses.
+- Log environment, request ID, method, route template, status, and duration.
+- Keep concurrent request context isolated.
+- Omit credentials, cookies, authorization values, and session material from logs.
+- Add request ID, log-field, concurrency, and redaction tests.
+
+Commit gate:
+
+```text
+ruff format --check .
+ruff check .
+pytest tests/test_logging.py tests/api/test_request_context.py
+```
+
+## Commit 6 — Add the Standard Error Envelope
+
+Suggested commit message:
+
+```text
+Add safe API error handling
+```
+
+Implement:
+
+- Add shared error schemas and centralized FastAPI error handlers.
+- Translate validation failures into safe `422` responses.
+- Translate malformed JSON into safe `400` responses.
+- Translate database unavailability into generic `503` responses.
+- Translate unexpected exceptions into generic request-correlated `500` responses.
+- Prevent validation internals, SQL, credentials, and tracebacks from reaching clients.
+- Add exact status, response-shape, correlation, and secret-omission tests.
+
+Commit gate:
+
+```text
+ruff format --check .
+ruff check .
+pytest tests/api/test_errors.py
+```
+
+## Commit 7 — Document and Verify the Completed Foundation
+
+Suggested commit message:
+
+```text
+Document DEV-003 backend foundation
+```
+
+Complete:
+
+- Document application startup, configuration, health checks, and troubleshooting.
+- Record what DEV-003 achieved, how it was verified, and what remains out of scope.
+- Mark DEV-003 complete in `development/0-development-plan.md` only after every check
+  passes.
+- Confirm secrets, local environments, caches, and generated artifacts are not tracked.
+
+Final gate:
+
+```text
+ruff format --check .
+ruff check .
+pytest
+git diff --check
+git status --short
+```
+
+## Out of Scope
+
+- Database models and Alembic migrations (DEV-005).
+- Authentication and session persistence (DEV-008).
+- Product repositories, services, and routes (DEV-008 and later).
+- Complete deployment hardening and observability (DEV-021/DEV-022).
+- CI workflows and the combined quality command (DEV-006).
