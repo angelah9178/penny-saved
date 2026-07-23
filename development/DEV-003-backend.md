@@ -6,7 +6,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 
 |  | Commit | Title | Depends on |
 |---|---|---|---|
-| &#91;&#160;&#93; | [1](#commit-1--add-typed-backend-configuration) | Add typed backend settings | — |
+| &#91;x&#93; | [1](#commit-1--add-typed-backend-configuration) | Add typed backend settings | — |
 | &#91;&#160;&#93; | [2](#commit-2--add-an-injectable-utc-clock) | Add injectable UTC clock | Commit 1 |
 | &#91;&#160;&#93; | [3](#commit-3--add-async-database-session-and-application-lifespan) | Add async database lifecycle | Commit 1 |
 | &#91;&#160;&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
@@ -25,6 +25,41 @@ Complete and commit each section in order. Every commit must leave the backend c
 green before work begins on the next commit.
 
 ## Commit 1 — Add Typed Backend Configuration
+
+`backend/app/core/config.py` is the backend's central configuration module. It reads
+environment variables, converts them into typed Python values, validates them, and
+provides the resulting settings to the application. This gives the application one
+validated place to read its configuration.
+
+The module provides seven settings:
+
+| Setting | Type | Purpose |
+|---|---|---|
+| `app_env` | `AppEnvironment` | Identifies whether the backend is running in development, testing, or production. |
+| `database_url` | `str` | Tells SQLAlchemy how to connect to PostgreSQL. |
+| `frontend_origin` | `str \| None` | Identifies the frontend allowed to make credentialed browser requests. |
+| `session_cookie_name` | `str` | Sets the name of the authentication cookie. |
+| `session_ttl_seconds` | `int` | Controls how long a login session remains valid. |
+| `session_cookie_secure` | `bool` | Determines whether browsers send the session cookie only over HTTPS. |
+| `log_level` | `LogLevel` | Controls how much information the backend writes to its logs. |
+
+Environment variables begin as plain text, and Pydantic converts them into the Python
+types the backend expects, such as environment enums, integers, and booleans.
+
+For this project, the settings validate that:
+
+- `APP_ENV` is `development`, `test`, or `production`.
+- `DATABASE_URL` uses the required PostgreSQL driver.
+- `FRONTEND_ORIGIN` is one exact HTTP or HTTPS origin, not a wildcard.
+- `SESSION_TTL_SECONDS` is positive.
+- `SESSION_COOKIE_SECURE` is enabled in production.
+- `LOG_LEVEL` is supported.
+- Required production configuration is present.
+
+If configuration is missing, malformed, or unsafe, the application fails immediately
+with an actionable error instead of starting and failing unpredictably later. The rest of
+the backend can use one reliable `Settings` object rather than repeatedly reading
+`os.environ`, converting strings, and duplicating validation.
 
 Suggested commit message:
 
