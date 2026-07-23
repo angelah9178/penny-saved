@@ -7,7 +7,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 |  | Commit | Title | Depends on |
 |---|---|---|---|
 | &#91;x&#93; | [1](#commit-1--add-typed-backend-configuration) | Add typed backend settings | — |
-| &#91;&#160;&#93; | [2](#commit-2--add-an-injectable-utc-clock) | Add injectable UTC clock | Commit 1 |
+| &#91;x&#93; | [2](#commit-2--add-an-injectable-utc-clock) | Add injectable UTC clock | Commit 1 |
 | &#91;&#160;&#93; | [3](#commit-3--add-async-database-session-and-application-lifespan) | Add async database lifecycle | Commit 1 |
 | &#91;&#160;&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
 | &#91;&#160;&#93; | [5](#commit-5--add-request-ids-and-structured-request-logging) | Add request-correlated structured logging | Commit 4 |
