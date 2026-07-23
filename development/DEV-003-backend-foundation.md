@@ -75,6 +75,16 @@ pytest tests/test_config.py
 
 ## Commit 2 — Add an Injectable UTC Clock
 
+UTC gives the backend one unambiguous time standard regardless of the server's location,
+user time zones, or daylight-saving changes. This is especially important for exact
+time-based rules such as the 48-hour check-in boundary.
+
+Injectable means application code receives a clock dependency instead of calling
+`datetime.now()` directly. Production uses the real system UTC clock, while tests can
+replace it with a fixed clock. This makes boundary tests deterministic, avoids waiting or
+time-sensitive test failures, and lets an operation use a consistent definition of
+“now.”
+
 Suggested commit message:
 
 ```text
