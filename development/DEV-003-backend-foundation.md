@@ -58,6 +58,24 @@ The HTTP foundation now includes:
 - Safe unexpected-error responses correlated with server logs through the request ID.
 - An injectable UTC clock for deterministic lifecycle and statistics tests.
 
+### Request IDs and `X-Request-ID`
+
+For every API request, the backend generates a UUID request ID. A UUID is a long, practically unique identifier, such as:
+
+```text
+7d9f80a4-6df4-4cc7-b95c-a285efbf61c8
+```
+
+Think of it as a tracking label for one request. The backend includes it in the HTTP response header named `X-Request-ID`:
+
+```text
+X-Request-ID: 7d9f80a4-6df4-4cc7-b95c-a285efbf61c8
+```
+
+The same ID is added to the server log for that request. If a user receives an error, a developer can use the response's request ID to find the matching log entry and investigate what happened.
+
+Each request receives a new ID, even when several requests come from the same user. A request ID is only for logging and troubleshooting—it is not a login token, session ID, password, or authorization mechanism.
+
 ### Standard API error envelopes
 
 A standard error envelope means every API error uses the same basic JSON structure:
