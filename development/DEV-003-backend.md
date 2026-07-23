@@ -12,7 +12,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
 | &#91;x&#93; | [5](#commit-5--add-request-ids-and-structured-request-logging) | Add request-correlated structured logging | Commit 4 |
 | &#91;x&#93; | [6](#commit-6--add-the-standard-error-envelope) | Add safe API error handling | Commits 4, 5 |
-| &#91;&#160;&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-003 backend foundation | Commits 1–6 |
+| &#91;x&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-003 backend foundation | Commits 1–6 |
 
 ## Objective
 
@@ -396,3 +396,143 @@ git status --short
 - Product repositories, services, and routes (DEV-008 and later).
 - Complete deployment hardening and observability (DEV-021/DEV-022).
 - CI workflows and the combined quality command (DEV-006).
+
+## Implementation Record
+
+### Overview
+
+DEV-003 established the reusable backend application foundation. It added typed
+environment configuration, an injectable UTC clock, application-owned async SQLAlchemy
+resources, a FastAPI factory, liveness and readiness routes, credentialed CORS, structured
+request logging, request IDs, and centralized safe error responses.
+
+The implementation keeps application resources out of import-time mutable globals.
+Production uses validated environment configuration and the real UTC clock, while tests
+can construct isolated applications, replace the clock, and replace database resources.
+
+### What It Achieved
+
+- Invalid and unsafe configuration fails before application startup.
+- One async engine and session factory are owned by each application lifespan.
+- Each database-backed request receives an isolated session with rollback cleanup.
+- `/api/health` provides process liveness and `/api/ready` provides bounded PostgreSQL
+  readiness.
+- Browser access is limited to the configured frontend origin with credentials enabled.
+- Request IDs correlate responses, structured request logs, and unexpected failures.
+- Route-template logging avoids high-cardinality resource identifiers.
+- Validation, malformed JSON, database availability, expected application errors, and
+  unexpected exceptions use safe, predictable responses.
+- Non-production environments expose OpenAPI documentation; production disables it.
+
+### Usage and Safety
+
+Run the backend from `backend/` with:
+
+```text
+../.venv/bin/uvicorn app.main:create_app --factory --reload
+```
+
+Configuration comes from `backend/.env` only in development. Production reads process
+environment variables and requires an exact frontend origin and secure session cookies.
+Never commit `.env` files.
+
+Request logs do not read request bodies or query strings and expose only approved
+structured fields. Unexpected exceptions return a generic response and a request ID;
+safe frame information remains in server logs without including the exception message.
+
+### Verification
+
+The final DEV-003 verification includes:
+
+```text
+ruff format --check .
+ruff check .
+pytest
+git diff --check
+```
+
+Focused tests cover configuration, UTC normalization and injection, engine/session
+lifecycle, application construction, health/readiness behavior, CORS, OpenAPI exposure,
+request correlation, concurrent context isolation, log safety, and exact error envelopes.
+
+Verification performed for Commit 7:
+
+- Ruff formatting and lint checks passed.
+- All 71 backend tests passed.
+- `git diff --check` passed.
+- Uvicorn created the application through `create_app()` and completed startup.
+- `/api/health` returned `200`, `{"status": "ok"}`, and an `X-Request-ID`.
+- Without PostgreSQL, `/api/ready` returned the expected bounded `503`,
+  `{"status": "unavailable"}`, and an `X-Request-ID`.
+- Health and readiness requests emitted structured, request-correlated logs.
+- No local `.env`, cache, virtual environment, log, database dump, or generated build
+  artifact is tracked.
+
+### Limitations and Follow-up
+
+- DEV-005 must add database models, Alembic configuration, migrations, and database
+  constraint coverage.
+- DEV-006 must add the combined quality commands and continuous integration.
+- DEV-008 must add authentication, persistent sessions, and the current-user dependency.
+- DEV-021 and DEV-022 must complete public-deployment security, proxy policy, operational
+  logging, metrics, and production observability.
+- Live PostgreSQL readiness requires Docker/PostgreSQL and cannot be verified in an
+  environment where Docker is unavailable; the readiness success and failure paths are
+  covered with isolated API tests.
+- The execution environment isolates local sockets between processes, so an external
+  `curl` probe could not reach the temporary Uvicorn process. Uvicorn startup was
+  verified directly, and the same ASGI application was probed in-process.
+
+## Running the Backend Safely
+
+DEV-003 can be run safely for local development. It currently provides health,
+readiness, configuration, logging, and error-handling behavior. Product APIs, database
+tables, and migrations are added by later DEV tasks.
+
+From the repository root, create local configuration, install backend dependencies, and
+start PostgreSQL:
+
+```bash
+make env-setup
+make backend-install
+make db-up
+```
+
+Review `backend/.env` first and ensure its database password matches the root `.env`.
+Never commit either `.env` file.
+
+Start the backend:
+
+```bash
+cd backend
+../.venv/bin/uvicorn app.main:create_app --factory --reload
+```
+
+From another terminal, check liveness and readiness:
+
+```bash
+curl -i http://127.0.0.1:8000/api/health
+curl -i http://127.0.0.1:8000/api/ready
+```
+
+Expected responses when PostgreSQL is running:
+
+```text
+/api/health → 200 {"status":"ok"}
+/api/ready  → 200 {"status":"ready"}
+```
+
+Development API documentation is available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Safety and current limitations:
+
+- Keep the server bound to `127.0.0.1`; do not use `--host 0.0.0.0` yet.
+- Use `--reload` only for local development.
+- Stop the server with `Ctrl+C`.
+- If Docker or PostgreSQL is unavailable, `/api/health` can still return `200`, while
+  `/api/ready` returns `503`.
+- DEV-005 must add database tables and migrations before application data can be stored.
