@@ -11,6 +11,7 @@ import httpx
 import pytest
 from app.api.routes.health import READINESS_TIMEOUT_SECONDS
 from app.core.config import AppEnvironment, Settings
+from app.core.logging import REQUEST_ID_HEADER
 from app.db.session import get_db_session
 from app.main import create_app
 from fastapi import FastAPI
@@ -175,10 +176,15 @@ async def test_cors_allows_only_configured_credentialed_origin(
                 "Access-Control-Request-Method": "GET",
             },
         )
+        simple_response = await client.get(
+            "/api/health",
+            headers={"Origin": FRONTEND_ORIGIN},
+        )
 
     assert allowed.status_code == 200
     assert allowed.headers["access-control-allow-origin"] == FRONTEND_ORIGIN
     assert allowed.headers["access-control-allow-credentials"] == "true"
+    assert simple_response.headers["access-control-expose-headers"] == REQUEST_ID_HEADER
     assert "access-control-allow-origin" not in disallowed.headers
 
 

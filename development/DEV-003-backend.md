@@ -10,7 +10,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [2](#commit-2--add-an-injectable-utc-clock) | Add injectable UTC clock | Commit 1 |
 | &#91;x&#93; | [3](#commit-3--add-async-database-session-and-application-lifespan) | Add async database lifecycle | Commit 1 |
 | &#91;x&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
-| &#91;&#160;&#93; | [5](#commit-5--add-request-ids-and-structured-request-logging) | Add request-correlated structured logging | Commit 4 |
+| &#91;x&#93; | [5](#commit-5--add-request-ids-and-structured-request-logging) | Add request-correlated structured logging | Commit 4 |
 | &#91;&#160;&#93; | [6](#commit-6--add-the-standard-error-envelope) | Add safe API error handling | Commits 4, 5 |
 | &#91;&#160;&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-003 backend foundation | Commits 1–6 |
 
@@ -231,6 +231,38 @@ pytest tests/api/test_health.py
 ```
 
 ## Commit 5 — Add Request IDs and Structured Request Logging
+
+Commit 5 defines the consistent messages written to the backend logs while the server
+handles requests. Instead of relying on differently formatted text messages, every
+request log uses predictable fields that are easier to read, search, filter, and send to
+a logging service.
+
+A request log will follow a structure similar to:
+
+```json
+{
+  "timestamp": "2026-07-23T16:30:00Z",
+  "level": "INFO",
+  "environment": "production",
+  "request_id": "7db27c85-3e75-4c5e-8138-cff47f96f77b",
+  "method": "GET",
+  "route": "/api/health",
+  "status": 200,
+  "duration_ms": 4.2
+}
+```
+
+This structure shows which endpoint was called, when it happened, whether it succeeded,
+how long it took, and which environment produced the log. It is especially useful for
+debugging failures.
+
+Every request receives a unique request ID. The backend returns that ID in the response
+and includes it in matching server logs. If the frontend reports an error with a request
+ID, the same ID can be searched in the backend logs to find the related request details.
+Concurrent requests must keep separate IDs so their logs cannot be mixed together.
+
+Logs must provide useful debugging information without exposing passwords, cookies,
+authorization headers, database credentials, or raw session material.
 
 Suggested commit message:
 
