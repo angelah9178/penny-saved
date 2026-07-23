@@ -30,7 +30,23 @@ If a request fails or leaves a transaction unfinished, cleanup rolls back that u
 
 The engine and sessions are asynchronous. When a request is waiting for PostgreSQL, the backend can continue handling other requests instead of blocking the entire server.
 
-Typed Pydantic settings cover the application environment, PostgreSQL URL, frontend origin, session-cookie behavior, session lifetime, and log level. Local development and tests may load `backend/.env`, while a process explicitly started as production ignores the local dotenv file. Production validation requires HTTPS, secure cookies, and a database URL without the documented placeholder credential.
+### Typed backend settings
+
+Pydantic reads the backend's configuration and checks that every setting has the expected type and an acceptable value. These settings tell the backend which environment it is running in, how to connect to PostgreSQL, which frontend may send browser requests, how login cookies behave, how long sessions last, and how much information to log.
+
+For local development, the values are stored in the ignored `backend/.env` file. It is created from the committed `backend/.env.example` template by running `make env-setup`. A local file looks like this:
+
+```dotenv
+APP_ENV=development
+DATABASE_URL=postgresql+psycopg://penny_saved:local-password@localhost:5432/penny_saved
+FRONTEND_ORIGIN=http://localhost:5173
+SESSION_COOKIE_NAME=penny_saved_session
+SESSION_TTL_SECONDS=2592000
+SESSION_COOKIE_SECURE=false
+LOG_LEVEL=INFO
+```
+
+The actual `backend/.env` file is not committed because it can contain credentials that are specific to one developer's computer. Tests provide their own explicit settings. A process explicitly started as production ignores the local dotenv file and reads values from the production environment instead. Production validation requires HTTPS, secure cookies, and a database URL without the documented placeholder credential.
 
 The HTTP foundation now includes:
 
