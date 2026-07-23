@@ -7,7 +7,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 |  | Commit | Title | Depends on |
 |---|---|---|---|
 | &#91;x&#93; | [1](#commit-1--add-typed-backend-configuration) | Add typed backend settings | — |
-| &#91;&#160;&#93; | [2](#commit-2--add-an-injectable-utc-clock) | Add injectable UTC clock | Commit 1 |
+| &#91;x&#93; | [2](#commit-2--add-an-injectable-utc-clock) | Add injectable UTC clock | Commit 1 |
 | &#91;&#160;&#93; | [3](#commit-3--add-async-database-session-and-application-lifespan) | Add async database lifecycle | Commit 1 |
 | &#91;&#160;&#93; | [4](#commit-4--create-the-fastapi-factory-and-health-api) | Add FastAPI factory and health routes | Commits 1, 3 |
 | &#91;&#160;&#93; | [5](#commit-5--add-request-ids-and-structured-request-logging) | Add request-correlated structured logging | Commit 4 |
@@ -88,6 +88,25 @@ pytest tests/test_config.py
 ```
 
 ## Commit 2 — Add an Injectable UTC Clock
+
+UTC gives the backend one consistent and unambiguous source of time. The server and users
+may operate in different time zones, and daylight-saving changes can repeat or skip local
+times. Using UTC keeps PostgreSQL timestamps, API timestamps, and comparisons predictable
+regardless of where the application runs. This is especially important for exact
+time-based rules such as the 48-hour check-in boundary.
+
+Injectable means backend code receives a clock dependency instead of calling
+`datetime.now()` directly. Production receives the real system UTC clock, while tests can
+replace it with a fixed clock. A fixed clock makes it possible to test behavior just
+before, exactly at, and just after 48 hours without waiting or depending on the computer's
+current time.
+
+In short:
+
+- UTC makes time consistent.
+- Injection makes time controllable.
+- A fixed clock makes tests deterministic.
+- Production still uses the real current time.
 
 Suggested commit message:
 
