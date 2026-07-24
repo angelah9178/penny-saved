@@ -10,7 +10,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [2](#commit-2--add-the-credentialed-api-client) | Add the credentialed API client | Commit 1 |
 | &#91;x&#93; | [3](#commit-3--configure-tanstack-query-behavior) | Configure frontend query behavior | Commit 1 |
 | &#91;x&#93; | [4](#commit-4--add-common-request-state-components) | Add accessible request-state components | — |
-| &#91;&#160;&#93; | [5](#commit-5--build-the-router-provider-tree-and-application-shell) | Add the router, providers, and application shell | Commits 3, 4 |
+| &#91;x&#93; | [5](#commit-5--build-the-router-provider-tree-and-application-shell) | Add the router, providers, and application shell | Commits 3, 4 |
 | &#91;&#160;&#93; | [6](#commit-6--add-msw-api-testing-and-the-development-proxy) | Add MSW API testing and the Vite proxy | Commits 2, 5 |
 | &#91;&#160;&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-004 frontend foundation | Commits 1–6 |
 
@@ -363,6 +363,16 @@ The provider tree assembles application-wide infrastructure around the routed UI
 keeps startup wiring in one place and prevents pages from creating their own router or
 query cache.
 
+The provider tree shares common tools with every page and component beneath it, so those
+tools do not have to be manually connected to each component. For DEV-004, it supplies
+React Router and TanStack Query from one central place.
+
+The application shell provides the shared visual structure that users see around each
+page, such as the “A Penny Saved” header, main content area, page width, spacing, and
+skip-to-content link. The router changes the page displayed inside that shell without
+reloading the whole application. Together, the provider tree, router, and application
+shell keep frontend behavior and appearance consistent.
+
 The initial tree is:
 
 ```text
@@ -378,6 +388,11 @@ React Router owns location and route rendering. TanStack Query owns server state
 application entry point creates the browser router and one browser query client, then
 passes them into the provider tree. Tests can instead provide a memory router and a fresh
 query client.
+
+The router decides which page to display based on the browser URL. It also lets users
+move between frontend pages without reloading the entire application. Later, navigating
+from `/login` to `/dashboard`, for example, will replace the displayed page content while
+keeping the React application running.
 
 DEV-004 adds only foundation routes:
 
