@@ -77,6 +77,59 @@ strings, cookies, authorization values, database credentials, and session materi
 - Run the Uvicorn command from `backend/`; running it from another directory without the
   correct application path can produce an import error.
 
+## Frontend development server
+
+Install the locked frontend dependencies during first-time setup or whenever
+`frontend/package-lock.json` changes:
+
+```bash
+cd frontend
+npm ci
+```
+
+Start the Vite development server from `frontend/`:
+
+```bash
+npm run dev
+```
+
+Open the URL printed by Vite, normally `http://localhost:5173`. Stop the server with
+`Ctrl+C`.
+
+The frontend API client uses `VITE_API_BASE_URL`, which defaults to `/api`. During local
+development, Vite proxies `/api` requests to the FastAPI server at
+`http://127.0.0.1:8000`. Start the backend separately before using a screen that needs
+real API data:
+
+```text
+Browser → http://localhost:5173/api/... → Vite proxy
+        → http://127.0.0.1:8000/api/... → FastAPI
+```
+
+The browser continues to request the same-origin `/api` path and includes the backend's
+session cookie when one exists. Frontend JavaScript does not read or store the
+`HttpOnly` session cookie.
+
+Variables prefixed with `VITE_` are included in browser-visible frontend code. Never put
+passwords, session values, database URLs, API secrets, or other credentials in a
+`VITE_` variable. Keep `VITE_API_BASE_URL=/api` for the normal local proxy workflow.
+
+### Frontend startup troubleshooting
+
+- `npm: command not found` means Node.js 22 and npm are not available in the current
+  shell. Install the supported Node version shown in `.nvmrc` and verify it with
+  `node --version`.
+- A missing-package error usually means frontend dependencies are not installed. Run
+  `npm ci` from `frontend/`.
+- If Vite reports that port `5173` is already in use, stop the other process or use the
+  alternate URL Vite prints.
+- A proxied `/api` request that returns `502` or a connection error usually means the
+  FastAPI server is not running at `http://127.0.0.1:8000`.
+- Run frontend commands from `frontend/`; running them from the repository root will not
+  find the frontend `package.json`.
+- The current DEV-004 home and not-found pages are foundation placeholders. Login,
+  dashboard, entry, and statistics screens are added by later DEV tasks.
+
 Migration commands become usable when DEV-005 adds the Alembic configuration:
 
 ```bash

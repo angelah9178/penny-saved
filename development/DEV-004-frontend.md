@@ -12,7 +12,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [4](#commit-4--add-common-request-state-components) | Add accessible request-state components | — |
 | &#91;x&#93; | [5](#commit-5--build-the-router-provider-tree-and-application-shell) | Add the router, providers, and application shell | Commits 3, 4 |
 | &#91;x&#93; | [6](#commit-6--add-msw-api-testing-and-the-development-proxy) | Add MSW API testing and the Vite proxy | Commits 2, 5 |
-| &#91;&#160;&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-004 frontend foundation | Commits 1–6 |
+| &#91;x&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-004 frontend foundation | Commits 1–6 |
 
 ## Objective
 
@@ -551,34 +551,100 @@ git status --short
 - Runtime validation of every successful backend response unless a later feature
   explicitly requires it.
 
-## Planned Implementation Record
-
-Complete this section during Commit 7 with the actual result rather than anticipated
-claims.
+## Implementation Record
 
 ### Overview
 
-Record the provider tree, router shell, query client, API client, shared request states,
-test utilities, and development proxy delivered by DEV-004.
+DEV-004 established the reusable React application foundation. It added shared
+TypeScript API contracts, stable TanStack Query keys, a credentialed API client,
+application-wide query behavior, accessible request-state components, a provider tree,
+React Router application shell, MSW-backed test utilities, and the Vite development
+proxy.
+
+The frontend now starts through one application root that creates the browser router and
+query client. Routed pages render inside the shared page shell, while tests can create
+isolated memory routers and query caches.
 
 ### What It Achieved
 
-Record the observable application and contributor outcomes, including strict builds,
-credentialed requests, standard error handling, isolated query caches, accessible route
-rendering, and MSW-backed request tests.
+- Frontend request and response types preserve the backend's `snake_case`, UTC timestamp,
+  nullable comment, enum, and integer-cent contracts.
+- Stable query-key factories identify auth, dashboard, entry-detail, statistics, and
+  opportunity-cost cache data consistently.
+- One API client applies the configured base URL, includes session-cookie credentials,
+  sends JSON safely, handles `204`, preserves cancellation, and converts standard error
+  envelopes into predictable `ApiError` instances.
+- TanStack Query shares cached server data, avoids duplicate requests for the same key,
+  retries only eligible query failures at most twice, and never automatically retries
+  mutations.
+- Visible loading, error, retry, empty, and page-shell components use accessible
+  semantics and responsive base styles.
+- The router renders home and not-found pages inside one persistent shell without a
+  full-page reload.
+- MSW tests exercise the real API client with controlled backend behavior, strict
+  unhandled-request detection, isolated handlers, routers, and query caches.
+- Vite forwards local `/api` development requests to FastAPI at
+  `http://127.0.0.1:8000`.
 
 ### Usage and Safety
 
-Document the exact frontend development command, expected local backend address, use of
-`VITE_API_BASE_URL`, cookie handling, and the rule that secrets must never use `VITE_`
-variables.
+Run the frontend from `frontend/`:
+
+```text
+npm ci
+npm run dev
+```
+
+Vite normally serves the application at `http://localhost:5173`. Start FastAPI separately
+at `http://127.0.0.1:8000` when real API behavior is needed. The committed
+`VITE_API_BASE_URL=/api` uses the Vite development proxy; the API client falls back to
+the same `/api` base when the variable is absent.
+
+All `VITE_` variables are browser-visible and must never contain secrets. The API client
+uses `credentials: "include"` so the browser can send session cookies, but frontend
+JavaScript does not read or persist `HttpOnly` cookies, passwords, or session tokens.
+Successful response types provide compile-time guidance; they do not replace backend
+validation or make the frontend authoritative for business rules.
 
 ### Verification
 
-Record the exact commands, test count, production-build result, manual smoke checks, and
-generated-artifact review performed after implementation.
+The final DEV-004 verification includes:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run build
+git diff --check
+```
+
+Focused coverage verifies API contract keys, request URLs, headers, credentials, JSON and
+`204` handling, standard and malformed errors, cancellation, query retry policy, cache
+isolation, accessible request states, provider access, router navigation, MSW request
+boundaries, and visible loading, success, empty, error, and retry behavior.
+
+Verification performed for Commit 7:
+
+- Prettier formatting and ESLint checks passed without warnings.
+- Strict TypeScript checking passed.
+- All 61 frontend tests passed across 10 test files.
+- Vite completed the production build successfully.
+- The development server started successfully at `http://127.0.0.1:5173`.
+- `git diff --check` passed.
+- No local `.env`, dependency directory, build output, coverage output, TypeScript cache,
+  log, database, or dump artifact is tracked.
 
 ### Limitations and Follow-up
 
-Replace the out-of-scope list with the remaining concrete follow-up work and any
-environment limitations discovered during implementation.
+- DEV-006 must add combined root quality commands and continuous integration.
+- DEV-009 must add signup, login, logout, session restoration, `401` expiry behavior, and
+  guest/protected route guards.
+- DEV-011 and DEV-012 must replace the home placeholder with dashboard and entry
+  management features.
+- DEV-014, DEV-015, DEV-018, and DEV-019 must add check-in, comment, statistics, and
+  opportunity-cost screens.
+- DEV-020 must complete the shared component library and full responsive/accessibility
+  hardening after the feature screens exist.
+- Successful API payloads are typed at compile time but are not runtime-validated by
+  DEV-004.
