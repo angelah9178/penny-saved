@@ -10,7 +10,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [2](#commit-2--add-the-session-model) | Add secure session persistence | Commit 1 |
 | &#91;x&#93; | [3](#commit-3--add-the-entry-model) | Add impulse-purchase entry persistence | Commit 1 |
 | &#91;x&#93; | [4](#commit-4--add-the-opportunity-cost-example-model) | Add opportunity-cost persistence | Commit 1 |
-| &#91; &#93; | [5](#commit-5--configure-alembic-and-create-the-initial-migration) | Add Alembic and the initial schema migration | Commits 1–4 |
+| &#91;x&#93; | [5](#commit-5--configure-alembic-and-create-the-initial-migration) | Add Alembic and the initial schema migration | Commits 1–4 |
 | &#91; &#93; | [6](#commit-6--add-postgresql-schema-and-migration-tests) | Verify PostgreSQL constraints and migrations | Commit 5 |
 | &#91; &#93; | [7](#commit-7--document-and-verify-the-completed-database-foundation) | Document DEV-005 database foundation | Commits 1–6 |
 
@@ -292,10 +292,50 @@ The previous commits describe the target schema as SQLAlchemy metadata. This com
 that schema deployable by configuring Alembic and recording the exact operations needed
 to create or remove it.
 
+One way to understand the relationship is to imagine constructing and maintaining a
+building:
+
+```text
+SQLAlchemy models → the architect's current blueprints
+Migration files   → the numbered construction and renovation instructions
+Alembic           → the construction manager that executes those instructions
+PostgreSQL        → the actual building where the data lives
+```
+
+The SQLAlchemy models describe what the database should look like from the application's
+perspective. PostgreSQL is the real database that stores the tables and records, but it
+does not read the model classes and rebuild itself automatically. Migration files contain
+the reviewed `upgrade()` and `downgrade()` instructions. Alembic acts as the construction
+manager: it reads those files, determines which instructions PostgreSQL has already
+received, executes the missing operations, and records the newest applied revision in
+PostgreSQL.
+
+A migration is one numbered set of database changes. Alembic records which migrations a
+database has already applied, allowing a new local, test, or production database to
+reach the same structure in the same order. Future schema changes receive new migrations
+instead of requiring developers to edit databases manually or rewrite previously
+applied migration files.
+
+The initial migration creates:
+
+1. The `users` table.
+2. The `sessions` table and its indexes.
+3. The `impulse_purchase_entries` table and its indexes.
+4. The `opportunity_cost_examples` table and its index.
+
+Together, these operations create the approved columns, PostgreSQL data types, primary
+and foreign keys, check constraints, unique rules, cascading deletion behavior, and
+performance indexes. The user-owned tables are created after `users` because their
+`user_id` foreign keys depend on it.
+
 The initial revision creates tables in dependency order and drops them in reverse order.
 Its `upgrade()` and `downgrade()` operations are self-contained: the revision must not
 import mutable application models, because an old migration must keep the same meaning
 as the application evolves.
+
+The migration's `upgrade()` builds the schema. Its `downgrade()` removes the schema in
+reverse dependency order, deleting the user-owned tables before `users` so foreign keys
+do not block the operation.
 
 Suggested commit message:
 
