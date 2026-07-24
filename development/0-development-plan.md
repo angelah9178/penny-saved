@@ -32,7 +32,7 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 |---|---|---|---|---|
 | &#91;x&#93; | [DEV-001](#dev-001--scaffold-frontend-and-backend-workspaces) | Scaffold frontend and backend workspaces | Foundation | — |
 | &#91;x&#93; | [DEV-002](#dev-002--add-local-environment-and-postgresql-workflow) | Add local environment and PostgreSQL workflow | Foundation | DEV-001 |
-| &#91;&#160;&#93; | [DEV-003](#dev-003--establish-backend-application-foundation) | Establish backend application foundation | Foundation | DEV-001, DEV-002 |
+| &#91;x&#93; | [DEV-003](#dev-003--establish-backend-application-foundation) | Establish backend application foundation | Foundation | DEV-001, DEV-002 |
 | &#91;&#160;&#93; | [DEV-004](#dev-004--establish-frontend-application-foundation) | Establish frontend application foundation | Foundation | DEV-001 |
 | &#91;&#160;&#93; | [DEV-005](#dev-005--add-initial-database-models-and-migration) | Add initial database models and migration | Foundation | DEV-002, DEV-003 |
 | &#91;&#160;&#93; | [DEV-006](#dev-006--add-quality-commands-and-continuous-integration) | Add quality commands and continuous integration | Foundation | DEV-001, DEV-003, DEV-004, DEV-005 |
