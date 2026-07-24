@@ -40,6 +40,42 @@ conventions every later model follows, including typed mappings, UUID primary ke
 timezone-aware timestamps, explicit names, and relationships that refuse accidental
 lazy loading.
 
+ORM stands for **Object-Relational Mapping**. “Object” refers to the Python model
+instances used by the backend, while “relational” refers to PostgreSQL tables, columns,
+keys, and rows. SQLAlchemy's ORM connects those two representations:
+
+```text
+Python class       ↔ PostgreSQL table
+Python attribute   ↔ table column
+Model instance     ↔ table row
+Model relationship ↔ foreign-key relationship
+```
+
+For example, a `User` Python object represents one row in the `users` table, and its
+`email` attribute corresponds to the table's `email` column. Later repositories can work
+with typed Python models while SQLAlchemy creates and interprets the required SQL.
+
+The shared declarative `Base` is the center of this foundation. Every persistence model
+inherits from it:
+
+```python
+class User(Base):
+    __tablename__ = "users"
+```
+
+As models inherit from `Base`, SQLAlchemy registers their tables in one metadata
+collection. That collection provides:
+
+- One authoritative registry of the tables known to the application.
+- Shared naming conventions for primary keys, foreign keys, checks, and indexes.
+- A consistent typed model style using `Mapped[...]` and `mapped_column(...)`.
+- The complete target schema that Alembic later compares with migrated PostgreSQL.
+
+The ORM foundation does not create PostgreSQL tables by itself and is not a database.
+The models describe the structure expected by Python; Alembic migrations apply that
+structure to PostgreSQL. It also does not replace service-level rules such as
+authorization, email normalization, or legal lifecycle transitions.
+
 Users are created first because they are the ownership foundation for the other records
 and the starting point for the user data flow:
 
