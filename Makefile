@@ -18,6 +18,7 @@ POSTGRES_VOLUME := penny_saved_postgres_data
 	frontend-typecheck typecheck \
 	frontend-test backend-test test \
 	frontend-build backend-build build check clean \
+	frontend-dev backend-dev dev \
 	db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision \
 	check-frontend check-backend check-backend-env check-docker check-alembic
 
@@ -134,6 +135,18 @@ check: ## Run all frontend and backend quality checks.
 
 clean: ## Remove generated build, coverage, bytecode, and tool-cache artifacts only.
 	./scripts/clean-generated.sh
+
+frontend-dev: check-frontend ## Start the Vite frontend development server.
+	npm --prefix frontend run dev
+
+backend-dev: check-backend-env ## Start the FastAPI backend development server.
+	cd backend && $(BACKEND_PYTHON) -m uvicorn app.main:create_app \
+		--factory --reload --host 127.0.0.1 --port 8000
+
+dev: check-frontend check-backend-env check-docker check-alembic ## Start PostgreSQL, migrations, frontend, and backend.
+	$(MAKE) db-up
+	$(MAKE) db-upgrade
+	./scripts/run-dev.sh
 
 check-docker:
 	@command -v docker >/dev/null || { echo "Docker Engine with Compose v2 is required." >&2; exit 1; }

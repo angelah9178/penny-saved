@@ -33,6 +33,9 @@ def test_makefile_exposes_focused_and_combined_quality_targets() -> None:
         "build",
         "check",
         "clean",
+        "frontend-dev",
+        "backend-dev",
+        "dev",
     }
     phony = makefile.split(".PHONY:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
 
@@ -77,3 +80,28 @@ def test_clean_delegates_to_the_guarded_cleanup_script() -> None:
     assert "generated" in clean_recipe
     assert "./scripts/clean-generated.sh" in clean_recipe
     assert "rm " not in clean_recipe
+
+
+def test_dev_starts_dependencies_before_the_process_supervisor() -> None:
+    makefile = _makefile_text()
+    dev_recipe = makefile.split("\ndev:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
+
+    stages = ["$(MAKE) db-up", "$(MAKE) db-upgrade", "./scripts/run-dev.sh"]
+    positions = [dev_recipe.index(stage) for stage in stages]
+
+    assert positions == sorted(positions)
+    assert "check-frontend" in dev_recipe
+    assert "check-backend-env" in dev_recipe
+    assert "check-docker" in dev_recipe
+    assert "check-alembic" in dev_recipe
+
+
+def test_focused_dev_targets_use_the_supported_servers() -> None:
+    makefile = _makefile_text()
+    frontend_dev = makefile.split("\nfrontend-dev:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
+    backend_dev = makefile.split("\nbackend-dev:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
+
+    assert "npm --prefix frontend run dev" in frontend_dev
+    assert "app.main:create_app" in backend_dev
+    assert "--factory" in backend_dev
+    assert "--reload" in backend_dev

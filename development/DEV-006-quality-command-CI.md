@@ -26,7 +26,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 |---|---|---|---|
 | &#91;x&#93; | [1](#commit-1--add-the-root-quality-command-interface) | Add root quality commands | — |
 | &#91;x&#93; | [2](#commit-2--add-guarded-generated-artifact-cleanup) | Add safe generated-artifact cleanup | Commit 1 |
-| &#91; &#93; | [3](#commit-3--add-the-coordinated-local-development-command) | Add coordinated local development | Commit 1 |
+| &#91;x&#93; | [3](#commit-3--add-the-coordinated-local-development-command) | Add coordinated local development | Commit 1 |
 | &#91; &#93; | [4](#commit-4--add-frontend-and-backend-continuous-integration) | Add frontend and backend CI jobs | Commit 1 |
 | &#91; &#93; | [5](#commit-5--add-postgresql-migration-continuous-integration) | Add PostgreSQL migration CI | Commit 4 |
 | &#91; &#93; | [6](#commit-6--document-and-verify-the-completed-quality-workflow) | Document DEV-006 quality and CI workflow | Commits 1–5 |
@@ -241,6 +241,18 @@ The frontend and backend are separate long-running processes. A root `make dev` 
 must start the required local database, apply migrations, and run both servers without
 leaving one behind when the other exits or the developer presses `Ctrl+C`.
 
+In plain language, Commit 3 creates one simple command:
+
+```text
+make dev
+```
+
+That command checks the required tools and configuration, starts PostgreSQL, waits for
+it to become healthy, applies pending Alembic migrations, and starts both the FastAPI
+backend and Vite frontend. Contributors therefore do not need to start the database,
+run migrations, and launch two application servers in separate terminals unless they
+prefer to do so.
+
 The intended startup flow is:
 
 ```text
@@ -257,7 +269,9 @@ Process supervision is the critical behavior in this commit. The coordinator own
 child processes, forwards `SIGINT` and `SIGTERM`, terminates the remaining child if
 either server exits, waits for cleanup, and returns a useful nonzero status when startup
 or a server fails. PostgreSQL data remains persistent; stopping `make dev` must not
-delete its volume.
+delete its volume. Pressing `Ctrl+C` stops both application servers without leaving
+either running in the background, while PostgreSQL remains available with its data
+preserved.
 
 The focused `frontend-dev` and `backend-dev` targets remain available when a contributor
 wants to run the servers in separate terminals. They must use the repository's pinned
