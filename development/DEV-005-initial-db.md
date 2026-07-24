@@ -12,7 +12,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [4](#commit-4--add-the-opportunity-cost-example-model) | Add opportunity-cost persistence | Commit 1 |
 | &#91;x&#93; | [5](#commit-5--configure-alembic-and-create-the-initial-migration) | Add Alembic and the initial schema migration | Commits 1–4 |
 | &#91;x&#93; | [6](#commit-6--add-postgresql-schema-and-migration-tests) | Verify PostgreSQL constraints and migrations | Commit 5 |
-| &#91; &#93; | [7](#commit-7--document-and-verify-the-completed-database-foundation) | Document DEV-005 database foundation | Commits 1–6 |
+| &#91;x&#93; | [7](#commit-7--document-and-verify-the-completed-database-foundation) | Document DEV-005 database foundation | Commits 1–6 |
 
 ## Objective
 
@@ -488,25 +488,91 @@ DEV-005 establishes persistence structure and migration safety. It does not impl
 
 ## Implementation Record
 
-Complete this section during Commit 7 after the implementation and all commit gates are
-finished.
-
 ### Overview
 
-To be completed.
+DEV-005 established the first versioned PostgreSQL schema for A Penny Saved. It added a
+shared typed SQLAlchemy foundation, separate persistence models for users, login
+sessions, impulse-purchase entries, and opportunity-cost examples, and a self-contained
+Alembic revision that builds all four tables in dependency order.
+
+The database design now exists in two complementary forms: model metadata describes the
+schema expected by current application code, while the migration history provides the
+stable instructions used to construct actual databases.
 
 ### What It Achieved
 
-To be completed.
+- UUID-owned user data is separated into account, session, entry, and opportunity-cost
+  tables with explicit bidirectional relationships and cascading foreign keys.
+- Session storage contains only fixed-length SHA-256 token digests; no raw-token or
+  plaintext-password persistence column exists.
+- Entry status, lifecycle timestamps, nonblank fields, optional comments, and bounded
+  integer-cent prices are protected by named PostgreSQL constraints.
+- Opportunity-cost examples preserve positive bounded values, allow duplicate labels,
+  and have deterministic per-user listing order.
+- Dashboard, statistics, session-resolution, expiry-cleanup, and stable-listing indexes
+  are explicitly named and represented in both metadata and the migration.
+- The initial migration upgrades an empty database, downgrades to base, and re-upgrades
+  without model/migration drift.
+- A dedicated PostgreSQL integration suite verifies real constraint enforcement,
+  cascading deletion, schema objects, migration reversibility, and metadata agreement.
 
 ### Usage and Safety
 
-To be completed.
+Start local PostgreSQL and apply pending development migrations from the repository root:
+
+```text
+make db-up
+make db-upgrade
+```
+
+Create future revisions with `make db-revision message="describe_change"`, review both
+directions, and never edit a revision already applied to a shared environment. Migration
+files remain self-contained and do not import mutable application models.
+
+Integration tests require an explicit PostgreSQL `TEST_DATABASE_URL` whose database name
+ends in `_test`. The fixtures reject the development database, migrate only the selected
+test database, isolate schema-test data with transaction rollbacks, and leave the test
+schema at Alembic head. Local `.env` files, credentials, dumps, raw session tokens, and
+plaintext passwords must never be committed.
 
 ### Verification
 
-To be completed.
+The final DEV-005 verification includes:
+
+```text
+ruff format --check .
+ruff check .
+pytest
+alembic downgrade base
+alembic upgrade head
+alembic check
+git diff --check
+```
+
+Focused coverage verifies every model declaration; every migrated table, column, primary
+key, foreign key, check constraint, and index; unique emails and token digests; invalid
+text, cent, status, lifecycle, and timestamp values; cascading user deletion; allowed
+duplicate opportunity-cost labels; migration cycling; and model/migration drift.
+
+Verification performed for Commit 7:
+
+- Ruff formatting and lint checks passed.
+- All 122 backend tests passed, including the live PostgreSQL integration suite.
+- The development database successfully downgraded to base and re-upgraded to
+  `0001_initial_schema`.
+- Alembic reported no model-to-migration upgrade operations.
+- Both the development and dedicated test databases finished at migration head.
+- `git diff --check` and the tracked-artifact audit passed.
 
 ### Limitations and Follow-up
 
-To be completed.
+- DEV-006 must add the combined root quality commands and continuous-integration
+  PostgreSQL migration job.
+- DEV-007 must add guarded, deterministic development demo data.
+- DEV-008 must implement password hashing, token generation, cookies, session expiry,
+  and authentication behavior using the user/session tables.
+- DEV-010 and DEV-013 must add owned entry repositories, CRUD, dashboard grouping, and
+  atomic 48-hour check-ins.
+- DEV-016–DEV-019 must add statistics queries and opportunity-cost CRUD/calculations.
+- Production backup, restore, retention, account deletion, and deployment procedures
+  remain release and operations work.
