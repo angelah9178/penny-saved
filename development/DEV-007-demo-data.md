@@ -103,6 +103,30 @@ make seed-demo
     └── commit all changes together
 ```
 
+### Rules `make seed-demo` Must Follow
+
+Every current and future version of the command must follow these rules:
+
+1. **Never run against production.** `APP_ENV=production` must be rejected before an
+   engine is created or a database connection is opened.
+2. **Only use an explicitly safe PostgreSQL target.** Development may use only a
+   loopback host such as `localhost`, `127.0.0.1`, or `::1`. Test mode additionally
+   requires a disposable database name ending in `_test`.
+3. **Require a valid migrated database.** The applied Alembic heads must exactly match
+   the heads in the checked-out code before any data is changed.
+4. **Make no setup changes automatically.** The command must not start Docker, create
+   a database, install dependencies, or apply migrations. The developer runs
+   `make db-up` and `make db-upgrade` first.
+5. **Use one all-or-nothing transaction.** All demo records must succeed together. Any
+   validation or write failure must roll back the entire seed operation.
+6. **Reconcile only known demo records.** Repeated runs must reuse the stable demo
+   identities instead of creating duplicates or taking over unrelated records.
+7. **Use backend-owned configuration, models, and UTC time.** Seeded data must follow
+   the same database constraints and timestamp rules as application data.
+8. **Never expose secrets.** Output may identify the local demo account and record
+   counts, but it must not print password hashes, database credentials, or other
+   sensitive configuration.
+
 The environment guard must allow only:
 
 - `APP_ENV=development` with a loopback PostgreSQL host.
@@ -264,6 +288,8 @@ git diff --check
 
 ## Commit 3 — Seed Every Entry and Statistics State
 
+**Status:** Complete.
+
 Commit 3 adds impulse-purchase entries that cover every stored lifecycle state and every
 time-derived dashboard state. Timestamps are calculated relative to the injected UTC
 clock rather than hard-coded calendar dates, so the dataset remains useful whenever it
@@ -281,17 +307,27 @@ purchased with checked_in_at     → purchased
 `needs_check_in` remains derived. The seeder stores a `waiting` entry old enough to be
 eligible; it must not add an unsupported status or eligibility column.
 
-Use multiple relative ages to exercise boundaries and statistics ranges:
+The exact nine deterministic entries created by Commit 3 are:
 
-| Demo state | Representative relative timestamp | Purpose |
+| Demo entry | State and relative timestamp | Edge case covered |
 |---|---|---|
-| Recent waiting | Less than 48 hours ago | Normal waiting bucket |
-| Boundary eligible | Exactly 48 hours ago | Inclusive eligibility boundary |
-| Older eligible | More than 48 hours ago | Clearly overdue check-in |
-| Recently saved | A few days ago | Current short-range statistics |
-| Earlier saved | Several weeks or months ago | Wider statistics ranges |
-| Historical saved | More than one year ago | Range exclusion and all-time behavior |
-| Purchased | A recent resolved date | Purchased outcome coverage |
+| Ceramic travel mug | Waiting, created 6 hours ago | Very recent normal waiting state |
+| Wireless headphones | Waiting, created 36 hours ago | Still waiting shortly before eligibility |
+| Running shoes | Waiting, created exactly 48 hours ago | Inclusive check-in boundary |
+| Drawing tablet | Waiting, created 10 days ago | Clearly overdue check-in |
+| Desk lamp | Saved, checked in 3 days ago | Short-range statistics and a comment |
+| Lightweight jacket | Saved, checked in 21 days ago | Monthly-range statistics and a null comment |
+| Online design course | Saved, checked in 120 days ago | Annual-range statistics and a comment |
+| Espresso machine | Saved, checked in 500 days ago | All-time inclusion and annual exclusion |
+| Concert ticket | Purchased, checked in 2 days ago | Purchased outcome with a comment |
+
+Together these entries cover both sides of the 48-hour boundary, every stored status,
+resolved and unresolved timestamps, saved statistics across short through all-time
+ranges, purchased outcomes, varied positive prices, and both populated and null
+comments. They are local demo scenarios rather than shared records used by automated
+tests. In total, Commit 3 creates exactly nine deterministic entries for the single
+demo user. Every `make seed-demo` run reconciles these same nine stable entry UUIDs, so
+it restores their expected values without creating duplicates.
 
 The exact approved ages, item names, prices, reasons, comments, and UUIDs must be defined
 as one deliberate dataset. At least one saved and one purchased entry contain comments;

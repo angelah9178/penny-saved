@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-from collections.abc import Iterator
 from datetime import UTC, datetime
 
 import pytest
@@ -16,29 +14,7 @@ from app.scripts.seed_demo import (
     SeedSafetyError,
     reconcile_demo_user,
 )
-from sqlalchemy import Connection, create_engine, func, select
-from sqlalchemy.engine import make_url
-
-
-@pytest.fixture
-def seed_connection() -> Iterator[Connection]:
-    """Use only the explicit disposable PostgreSQL test database."""
-    raw_url = os.environ.get("TEST_DATABASE_URL")
-    if not raw_url:
-        pytest.fail("Demo-user tests require TEST_DATABASE_URL.")
-    url = make_url(raw_url)
-    if not url.database or not url.database.endswith("_test"):
-        pytest.fail("TEST_DATABASE_URL database name must end with '_test'.")
-
-    engine = create_engine(url)
-    with engine.connect() as connection:
-        transaction = connection.begin()
-        connection.execute(User.__table__.delete())
-        try:
-            yield connection
-        finally:
-            transaction.rollback()
-    engine.dispose()
+from sqlalchemy import Connection, func, select
 
 
 def test_demo_user_is_created_with_stable_identity_and_secure_hash(
