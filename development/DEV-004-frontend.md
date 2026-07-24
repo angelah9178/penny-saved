@@ -1,0 +1,650 @@
+# DEV-004 — Establish Frontend Application Foundation
+
+## Commit Tracker
+
+Change `[ ]` to `[x]` only after the commit's implementation and commit gate are complete.
+
+|  | Commit | Title | Depends on |
+|---|---|---|---|
+| &#91;x&#93; | [1](#commit-1--define-api-contract-types-and-query-keys) | Add frontend API contracts and query keys | — |
+| &#91;x&#93; | [2](#commit-2--add-the-credentialed-api-client) | Add the credentialed API client | Commit 1 |
+| &#91;x&#93; | [3](#commit-3--configure-tanstack-query-behavior) | Configure frontend query behavior | Commit 1 |
+| &#91;x&#93; | [4](#commit-4--add-common-request-state-components) | Add accessible request-state components | — |
+| &#91;x&#93; | [5](#commit-5--build-the-router-provider-tree-and-application-shell) | Add the router, providers, and application shell | Commits 3, 4 |
+| &#91;x&#93; | [6](#commit-6--add-msw-api-testing-and-the-development-proxy) | Add MSW API testing and the Vite proxy | Commits 2, 5 |
+| &#91;x&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-004 frontend foundation | Commits 1–6 |
+
+## Objective
+
+Build the frontend foundation in small, independently testable commits. DEV-004 provides
+shared API contracts, stable query keys, a credentialed API client, predictable TanStack
+Query behavior, reusable request states, a React Router application shell, an application
+provider tree, MSW-backed testing utilities, and the Vite development proxy.
+
+Complete and commit each section in order. Every commit must leave the frontend checks
+green before work begins on the next commit. Run frontend commands from `frontend/`.
+
+## Commit 1 — Define API Contract Types and Query Keys
+
+The API is the connection between the React frontend and the FastAPI backend. The
+frontend sends HTTP requests to API endpoints, the backend performs the required work
+and communicates with PostgreSQL when necessary, and the backend returns JSON responses
+that the frontend can display.
+
+An API contract is the agreed shape of those requests and responses. It defines details
+such as endpoint payload fields, response fields, allowed status values, nullable values,
+timestamp formats, and how money is represented. For example, the contract says that an
+entry uses `item_name`, sends its price as integer `price_cents`, and has a status such as
+`waiting`, `saved`, or `purchased`.
+
+Commit 1 records those approved API contracts as TypeScript types. In other words, it
+defines what data the frontend is allowed to send to the backend and what data the
+frontend should expect to receive. TypeScript can then detect incorrect field names,
+missing required values, or unsupported values while the frontend is being developed.
+The actual network connection and HTTP request behavior are added by the API client in
+Commit 2.
+
+The frontend and backend communicate through JSON contracts. TypeScript types describe
+those contracts so components, query hooks, and API calls agree on field names and
+allowed values. These types preserve the backend's `snake_case` names and represent money
+as integer cents. They do not translate API fields into a second frontend-only model.
+
+DEV-004 defines the shared contract vocabulary needed by later features:
+
+- Users and authentication payloads.
+- Entries, dashboard buckets, and entry mutation payloads.
+- Statistics ranges and summaries.
+- Opportunity-cost examples and their mutation payloads.
+- The standard success wrappers and error envelope.
+
+The types describe data; they do not validate untrusted responses at runtime or implement
+product behavior. The backend remains responsible for authorization, entry eligibility,
+dashboard grouping, statistics, and lifecycle transitions.
+
+TanStack Query identifies cached server data with query keys. Central factories prevent
+different features from accidentally using different keys for the same resource. They
+also make invalidation precise after later mutations.
+
+The stable key families are:
+
+```text
+['auth', 'me']
+['entries', 'dashboard']
+['entries', 'detail', entryId]
+['stats', 'summary', range]
+['opportunity-costs', 'list']
+```
+
+Key factories return readonly tuples so TypeScript preserves their exact shape. Tests
+assert the public shapes because changing a key silently would split or strand cached
+data.
+
+Suggested commit message:
+
+```text
+Add frontend API contracts and query keys
+```
+
+Implement:
+
+- Add `frontend/src/types/api.ts`.
+- Define API enums, entities, request payloads, response wrappers, and the standard error
+  envelope.
+- Preserve API `snake_case`, UTC timestamp strings, nullable comments, and integer-cent
+  money fields.
+- Add `frontend/src/lib/queryKeys.ts`.
+- Define readonly factories for auth, dashboard, entry detail, statistics range, and
+  opportunity-cost list keys.
+- Add focused compile-time coverage where useful and runtime tests for exact query-key
+  shapes.
+- Create the feature-oriented directories for `auth`, `entries`, `stats`, and
+  `opportunity-costs` without adding feature UI.
+
+Commit gate:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck
+npm test -- src/lib/queryKeys.test.ts
+```
+
+## Commit 2 — Add the Credentialed API Client
+
+Commit 2 builds the actual communication helper between the frontend and backend. In
+Commit 1, we described the data that can travel between them. Commit 2 creates the
+mechanism that sends and receives that data.
+
+The overall flow is:
+
+```text
+Frontend feature
+      ↓ asks the API client for data or requests a change
+API client
+      ↓ sends an HTTP request
+FastAPI backend
+      ↓ performs the work and returns a response
+API client
+      ↓ receives and interprets the response
+Frontend feature
+      ↓ displays the result
+```
+
+The API client gives all frontend features one consistent way to call the backend.
+Without it, each feature would have to repeat URL construction, cookie behavior, headers,
+empty-response handling, and error parsing.
+
+Add a generic `apiFetch<T>()` wrapper. Its base URL comes from
+`VITE_API_BASE_URL` and defaults to `/api`. The default keeps production requests
+same-origin and works with the development proxy added in Commit 6. The client joins the
+base URL and endpoint path safely so callers do not need to know whether the configured
+base ends with a slash.
+
+Every request sends:
+
+```text
+credentials: include
+Accept: application/json
+```
+
+`credentials: "include"` allows the browser to send the backend's `HttpOnly` session
+cookie. The JavaScript application never reads, stores, or logs that cookie. A JSON
+`Content-Type` header is added only when a request has a JSON body, allowing bodyless
+requests to remain bodyless.
+
+Successful JSON responses are parsed into the requested TypeScript type. A `204 No
+Content` response returns without attempting JSON parsing.
+
+Backend failures use the standard envelope:
+
+```json
+{
+  "error": {
+    "code": "machine_readable_code",
+    "message": "Safe user-facing summary.",
+    "fields": {
+      "optional_field": "Optional field-specific error."
+    }
+  }
+}
+```
+
+The client converts a valid envelope into an `ApiError` containing the HTTP `status`,
+stable `code`, safe `message`, and optional `fields`. Invalid JSON, a malformed error
+body, and a network failure receive predictable safe fallbacks rather than leaking raw
+browser or server details into UI components. The client also passes an `AbortSignal`
+through to `fetch`, allowing TanStack Query to cancel work that is no longer needed.
+
+DEV-004 does not implement the global `401` session-expiry redirect. Authentication
+bootstrap, safe return paths, auth-cache clearing, and route guards belong together in
+DEV-009. The client must still preserve the `401` status and error code so that work can
+be added without replacing the request layer.
+
+Suggested commit message:
+
+```text
+Add credentialed frontend API client
+```
+
+Implement:
+
+- Add `frontend/src/api/errors.ts` with `ApiError` and safe fallback behavior.
+- Add `frontend/src/api/client.ts` with the generic `apiFetch<T>()` wrapper.
+- Read `VITE_API_BASE_URL`, falling back to `/api`.
+- Always send credentials and an `Accept` header.
+- Add JSON `Content-Type` only for JSON request bodies.
+- Handle successful JSON and `204` responses.
+- Parse the standard backend error envelope without trusting malformed response data.
+- Forward caller headers, HTTP methods, and `AbortSignal` without weakening required
+  defaults.
+- Add focused tests for URL construction, headers, credentials, JSON, `204`, abort
+  signals, network failures, and valid or malformed error responses.
+
+Commit gate:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck
+npm test -- src/api
+```
+
+## Commit 3 — Configure TanStack Query Behavior
+
+TanStack Query manages the data that the frontend receives from the backend. The API
+client from Commit 2 knows how to send and receive one individual request. TanStack Query
+uses that API client while coordinating the many requests, cached results, loading
+states, errors, retries, and refreshes needed across the whole application.
+
+The overall flow is:
+
+```text
+React component
+      ↓ asks TanStack Query for data
+TanStack Query
+      ↓ checks whether fresh data is already cached
+API client
+      ↓ sends an individual request when needed
+FastAPI backend
+      ↓ performs the work and returns data
+TanStack Query
+      ↓ stores and shares the result
+React component
+      ↓ displays the data
+```
+
+TanStack Query owns remote server state. A shared `QueryClient` gives the application one
+place to define when requests are considered stale and which failures may be retried.
+Components and feature hooks can then focus on their data rather than recreating global
+network policy.
+
+One of TanStack Query's most important benefits is preventing unnecessary duplicate
+requests for the same data. If multiple components request dashboard entries using the
+same query key, TanStack Query can make one API request, cache the result, and share it
+with every component that needs it. This reduces repeated frontend code, network traffic,
+and backend/database work.
+
+TanStack Query does not normally combine unrelated requests into one larger request.
+Entries and statistics still use their separate backend endpoints. It manages those
+requests together while sharing results only when components are asking for the same
+query.
+
+Queries may retry temporary network failures and `5xx` responses at most twice with a
+short backoff. Retrying a `4xx` response is normally wasteful because the same request
+will continue to be unauthorized, invalid, missing, or in conflict. Mutations are not
+retried automatically because repeating a write could create duplicate or confusing
+effects.
+
+The query client should also:
+
+- Avoid surprising refetches while tests and initial feature work are being established.
+- Keep defaults small and explicit.
+- Allow feature hooks to override stale times such as the five-minute auth bootstrap and
+  roughly thirty-second dashboard data.
+- Be created once for the browser application, but freshly for each test.
+
+Expose a factory rather than only a module-level instance. Production can use one shared
+client while tests receive isolated caches that cannot leak data or errors between test
+cases.
+
+Suggested commit message:
+
+```text
+Configure frontend query behavior
+```
+
+Implement:
+
+- Add `frontend/src/app/queryClient.ts`.
+- Export a `createQueryClient()` factory with explicit query and mutation defaults.
+- Retry only eligible query failures, at most twice.
+- Do not retry `ApiError` instances representing `4xx` responses.
+- Disable automatic mutation retries.
+- Add deterministic tests for query retry decisions, retry limits, and isolated client
+  creation.
+
+Commit gate:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck
+npm test -- src/app/queryClient.test.ts
+```
+
+## Commit 4 — Add Common Request-State Components
+
+Commit 4 communicates a request's current state to the user. When the frontend requests
+data, the result is not available immediately. The request may be loading, may fail, may
+succeed without returning any data, or may succeed with data to display.
+
+These components are visible parts of the frontend. Users can see a loading indicator
+while they wait, an error message and optional retry button if the request fails, an
+empty-state message when no results exist, or the normal content when data is returned.
+
+Commit 4 adds four reusable components for these common states:
+
+- `Loading` tells the user that data is being retrieved.
+- `ErrorAlert` explains that something failed and can provide a retry button.
+- `EmptyState` explains that the request succeeded but there is nothing to display.
+- `PageShell` provides the shared page structure around the request content.
+
+For example, the dashboard will use them like this:
+
+```text
+Entries are loading       → Loading
+Request failed            → ErrorAlert
+Request returned no items → EmptyState
+Entries were returned     → Entry list
+```
+
+The important distinction is between an error and an empty result. If the backend cannot
+be reached, the application must explain that something went wrong. It must not display
+“You have no entries,” because the frontend does not know whether there are no entries or
+whether it simply failed to retrieve them.
+
+These components keep loading, error, empty, and page behavior consistent across login,
+dashboard, statistics, entries, and opportunity-cost features. TanStack Query reports
+the request state, and each page chooses the appropriate component to communicate that
+state. The components themselves do not make API requests or decide business rules.
+
+The components use accessible status and alert semantics, real keyboard-operable
+buttons, meaningful page landmarks, and responsive base styles.
+
+Suggested commit message:
+
+```text
+Add accessible frontend request states
+```
+
+Implement:
+
+- Add reusable `Loading`, `ErrorAlert`, `EmptyState`, and `PageShell` components under
+  `frontend/src/components/`.
+- Use native semantic elements and appropriate live-region roles.
+- Support an optional retry callback with a real `<button>`.
+- Keep component props narrow and independent of TanStack Query.
+- Add behavior-focused Testing Library tests using accessible roles and names.
+- Establish responsive base styles, visible focus treatment, readable content width, and
+  reduced-motion handling.
+
+Commit gate:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck
+npm test -- src/components
+```
+
+## Commit 5 — Build the Router, Provider Tree, and Application Shell
+
+The provider tree assembles application-wide infrastructure around the routed UI. It
+keeps startup wiring in one place and prevents pages from creating their own router or
+query cache.
+
+The provider tree shares common tools with every page and component beneath it, so those
+tools do not have to be manually connected to each component. For DEV-004, it supplies
+React Router and TanStack Query from one central place.
+
+The application shell provides the shared visual structure that users see around each
+page, such as the “A Penny Saved” header, main content area, page width, spacing, and
+skip-to-content link. The router changes the page displayed inside that shell without
+reloading the whole application. Together, the provider tree, router, and application
+shell keep frontend behavior and appearance consistent.
+
+The initial tree is:
+
+```text
+StrictMode
+└── AppProviders
+    ├── QueryClientProvider
+    └── RouterProvider
+        └── PageShell
+            └── Route content
+```
+
+React Router owns location and route rendering. TanStack Query owns server state. The
+application entry point creates the browser router and one browser query client, then
+passes them into the provider tree. Tests can instead provide a memory router and a fresh
+query client.
+
+The router decides which page to display based on the browser URL. It also lets users
+move between frontend pages without reloading the entire application. Later, navigating
+from `/login` to `/dashboard`, for example, will replace the displayed page content while
+keeping the React application running.
+
+DEV-004 adds only foundation routes:
+
+- `/` renders the minimal accessible home placeholder inside the application shell.
+- `*` renders a not-found page with a link back home.
+
+The product routes, lazy feature pages, auth bootstrap, protected routes, and guest-only
+routes are deliberately deferred until their owning DEV tasks. Adding fake
+authentication behavior here would be thrown away or could briefly render the wrong
+screen during session restoration.
+
+Suggested commit message:
+
+```text
+Add frontend router and provider shell
+```
+
+Implement:
+
+- Add `frontend/src/app/providers.tsx`.
+- Add `frontend/src/routes/router.tsx`.
+- Refactor `frontend/src/app/App.tsx` into the routed application layout.
+- Update `frontend/src/main.tsx` to create and render the browser router and query client.
+- Add the minimal home and not-found route content.
+- Allow tests to use a memory router and isolated query client without browser-global
+  coupling.
+- Add router-level tests for the provider tree, home route, unknown routes, navigation,
+  and semantic landmarks.
+
+Commit gate:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck
+npm test -- src/app src/routes
+npm run build
+```
+
+## Commit 6 — Add MSW API Testing and the Development Proxy
+
+Mock Service Worker (MSW) lets frontend tests pretend that a backend API exists. It
+intercepts the frontend's normal API requests and returns controlled mock responses
+without requiring FastAPI or PostgreSQL to be running.
+
+Tests can ask MSW to return successful data, an empty response, a validation error, a
+network failure, or a temporary server error. This verifies that the frontend displays
+the correct content, error message, and retry behavior for each situation.
+
+MSW makes frontend API tests:
+
+- Fast because they do not wait for a real backend or database.
+- Repeatable because every test controls its exact response.
+- Independent of FastAPI and PostgreSQL availability.
+- Able to reproduce uncommon failures reliably.
+- Focused on visible user behavior instead of internal implementation details.
+
+Mock Service Worker intercepts requests at the network boundary. Components and
+integration tests call the real `apiFetch()` client while MSW supplies controlled API
+responses. This exercises URLs, headers, credentials, parsing, query behavior, and UI
+states without asserting internal function calls.
+
+Create one test server with strict unhandled-request behavior. Each test may add only the
+handlers it needs; handlers are reset after the test so state cannot leak. A shared
+`renderWithApp()` helper supplies a fresh memory router and query client while preserving
+Testing Library's normal user-facing queries.
+
+The test lifecycle is:
+
+```text
+beforeAll  → start the MSW server
+afterEach  → reset handlers and clear isolated state
+afterAll   → stop the MSW server
+```
+
+Commit 6 also configures Vite to proxy development requests beginning with `/api` to the
+local FastAPI server. The browser still calls `/api`, which matches production's
+same-origin shape and avoids hard-coding a development server URL in application code.
+The proxy is development tooling only; it does not weaken the backend CORS or cookie
+configuration.
+
+Suggested commit message:
+
+```text
+Add MSW frontend test foundation and API proxy
+```
+
+Implement:
+
+- Add `frontend/src/test/server.ts` with the MSW Node server.
+- Add `frontend/src/test/handlers.ts` for shared baseline handlers or handler factories.
+- Add `frontend/src/test/render.tsx` with a fresh query client and memory router per
+  render.
+- Extend `frontend/src/test/setup.ts` to start, reset, and stop MSW with unhandled
+  requests treated as test failures.
+- Move API client coverage to MSW where it improves request-boundary confidence.
+- Prove credentials are included and the standard backend error envelope becomes
+  `ApiError`.
+- Prove routed UI can render loading, success, retryable error, and empty states from
+  mocked API behavior without implementation-detail assertions.
+- Add the Vite `/api` development proxy targeting the local backend at
+  `http://127.0.0.1:8000`.
+- Keep the target configurable only if the committed environment design requires it; do
+  not expose secrets through `VITE_` variables.
+
+Commit gate:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+## Commit 7 — Document and Verify the Completed Foundation
+
+Suggested commit message:
+
+```text
+Document DEV-004 frontend foundation
+```
+
+Complete:
+
+- Document frontend startup, the local backend proxy, tests, and troubleshooting.
+- Record what DEV-004 achieved, how it was verified, and what remains out of scope.
+- Mark DEV-004 complete in `development/0-development-plan.md` only after every check
+  passes.
+- Update this commit tracker only as each commit and gate is completed.
+- Confirm local environment files, coverage, build output, caches, and other generated
+  artifacts are not tracked.
+
+Final gate:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run build
+git diff --check
+git status --short
+```
+
+## Out of Scope
+
+- Signup, login, logout, session bootstrap, and route guards (DEV-009).
+- Dashboard entry lists and feature-specific query hooks (DEV-011).
+- Entry create, edit, and delete flows (DEV-012).
+- Check-in and comment-editing experiences (DEV-014/DEV-015).
+- Statistics and opportunity-cost feature UI (DEV-018/DEV-019).
+- Complete shared component library, responsive polish, and accessibility audit
+  (DEV-020).
+- Continuous integration and combined root quality commands (DEV-006).
+- Runtime validation of every successful backend response unless a later feature
+  explicitly requires it.
+
+## Implementation Record
+
+### Overview
+
+DEV-004 established the reusable React application foundation. It added shared
+TypeScript API contracts, stable TanStack Query keys, a credentialed API client,
+application-wide query behavior, accessible request-state components, a provider tree,
+React Router application shell, MSW-backed test utilities, and the Vite development
+proxy.
+
+The frontend now starts through one application root that creates the browser router and
+query client. Routed pages render inside the shared page shell, while tests can create
+isolated memory routers and query caches.
+
+### What It Achieved
+
+- Frontend request and response types preserve the backend's `snake_case`, UTC timestamp,
+  nullable comment, enum, and integer-cent contracts.
+- Stable query-key factories identify auth, dashboard, entry-detail, statistics, and
+  opportunity-cost cache data consistently.
+- One API client applies the configured base URL, includes session-cookie credentials,
+  sends JSON safely, handles `204`, preserves cancellation, and converts standard error
+  envelopes into predictable `ApiError` instances.
+- TanStack Query shares cached server data, avoids duplicate requests for the same key,
+  retries only eligible query failures at most twice, and never automatically retries
+  mutations.
+- Visible loading, error, retry, empty, and page-shell components use accessible
+  semantics and responsive base styles.
+- The router renders home and not-found pages inside one persistent shell without a
+  full-page reload.
+- MSW tests exercise the real API client with controlled backend behavior, strict
+  unhandled-request detection, isolated handlers, routers, and query caches.
+- Vite forwards local `/api` development requests to FastAPI at
+  `http://127.0.0.1:8000`.
+
+### Usage and Safety
+
+Run the frontend from `frontend/`:
+
+```text
+npm ci
+npm run dev
+```
+
+Vite normally serves the application at `http://localhost:5173`. Start FastAPI separately
+at `http://127.0.0.1:8000` when real API behavior is needed. The committed
+`VITE_API_BASE_URL=/api` uses the Vite development proxy; the API client falls back to
+the same `/api` base when the variable is absent.
+
+All `VITE_` variables are browser-visible and must never contain secrets. The API client
+uses `credentials: "include"` so the browser can send session cookies, but frontend
+JavaScript does not read or persist `HttpOnly` cookies, passwords, or session tokens.
+Successful response types provide compile-time guidance; they do not replace backend
+validation or make the frontend authoritative for business rules.
+
+### Verification
+
+The final DEV-004 verification includes:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run build
+git diff --check
+```
+
+Focused coverage verifies API contract keys, request URLs, headers, credentials, JSON and
+`204` handling, standard and malformed errors, cancellation, query retry policy, cache
+isolation, accessible request states, provider access, router navigation, MSW request
+boundaries, and visible loading, success, empty, error, and retry behavior.
+
+Verification performed for Commit 7:
+
+- Prettier formatting and ESLint checks passed without warnings.
+- Strict TypeScript checking passed.
+- All 61 frontend tests passed across 10 test files.
+- Vite completed the production build successfully.
+- The development server started successfully at `http://127.0.0.1:5173`.
+- `git diff --check` passed.
+- No local `.env`, dependency directory, build output, coverage output, TypeScript cache,
+  log, database, or dump artifact is tracked.
+
+### Limitations and Follow-up
+
+- DEV-006 must add combined root quality commands and continuous integration.
+- DEV-009 must add signup, login, logout, session restoration, `401` expiry behavior, and
+  guest/protected route guards.
+- DEV-011 and DEV-012 must replace the home placeholder with dashboard and entry
+  management features.
+- DEV-014, DEV-015, DEV-018, and DEV-019 must add check-in, comment, statistics, and
+  opportunity-cost screens.
+- DEV-020 must complete the shared component library and full responsive/accessibility
+  hardening after the feature screens exist.
+- Successful API payloads are typed at compile time but are not runtime-validated by
+  DEV-004.
