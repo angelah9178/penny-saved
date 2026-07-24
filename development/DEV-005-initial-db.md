@@ -6,7 +6,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 
 |  | Commit | Title | Depends on |
 |---|---|---|---|
-| &#91; &#93; | [1](#commit-1--add-the-shared-orm-foundation-and-user-model) | Add ORM foundation and user model | — |
+| &#91;x&#93; | [1](#commit-1--add-the-shared-orm-foundation-and-user-model) | Add ORM foundation and user model | — |
 | &#91; &#93; | [2](#commit-2--add-the-session-model) | Add secure session persistence | Commit 1 |
 | &#91; &#93; | [3](#commit-3--add-the-entry-model) | Add impulse-purchase entry persistence | Commit 1 |
 | &#91; &#93; | [4](#commit-4--add-the-opportunity-cost-example-model) | Add opportunity-cost persistence | Commit 1 |
@@ -91,8 +91,32 @@ pytest tests/models/test_user.py
 
 ## Commit 2 — Add the Session Model
 
-This commit adds persisted login sessions owned by a user. It stores only a SHA-256 token
-digest and the timestamps needed to resolve and expire a session safely.
+This commit creates the database representation of login sessions. A session records
+which user is logged in, stores only a secure SHA-256 hash of the session token, and
+tracks when the session was created, when it expires, and when it was last used. These
+timestamps provide the information needed to determine how long a user stays logged in
+and to support later session-refresh and cleanup rules.
+
+The eventual login flow will be:
+
+```text
+User logs in
+    ↓
+Backend creates a random session token
+    ↓
+Database stores only the token's SHA-256 hash
+    ↓
+Browser receives the raw token in a secure HttpOnly cookie
+    ↓
+Future requests use the cookie to identify the session
+    ↓
+Session remains valid until logout, revocation, or expiration
+```
+
+The `expires_at` value will later be calculated from the creation time and the configured
+`SESSION_TTL_SECONDS`. The `last_used_at` value records recent activity, but it does not
+automatically extend the session lifetime; DEV-008 will define and implement the exact
+refresh behavior.
 
 Commit 1 established who owns data; Commit 2 adds short-lived authentication state for
 that owner. It is intentionally limited to storage rules—token generation, cookies,
