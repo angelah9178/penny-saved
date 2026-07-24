@@ -26,6 +26,24 @@ green before work begins on the next commit. Run frontend commands from `fronten
 
 ## Commit 1 — Define API Contract Types and Query Keys
 
+The API is the connection between the React frontend and the FastAPI backend. The
+frontend sends HTTP requests to API endpoints, the backend performs the required work
+and communicates with PostgreSQL when necessary, and the backend returns JSON responses
+that the frontend can display.
+
+An API contract is the agreed shape of those requests and responses. It defines details
+such as endpoint payload fields, response fields, allowed status values, nullable values,
+timestamp formats, and how money is represented. For example, the contract says that an
+entry uses `item_name`, sends its price as integer `price_cents`, and has a status such as
+`waiting`, `saved`, or `purchased`.
+
+Commit 1 records those approved API contracts as TypeScript types. In other words, it
+defines what data the frontend is allowed to send to the backend and what data the
+frontend should expect to receive. TypeScript can then detect incorrect field names,
+missing required values, or unsupported values while the frontend is being developed.
+The actual network connection and HTTP request behavior are added by the API client in
+Commit 2.
+
 The frontend and backend communicate through JSON contracts. TypeScript types describe
 those contracts so components, query hooks, and API calls agree on field names and
 allowed values. These types preserve the backend's `snake_case` names and represent money
