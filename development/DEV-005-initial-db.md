@@ -9,7 +9,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [1](#commit-1--add-the-shared-orm-foundation-and-user-model) | Add ORM foundation and user model | — |
 | &#91;x&#93; | [2](#commit-2--add-the-session-model) | Add secure session persistence | Commit 1 |
 | &#91;x&#93; | [3](#commit-3--add-the-entry-model) | Add impulse-purchase entry persistence | Commit 1 |
-| &#91; &#93; | [4](#commit-4--add-the-opportunity-cost-example-model) | Add opportunity-cost persistence | Commit 1 |
+| &#91;x&#93; | [4](#commit-4--add-the-opportunity-cost-example-model) | Add opportunity-cost persistence | Commit 1 |
 | &#91; &#93; | [5](#commit-5--configure-alembic-and-create-the-initial-migration) | Add Alembic and the initial schema migration | Commits 1–4 |
 | &#91; &#93; | [6](#commit-6--add-postgresql-schema-and-migration-tests) | Verify PostgreSQL constraints and migrations | Commit 5 |
 | &#91; &#93; | [7](#commit-7--document-and-verify-the-completed-database-foundation) | Document DEV-005 database foundation | Commits 1–6 |
@@ -230,12 +230,33 @@ pytest tests/models/test_entry.py
 ## Commit 4 — Add the Opportunity-Cost Example Model
 
 This commit adds user-owned examples that later translate saved money into relatable
-units. It stores the label, unit name, and bounded integer-cent value needed for those
-calculations.
+units. For example, a user could define coffee as `$5.00` per cup. If they later save
+`$20.00`, the application can describe that amount as four cups of coffee.
+
+Each database record stores:
+
+- The user who owns the example through `user_id`.
+- A descriptive label, such as `Coffee`.
+- A unit name, such as `cups`.
+- The value of one unit as integer cents.
+- Creation and update timestamps.
+
+The model ensures:
+
+- Labels and unit names cannot be blank.
+- The integer-cent value is positive and within the approved maximum.
+- `updated_at` cannot be earlier than `created_at`.
+- Deleting a user also deletes their opportunity-cost examples.
+- Every example remains connected to its owner.
+- The listing order remains stable when examples have equal creation times.
+- Duplicate labels remain allowed because similarly named examples may intentionally
+  have different units or values.
 
 This is the final model commit. It differs from entries because it represents reusable
 comparison settings rather than purchase lifecycle data, so duplicate labels are valid
-and stable creation order is more important than status-based indexing.
+and stable creation order is more important than status-based indexing. Commit 4 only
+defines database storage and safeguards; creating, editing, deleting, displaying, and
+calculating equivalents are implemented later in DEV-017–DEV-019.
 
 Suggested commit message:
 

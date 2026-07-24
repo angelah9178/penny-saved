@@ -14,6 +14,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.entry import ImpulsePurchaseEntry
+    from app.models.opportunity_cost_example import OpportunityCostExample
     from app.models.session import Session
 
 
@@ -46,6 +47,12 @@ class User(Base):
         passive_deletes=True,
     )
     entries: Mapped[list[ImpulsePurchaseEntry]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="raise",
+        passive_deletes=True,
+    )
+    opportunity_cost_examples: Mapped[list[OpportunityCostExample]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="raise",
