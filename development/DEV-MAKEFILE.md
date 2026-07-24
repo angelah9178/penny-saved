@@ -135,6 +135,11 @@ make db-upgrade
 make seed-demo
 ```
 
+On success it summarizes the guards and migration check performed, the demo records and
+edge cases reconciled, idempotent repeat behavior, the UTC seed time, and the explicitly
+local-only demo credentials. It does not print password hashes or database credentials,
+and it does not run automated tests; use `make check` for that.
+
 **When to run it:** Run it once when you first want representative local data, after
 resetting the local database, or whenever known demo records need to be restored. It is
 not limited to one run: repeated runs reconcile the same stable records without

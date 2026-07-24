@@ -388,6 +388,37 @@ def run_seed(
         engine.dispose()
 
 
+def format_seed_summary(result: SeedResult) -> str:
+    """Return a safe human-readable summary of one completed seed."""
+    return "\n".join(
+        (
+            "Demo seed completed successfully.",
+            "",
+            "Verified during this run:",
+            "  - Environment and database target passed the local safety guards.",
+            "  - Database migration heads match the checked-out Alembic heads.",
+            "  - The complete seed committed in one transaction.",
+            "",
+            "Seeded or reconciled:",
+            f"  - Demo users: {result.users} ({DEMO_USER_EMAIL})",
+            f"  - Demo password (local development only): {DEMO_USER_PASSWORD}",
+            f"  - Entries: {result.entries}",
+            "    - 4 waiting: 2 still waiting and 2 eligible for check-in",
+            "    - 4 saved across short, monthly, annual, and all-time ranges",
+            "    - 1 purchased",
+            f"  - Opportunity-cost examples: {result.opportunity_cost_examples}",
+            "    - Whole-unit, fractional-multiple, and less-than-one results",
+            "",
+            "Repeat behavior:",
+            "  - Stable UUIDs were reconciled, so rerunning does not create duplicates.",
+            "  - Manual and unrelated-user records were left unchanged.",
+            "",
+            f"Seed time (UTC): {result.seeded_at.isoformat()}",
+            "Automated tests were not run by this command; use `make check` to run them.",
+        )
+    )
+
+
 def main() -> int:
     """Run guarded demo seeding from the command line."""
     try:
@@ -396,12 +427,7 @@ def main() -> int:
         print(error, file=sys.stderr)
         return 1
 
-    print(
-        f"Demo seed complete for {DEMO_USER_EMAIL} "
-        f"(users={result.users}, entries={result.entries}, "
-        f"opportunity_cost_examples={result.opportunity_cost_examples}, "
-        f"seeded_at={result.seeded_at.isoformat()})."
-    )
+    print(format_seed_summary(result))
     return 0
 
 

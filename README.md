@@ -241,6 +241,13 @@ stable UUIDs identify the known records, repeated runs reconcile them instead of
 creating duplicates, and manually created or unrelated-user records are preserved. The
 entire seed runs in one transaction, so a failure rolls back all of its changes.
 
+After a successful run, the command prints a summary of the safety and migration checks
+it completed, the records and edge-case states it reconciled, its repeat behavior, and
+the UTC seed time. It also repeats the clearly labeled local-only demo email and
+password for convenience; it never prints a password hash or database credential.
+Seeding does not execute the automated test suite; run `make check` separately when
+code-quality and test verification are required.
+
 The command intentionally does not start PostgreSQL, apply migrations, install
 dependencies, or reset data. Before connecting, it refuses production and permits only
 a loopback development PostgreSQL target or an explicit test database ending in

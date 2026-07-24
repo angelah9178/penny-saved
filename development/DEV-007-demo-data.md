@@ -691,7 +691,7 @@ entries, and three opportunity-cost examples. The backend suite contains explici
 coverage for guards, password hashing, entry boundaries, opportunity-cost values,
 collisions, non-demo preservation, idempotency, and transaction rollback. Alembic
 reported no new upgrade operations. The completed clean-install gate passed 61
-frontend tests and 165 backend tests, plus formatting, linting, type checking, and
+frontend tests and 167 backend tests, plus formatting, linting, type checking, and
 production builds. The tracked-artifact audit found no local
 environment file, database dump, generated cache, real credential, or password hash.
 The published plaintext password is an intentional local-only demo credential, not a
