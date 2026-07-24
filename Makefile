@@ -17,7 +17,7 @@ POSTGRES_VOLUME := penny_saved_postgres_data
 	frontend-lint backend-lint lint \
 	frontend-typecheck typecheck \
 	frontend-test backend-test test \
-	frontend-build backend-build build check \
+	frontend-build backend-build build check clean \
 	db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision \
 	check-frontend check-backend check-backend-env check-docker check-alembic
 
@@ -131,6 +131,9 @@ check: ## Run all frontend and backend quality checks.
 	$(MAKE) typecheck
 	$(MAKE) test
 	$(MAKE) build
+
+clean: ## Remove generated build, coverage, bytecode, and tool-cache artifacts only.
+	./scripts/clean-generated.sh
 
 check-docker:
 	@command -v docker >/dev/null || { echo "Docker Engine with Compose v2 is required." >&2; exit 1; }

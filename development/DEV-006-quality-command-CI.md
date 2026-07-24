@@ -25,7 +25,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 |  | Commit | Title | Depends on |
 |---|---|---|---|
 | &#91;x&#93; | [1](#commit-1--add-the-root-quality-command-interface) | Add root quality commands | — |
-| &#91; &#93; | [2](#commit-2--add-guarded-generated-artifact-cleanup) | Add safe generated-artifact cleanup | Commit 1 |
+| &#91;x&#93; | [2](#commit-2--add-guarded-generated-artifact-cleanup) | Add safe generated-artifact cleanup | Commit 1 |
 | &#91; &#93; | [3](#commit-3--add-the-coordinated-local-development-command) | Add coordinated local development | Commit 1 |
 | &#91; &#93; | [4](#commit-4--add-frontend-and-backend-continuous-integration) | Add frontend and backend CI jobs | Commit 1 |
 | &#91; &#93; | [5](#commit-5--add-postgresql-migration-continuous-integration) | Add PostgreSQL migration CI | Commit 4 |
@@ -154,24 +154,51 @@ git diff --check
 
 ## Commit 2 — Add Guarded Generated-Artifact Cleanup
 
-Cleanup is useful when stale build output or caches affect a local result, but a broad
-recursive deletion command can destroy source code, local configuration, dependencies,
-migrations, or database data. This commit adds a deliberately narrow `make clean`
-contract.
+Commit 2 adds one safe cleanup command:
 
-Only known generated application artifacts are eligible for removal. Typical targets
-include frontend build and coverage output, Python bytecode, Pytest and Ruff caches,
-TypeScript incremental build metadata, and tool caches owned by this repository.
+```text
+make clean
+```
 
-The command must preserve:
+Development tools generate temporary files while formatting, testing, type-checking,
+and building the application. These files can become stale and occasionally cause
+confusing results. `make clean` gives contributors one command for removing generated
+project output and returning to a clean working state.
 
-- All application source and tests.
-- Alembic configuration and every migration revision.
-- `.env` files and committed `.env.example` templates.
-- The root `.venv` and `frontend/node_modules`.
-- Dependency manifests and lock files.
-- Docker containers, networks, named volumes, and database contents.
-- Git metadata and development documentation.
+The command may remove only known generated artifacts such as:
+
+- Frontend production build output under `frontend/dist/`.
+- Frontend test coverage reports under `frontend/coverage/`.
+- Python `__pycache__/` directories and `.pyc` bytecode files.
+- Pytest and Ruff caches.
+- TypeScript incremental build metadata.
+- Other explicitly identified tool caches owned by this repository.
+
+The important part of this commit is safety. `make clean` must never remove:
+
+- Frontend or backend source code.
+- Automated tests.
+- Alembic configuration or database migrations.
+- Local `.env` files or committed `.env.example` templates.
+- The root `.venv` or `frontend/node_modules`.
+- Dependency manifests or lock files.
+- Docker containers, networks, named volumes, or PostgreSQL data.
+- Git metadata or development documentation.
+
+Running cleanup repeatedly must remain safe:
+
+```text
+make clean
+make clean
+```
+
+The second run must succeed even when there is nothing left to remove. Automated tests
+will create disposable representative artifacts, run the cleanup behavior, and verify:
+
+```text
+Generated artifacts  → removed
+Important project files → preserved
+```
 
 The implementation must use explicit repository-relative paths and narrowly matched
 generated directory names. It must not use an unresolved environment variable, a broad

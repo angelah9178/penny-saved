@@ -32,6 +32,7 @@ def test_makefile_exposes_focused_and_combined_quality_targets() -> None:
         "backend-build",
         "build",
         "check",
+        "clean",
     }
     phony = makefile.split(".PHONY:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
 
@@ -67,3 +68,12 @@ def test_backend_build_uses_test_only_settings_without_starting_a_server() -> No
     assert "APP_ENV=test" in backend_build
     assert "create_app()" in backend_build
     assert "uvicorn" not in backend_build
+
+
+def test_clean_delegates_to_the_guarded_cleanup_script() -> None:
+    makefile = _makefile_text()
+    clean_recipe = makefile.split("\nclean: ##", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
+
+    assert "generated" in clean_recipe
+    assert "./scripts/clean-generated.sh" in clean_recipe
+    assert "rm " not in clean_recipe
