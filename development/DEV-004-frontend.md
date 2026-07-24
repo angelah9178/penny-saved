@@ -9,7 +9,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [1](#commit-1--define-api-contract-types-and-query-keys) | Add frontend API contracts and query keys | — |
 | &#91;x&#93; | [2](#commit-2--add-the-credentialed-api-client) | Add the credentialed API client | Commit 1 |
 | &#91;x&#93; | [3](#commit-3--configure-tanstack-query-behavior) | Configure frontend query behavior | Commit 1 |
-| &#91;&#160;&#93; | [4](#commit-4--add-common-request-state-components) | Add accessible request-state components | — |
+| &#91;x&#93; | [4](#commit-4--add-common-request-state-components) | Add accessible request-state components | — |
 | &#91;&#160;&#93; | [5](#commit-5--build-the-router-provider-tree-and-application-shell) | Add the router, providers, and application shell | Commits 3, 4 |
 | &#91;&#160;&#93; | [6](#commit-6--add-msw-api-testing-and-the-development-proxy) | Add MSW API testing and the Vite proxy | Commits 2, 5 |
 | &#91;&#160;&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-004 frontend foundation | Commits 1–6 |
@@ -294,25 +294,42 @@ npm test -- src/app/queryClient.test.ts
 
 ## Commit 4 — Add Common Request-State Components
 
-Every server-backed page needs to distinguish loading, failure, and genuinely empty data.
-Shared components make those states consistent and prevent a network failure from being
-presented as an empty list.
+Commit 4 communicates a request's current state to the user. When the frontend requests
+data, the result is not available immediately. The request may be loading, may fail, may
+succeed without returning any data, or may succeed with data to display.
 
-Add small reusable primitives:
+These components are visible parts of the frontend. Users can see a loading indicator
+while they wait, an error message and optional retry button if the request fails, an
+empty-state message when no results exist, or the normal content when data is returned.
 
-- `Loading` communicates that work is in progress with an accessible status.
-- `ErrorAlert` presents a safe message and an optional retry action.
-- `EmptyState` explains that a successful request returned no relevant data.
-- `PageShell` supplies the initial landmark and readable content structure.
+Commit 4 adds four reusable components for these common states:
 
-These are presentation components. They do not import the API client, inspect query
-caches, or decide which business state applies. Feature pages choose the correct state
-from their query result and pass narrow typed props.
+- `Loading` tells the user that data is being retrieved.
+- `ErrorAlert` explains that something failed and can provide a retry button.
+- `EmptyState` explains that the request succeeded but there is nothing to display.
+- `PageShell` provides the shared page structure around the request content.
 
-The initial shell needs meaningful landmarks, ordered headings, visible keyboard focus,
-and a layout that works at 320px without horizontal page scrolling. It should respect
-reduced-motion preferences and leave space for later navigation and feature content
-without pretending those features already exist.
+For example, the dashboard will use them like this:
+
+```text
+Entries are loading       → Loading
+Request failed            → ErrorAlert
+Request returned no items → EmptyState
+Entries were returned     → Entry list
+```
+
+The important distinction is between an error and an empty result. If the backend cannot
+be reached, the application must explain that something went wrong. It must not display
+“You have no entries,” because the frontend does not know whether there are no entries or
+whether it simply failed to retrieve them.
+
+These components keep loading, error, empty, and page behavior consistent across login,
+dashboard, statistics, entries, and opportunity-cost features. TanStack Query reports
+the request state, and each page chooses the appropriate component to communicate that
+state. The components themselves do not make API requests or decide business rules.
+
+The components use accessible status and alert semantics, real keyboard-operable
+buttons, meaningful page landmarks, and responsive base styles.
 
 Suggested commit message:
 
