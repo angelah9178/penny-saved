@@ -6,8 +6,8 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 
 |  | Commit | Title | Depends on |
 |---|---|---|---|
-| &#91;&#160;&#93; | [1](#commit-1--define-api-contract-types-and-query-keys) | Add frontend API contracts and query keys | — |
-| &#91;&#160;&#93; | [2](#commit-2--add-the-credentialed-api-client) | Add the credentialed API client | Commit 1 |
+| &#91;x&#93; | [1](#commit-1--define-api-contract-types-and-query-keys) | Add frontend API contracts and query keys | — |
+| &#91;x&#93; | [2](#commit-2--add-the-credentialed-api-client) | Add the credentialed API client | Commit 1 |
 | &#91;&#160;&#93; | [3](#commit-3--configure-tanstack-query-behavior) | Configure frontend query behavior | Commit 1 |
 | &#91;&#160;&#93; | [4](#commit-4--add-common-request-state-components) | Add accessible request-state components | — |
 | &#91;&#160;&#93; | [5](#commit-5--build-the-router-provider-tree-and-application-shell) | Add the router, providers, and application shell | Commits 3, 4 |
@@ -110,6 +110,25 @@ npm test -- src/lib/queryKeys.test.ts
 ```
 
 ## Commit 2 — Add the Credentialed API Client
+
+Commit 2 builds the actual communication helper between the frontend and backend. In
+Commit 1, we described the data that can travel between them. Commit 2 creates the
+mechanism that sends and receives that data.
+
+The overall flow is:
+
+```text
+Frontend feature
+      ↓ asks the API client for data or requests a change
+API client
+      ↓ sends an HTTP request
+FastAPI backend
+      ↓ performs the work and returns a response
+API client
+      ↓ receives and interprets the response
+Frontend feature
+      ↓ displays the result
+```
 
 The API client gives all frontend features one consistent way to call the backend.
 Without it, each feature would have to repeat URL construction, cookie behavior, headers,
