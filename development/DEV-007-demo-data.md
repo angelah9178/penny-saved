@@ -173,10 +173,29 @@ git diff --check
 
 ## Commit 2 — Add the Deterministic Demo User
 
+**Status:** Complete.
+
 Commit 2 adds the stable identity that owns every later demo record. The demo account
 uses a fixed UUID and normalized, clearly labeled local-only email. Stable identity
 allows every seed run to find the same row without relying on a generated ID or a
 mutable display value.
+
+Only one demo user is created. It is a persistent local-development account, not a
+temporary automated-test user, so `make seed-demo` does not delete it when the command
+finishes. Later demo entries and opportunity-cost examples all belong to this same
+account. Each subsequent seed run finds and reconciles the existing user instead of
+creating a duplicate. The user remains until the local database is reset or the record
+is deliberately deleted.
+
+The fixed local-only credentials are:
+
+```text
+Email:    demo@penny-saved.local
+Password: PennySavedDemo!2026
+```
+
+These credentials are for local demonstration data only and must never be reused for a
+real account or production environment.
 
 The account must contain a real password hash, never plaintext:
 

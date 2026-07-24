@@ -7,19 +7,25 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from uuid import UUID
 
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import Connection, Engine, create_engine
+from sqlalchemy import Connection, Engine, create_engine, or_, select
 from sqlalchemy.engine import URL, make_url
 
 from app.core.config import AppEnvironment, Settings, get_settings
+from app.core.security import hash_password, verify_password
 from app.core.time import Clock, SystemClock, normalize_utc
+from app.models.user import User
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 ALEMBIC_CONFIG_PATH = BACKEND_ROOT / "alembic.ini"
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+DEMO_USER_ID = UUID("00000000-0000-4000-8000-000000000007")
+DEMO_USER_EMAIL = "demo@penny-saved.local"
+DEMO_USER_PASSWORD = "PennySavedDemo!2026"
 
 
 class SeedSafetyError(RuntimeError):
@@ -85,11 +91,60 @@ def require_migration_head(
 
 
 def seed_demo(
-    _connection: Connection,
+    connection: Connection,
     clock: Clock,
 ) -> SeedResult:
-    """Return the empty foundation result until later commits add demo records."""
-    return SeedResult(seeded_at=normalize_utc(clock.now()))
+    """Reconcile the persistent demo user and return seed counts."""
+    seeded_at = normalize_utc(clock.now())
+    reconcile_demo_user(connection, seeded_at=seeded_at)
+    return SeedResult(seeded_at=seeded_at, users=1)
+
+
+def reconcile_demo_user(connection: Connection, *, seeded_at: datetime) -> None:
+    """Create or safely reconcile the one known demo account."""
+    users = User.__table__
+    matching_rows = (
+        connection.execute(
+            select(users.c.id, users.c.email, users.c.password_hash).where(
+                or_(users.c.id == DEMO_USER_ID, users.c.email == DEMO_USER_EMAIL)
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    if not matching_rows:
+        connection.execute(
+            users.insert().values(
+                id=DEMO_USER_ID,
+                email=DEMO_USER_EMAIL,
+                password_hash=hash_password(DEMO_USER_PASSWORD),
+                created_at=seeded_at,
+                updated_at=seeded_at,
+            )
+        )
+        return
+
+    if len(matching_rows) != 1:
+        raise SeedSafetyError(
+            "Refusing demo seed: the demo UUID and email belong to different users."
+        )
+
+    demo_user = matching_rows[0]
+    if demo_user["id"] != DEMO_USER_ID or demo_user["email"] != DEMO_USER_EMAIL:
+        raise SeedSafetyError(
+            "Refusing demo seed: the demo UUID or email belongs to an unrelated user."
+        )
+
+    if not verify_password(DEMO_USER_PASSWORD, demo_user["password_hash"]):
+        connection.execute(
+            users.update()
+            .where(users.c.id == DEMO_USER_ID)
+            .values(
+                password_hash=hash_password(DEMO_USER_PASSWORD),
+                updated_at=seeded_at,
+            )
+        )
 
 
 def run_seed(
@@ -121,7 +176,7 @@ def main() -> int:
         return 1
 
     print(
-        "Demo seed foundation complete "
+        f"Demo seed complete for {DEMO_USER_EMAIL} "
         f"(users={result.users}, entries={result.entries}, "
         f"opportunity_cost_examples={result.opportunity_cost_examples}, "
         f"seeded_at={result.seeded_at.isoformat()})."
