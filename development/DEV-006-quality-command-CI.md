@@ -29,7 +29,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [3](#commit-3--add-the-coordinated-local-development-command) | Add coordinated local development | Commit 1 |
 | &#91;x&#93; | [4](#commit-4--add-frontend-and-backend-continuous-integration) | Add frontend and backend CI jobs | Commit 1 |
 | &#91;x&#93; | [5](#commit-5--add-postgresql-migration-continuous-integration) | Add PostgreSQL migration CI | Commit 4 |
-| &#91; &#93; | [6](#commit-6--document-and-verify-the-completed-quality-workflow) | Document DEV-006 quality and CI workflow | Commits 1–5 |
+| &#91;x&#93; | [6](#commit-6--document-and-verify-the-completed-quality-workflow) | Document DEV-006 quality and CI workflow | Commits 1–5 |
 
 ## Objective
 
@@ -724,8 +724,7 @@ no local environment file, virtual environment, dependency directory, database d
 coverage output, build output, bytecode, or tool cache committed.
 
 The user confirmed that the `frontend`, `backend`, and `migrations` GitHub Actions jobs
-were green for Commit 5. Record the final Commit 6 run results here after the
-documentation commit is pushed and its three jobs pass.
+were green. DEV-006 was then marked complete in the master development tracker.
 
 ### Limitations and Follow-up
 

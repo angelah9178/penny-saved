@@ -19,7 +19,7 @@ POSTGRES_VOLUME := penny_saved_postgres_data
 	frontend-test backend-test test \
 	frontend-build backend-build build check clean \
 	frontend-dev backend-dev dev \
-	db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision \
+	db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision seed-demo \
 	check-frontend check-backend check-backend-env check-docker check-alembic
 
 help: ## List available development commands.
@@ -189,3 +189,6 @@ db-revision: check-alembic ## Create a reviewed migration: make db-revision mess
 	@$(LOCAL_DB_GUARD) "migration revision creation"
 	@test -n "$(message)" || { echo "Usage: make db-revision message=\"describe_change\"" >&2; exit 1; }
 	cd backend && $(ALEMBIC) revision --autogenerate -m "$(message)"
+
+seed-demo: check-alembic ## Seed guarded deterministic data into an already migrated local database.
+	cd backend && $(BACKEND_PYTHON) -m app.scripts.seed_demo
