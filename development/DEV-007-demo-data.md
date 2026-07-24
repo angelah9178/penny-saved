@@ -22,13 +22,13 @@
 
 Change `[ ]` to `[x]` only after the commit's implementation and commit gate are complete.
 
-|  | Commit | Title | Depends on |
-|---|---|---|---|
-| &#91;x&#93; | [1](#commit-1--add-the-guarded-demo-seed-foundation) | Add guarded demo-seed foundation | — |
-| &#91; &#93; | [2](#commit-2--add-the-deterministic-demo-user) | Add deterministic demo identity | Commit 1 |
-| &#91; &#93; | [3](#commit-3--seed-every-entry-and-statistics-state) | Add representative demo entries | Commit 2 |
-| &#91; &#93; | [4](#commit-4--seed-opportunity-costs-and-verify-idempotency) | Add opportunity costs and idempotency coverage | Commit 3 |
-| &#91; &#93; | [5](#commit-5--document-and-verify-the-completed-demo-workflow) | Document DEV-007 demo workflow | Commits 1–4 |
+|             | Commit                                                          | Title                                          | Depends on  |
+| ----------- | --------------------------------------------------------------- | ---------------------------------------------- | ----------- |
+| &#91;x&#93; | [1](#commit-1--add-the-guarded-demo-seed-foundation)            | Add guarded demo-seed foundation               | —           |
+| &#91;x&#93; | [2](#commit-2--add-the-deterministic-demo-user)                 | Add deterministic demo identity                | Commit 1    |
+| &#91;x&#93; | [3](#commit-3--seed-every-entry-and-statistics-state)           | Add representative demo entries                | Commit 2    |
+| &#91;x&#93; | [4](#commit-4--seed-opportunity-costs-and-verify-idempotency)   | Add opportunity costs and idempotency coverage | Commit 3    |
+| &#91;x&#93; | [5](#commit-5--document-and-verify-the-completed-demo-workflow) | Document DEV-007 demo workflow                 | Commits 1–4 |
 
 ## Objective
 
@@ -309,17 +309,17 @@ eligible; it must not add an unsupported status or eligibility column.
 
 The exact nine deterministic entries created by Commit 3 are:
 
-| Demo entry | State and relative timestamp | Edge case covered |
-|---|---|---|
-| Ceramic travel mug | Waiting, created 6 hours ago | Very recent normal waiting state |
-| Wireless headphones | Waiting, created 36 hours ago | Still waiting shortly before eligibility |
-| Running shoes | Waiting, created exactly 48 hours ago | Inclusive check-in boundary |
-| Drawing tablet | Waiting, created 10 days ago | Clearly overdue check-in |
-| Desk lamp | Saved, checked in 3 days ago | Short-range statistics and a comment |
-| Lightweight jacket | Saved, checked in 21 days ago | Monthly-range statistics and a null comment |
-| Online design course | Saved, checked in 120 days ago | Annual-range statistics and a comment |
-| Espresso machine | Saved, checked in 500 days ago | All-time inclusion and annual exclusion |
-| Concert ticket | Purchased, checked in 2 days ago | Purchased outcome with a comment |
+| Demo entry           | State and relative timestamp          | Edge case covered                           |
+| -------------------- | ------------------------------------- | ------------------------------------------- |
+| Ceramic travel mug   | Waiting, created 6 hours ago          | Very recent normal waiting state            |
+| Wireless headphones  | Waiting, created 36 hours ago         | Still waiting shortly before eligibility    |
+| Running shoes        | Waiting, created exactly 48 hours ago | Inclusive check-in boundary                 |
+| Drawing tablet       | Waiting, created 10 days ago          | Clearly overdue check-in                    |
+| Desk lamp            | Saved, checked in 3 days ago          | Short-range statistics and a comment        |
+| Lightweight jacket   | Saved, checked in 21 days ago         | Monthly-range statistics and a null comment |
+| Online design course | Saved, checked in 120 days ago        | Annual-range statistics and a comment       |
+| Espresso machine     | Saved, checked in 500 days ago        | All-time inclusion and annual exclusion     |
+| Concert ticket       | Purchased, checked in 2 days ago      | Purchased outcome with a comment            |
 
 Together these entries cover both sides of the 48-hour boundary, every stored status,
 resolved and unresolved timestamps, saved statistics across short through all-time
@@ -422,11 +422,11 @@ The opportunity-cost calculation edge cases are:
 The three deterministic examples are calculated against the seeded saved total of
 `$985.00`:
 
-| Example | Unit value | Result from `$985.00` | Edge case |
-|---|---:|---:|---|
-| Coffees | `$5.00` | `197` | Exact whole-unit result |
-| Movie tickets | `$12.00` | `82.083…` | Fractional result greater than one |
-| Weekend trips | `$1,250.00` | `0.788` | Fractional result less than one |
+| Example       |  Unit value | Result from `$985.00` | Edge case                          |
+| ------------- | ----------: | --------------------: | ---------------------------------- |
+| Coffees       |     `$5.00` |                 `197` | Exact whole-unit result            |
+| Movie tickets |    `$12.00` |             `82.083…` | Fractional result greater than one |
+| Weekend trips | `$1,250.00` |               `0.788` | Fractional result less than one    |
 
 Every run reconciles these same three stable UUIDs rather than matching by their labels.
 
@@ -512,6 +512,8 @@ git diff --check
 ```
 
 ## Commit 5 — Document and Verify the Completed Demo Workflow
+
+**Status:** Complete.
 
 This final commit publishes the supported local workflow and records the completed
 dataset. It does not add another kind of demo record.
@@ -604,32 +606,112 @@ headings change or more sections are added.
 
 ### Overview
 
-Record the final seed command, backend architecture, transaction boundary, clock
-injection, and dataset-reconciliation strategy implemented by DEV-007.
+DEV-007 adds the public root command `make seed-demo`, which invokes the backend-owned
+`app.scripts.seed_demo` module with the pinned root virtual-environment Python. The
+module separates target validation, Alembic-head verification, demo-user
+reconciliation, entry reconciliation, and opportunity-cost reconciliation.
+
+After all guards pass, one SQLAlchemy transaction owns the complete seed. Stable UUIDs
+select only known demo records; absent records are inserted and changed known records
+are restored. Any validation or write failure rolls back the transaction. Production
+uses a UTC system clock, while tests inject a fixed clock so relative timestamps and
+the resulting dataset are reproducible.
 
 ### What It Achieved
 
-Record the verified contributor outcomes, dashboard/statistics coverage, secure demo
-identity, and opportunity-cost coverage.
+One command now prepares representative local data without waiting for real lifecycle
+boundaries or manually entering every scenario. The Argon2id-backed demo identity owns
+normal waiting, pre-boundary, exact-boundary, overdue, saved, purchased, commented, and
+null-comment entries. Saved outcomes span short, monthly, annual, and all-time ranges.
+Opportunity-cost values exercise exact whole units, fractional multiple units, and a
+fraction below one unit.
 
 ### Demo Dataset
 
-Record every stable demo UUID or logical key, representative field values, relative
-timestamp, expected bucket/range, and whole/fractional opportunity-cost relationship.
+All timestamps below are relative to the single normalized UTC seed time.
+
+| Type             | Stable UUID                            | Logical record           | Relative state or value                          |
+| ---------------- | -------------------------------------- | ------------------------ | ------------------------------------------------ |
+| User             | `00000000-0000-4000-8000-000000000007` | `demo@penny-saved.local` | One persistent local-only identity               |
+| Entry            | `10000000-0000-4000-8000-000000000001` | Ceramic travel mug       | Waiting; created 6 hours ago                     |
+| Entry            | `10000000-0000-4000-8000-000000000002` | Wireless headphones      | Waiting; created 36 hours ago                    |
+| Entry            | `10000000-0000-4000-8000-000000000003` | Running shoes            | Waiting; exactly 48-hour check-in boundary       |
+| Entry            | `10000000-0000-4000-8000-000000000004` | Drawing tablet           | Waiting; overdue at 10 days                      |
+| Entry            | `10000000-0000-4000-8000-000000000005` | Desk lamp                | Saved 3 days ago; short range; comment           |
+| Entry            | `10000000-0000-4000-8000-000000000006` | Lightweight jacket       | Saved 21 days ago; monthly range; null comment   |
+| Entry            | `10000000-0000-4000-8000-000000000007` | Online design course     | Saved 120 days ago; annual range; comment        |
+| Entry            | `10000000-0000-4000-8000-000000000008` | Espresso machine         | Saved 500 days ago; all-time range; null comment |
+| Entry            | `10000000-0000-4000-8000-000000000009` | Concert ticket           | Purchased 2 days ago; comment                    |
+| Opportunity cost | `40000000-0000-4000-8000-000000000001` | Coffees                  | `$5.00`; `$985.00 ÷ $5.00 = 197`                 |
+| Opportunity cost | `40000000-0000-4000-8000-000000000002` | Movie tickets            | `$12.00`; `$985.00 ÷ $12.00 = 82.083…`           |
+| Opportunity cost | `40000000-0000-4000-8000-000000000003` | Weekend trips            | `$1,250.00`; `$985.00 ÷ $1,250.00 = 0.788`       |
+
+The four saved entries total `$985.00`. The fixed development credentials are
+`demo@penny-saved.local` and `PennySavedDemo!2026`; they must never be reused outside
+local development.
 
 ### Safety and Idempotency
 
-Record the final production, environment, host, database-name, migration-head,
-collision, transaction, and non-demo preservation guarantees.
+The command rejects production before engine creation. Development requires a loopback
+PostgreSQL host; test mode additionally requires a database name ending in `_test`.
+The applied and checked-out Alembic head sets must match exactly before mutation.
+
+Known demo UUIDs may be reconciled only when owned by the demo user, and the fixed user
+UUID and normalized email must resolve to the same account. Collisions stop the command
+instead of taking over unrelated data. Repeated fixed-clock runs retain one user, nine
+entries, and three examples. Changed or missing known records are restored, while
+manual and unrelated-user records are preserved. All changes commit or roll back
+together.
 
 ### Verification
 
-Record the exact local commands, test counts, fixed clock, database target, repeated-run
-results, Alembic status, tracked-artifact audit, and passing CI jobs used to complete
-DEV-007.
+Verification used the explicit local PostgreSQL development target for the command and
+the configured disposable `_test` target for all database-writing tests. Deterministic
+tests used `2026-07-24T12:00:00+00:00` as their fixed clock.
+
+The completed command gate runs:
+
+```text
+make clean
+make install
+make db-up
+make db-upgrade
+make seed-demo
+make seed-demo
+make check
+cd backend
+../.venv/bin/python -m alembic check
+cd ..
+git diff --check
+git status --short
+```
+
+Two real consecutive seed runs reported the same logical counts: one user, nine
+entries, and three opportunity-cost examples. The backend suite contains explicit
+coverage for guards, password hashing, entry boundaries, opportunity-cost values,
+collisions, non-demo preservation, idempotency, and transaction rollback. Alembic
+reported no new upgrade operations. The completed clean-install gate passed 61
+frontend tests and 165 backend tests, plus formatting, linting, type checking, and
+production builds. The tracked-artifact audit found no local
+environment file, database dump, generated cache, real credential, or password hash.
+The published plaintext password is an intentional local-only demo credential, not a
+stored hash or real secret.
+
+The Codex verification process could not reacquire the Docker daemon socket to repeat
+`make db-up`. The already-running PostgreSQL service was nevertheless verified by a
+successful `make db-upgrade`, two real seed transactions, all PostgreSQL integration
+tests, and the Alembic drift check. A contributor with normal Docker access can repeat
+the complete command sequence above.
 
 ### Limitations and Follow-up
 
-Record the dependency on later authentication and product features, any manual
-inspection that remains unavailable, and future changes that must preserve seed safety
-and determinism.
+DEV-007 creates stored data but does not expose product routes or screens. DEV-008 and
+DEV-009 must add authentication before the demo credentials can sign in. DEV-010
+through DEV-019 add entry, dashboard, check-in, statistics, and opportunity-cost
+features before every seeded state can be inspected through the UI.
+
+Future seed changes must retain stable identities, clock-relative timestamps,
+production and target guards, exact migration-head verification, all-or-nothing
+transactions, idempotent reconciliation, collision refusal, and preservation of manual
+and unrelated data. No production, staging, shared-team, or customer-data seed is
+provided.

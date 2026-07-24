@@ -91,13 +91,13 @@ The development server listens on `http://127.0.0.1:8000` by default. Stop it wi
 
 Development API endpoints:
 
-| URL | Purpose |
-|---|---|
-| `http://127.0.0.1:8000/api/health` | Confirms that the FastAPI process is alive and responding. |
-| `http://127.0.0.1:8000/api/ready` | Runs a bounded PostgreSQL connectivity check. |
-| `http://127.0.0.1:8000/docs` | Interactive Swagger API documentation. |
-| `http://127.0.0.1:8000/redoc` | Alternative API reference. |
-| `http://127.0.0.1:8000/openapi.json` | Machine-readable OpenAPI contract. |
+| URL                                  | Purpose                                                    |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `http://127.0.0.1:8000/api/health`   | Confirms that the FastAPI process is alive and responding. |
+| `http://127.0.0.1:8000/api/ready`    | Runs a bounded PostgreSQL connectivity check.              |
+| `http://127.0.0.1:8000/docs`         | Interactive Swagger API documentation.                     |
+| `http://127.0.0.1:8000/redoc`        | Alternative API reference.                                 |
+| `http://127.0.0.1:8000/openapi.json` | Machine-readable OpenAPI contract.                         |
 
 `/api/health` can return `200` while `/api/ready` returns `503`. That means the backend
 process is running but PostgreSQL is unavailable. Production disables the documentation
@@ -212,6 +212,58 @@ migration. Production and shared environments should migrate forward only throug
 reviewed revisions. A downgrade is a separate destructive decision, not the normal
 production rollback strategy.
 
+## Deterministic local demo data
+
+After first-time installation, start PostgreSQL, apply migrations, seed the local demo
+dataset, and start the application:
+
+```bash
+make db-up
+make db-upgrade
+make seed-demo
+make dev
+```
+
+The local-only demo credentials are:
+
+```text
+Email:    demo@penny-saved.local
+Password: PennySavedDemo!2026
+```
+
+Never reuse these credentials in staging, production, a shared environment, or a real
+account. Authentication is added in DEV-008, so the credentials cannot be used to sign
+in until that work exists.
+
+`make seed-demo` creates or restores one known demo user, nine representative
+impulse-purchase entries, and three opportunity-cost examples. It is safe to repeat:
+stable UUIDs identify the known records, repeated runs reconcile them instead of
+creating duplicates, and manually created or unrelated-user records are preserved. The
+entire seed runs in one transaction, so a failure rolls back all of its changes.
+
+The command intentionally does not start PostgreSQL, apply migrations, install
+dependencies, or reset data. Before connecting, it refuses production and permits only
+a loopback development PostgreSQL target or an explicit test database ending in
+`_test`. Before writing, it requires the database's applied Alembic heads to exactly
+match the checked-out migration heads.
+
+### Demo-seed troubleshooting
+
+- `Missing backend/.env` or a settings validation error means local backend
+  configuration is unavailable. Run `make env-setup` and review the placeholders.
+- A connection failure means PostgreSQL is stopped or `DATABASE_URL` has the wrong
+  host, port, username, password, or database. Run `make db-up`, inspect
+  `docker compose ps`, and compare the environment files.
+- A loopback, `_test`, or production refusal means the configured target does not meet
+  the seed safety rules. Do not bypass the guard; correct the intended local
+  configuration.
+- `database is not at the current Alembic head` means migrations are missing or differ
+  from the checked-out code. Run `make db-upgrade` and retry.
+- A demo UUID or email collision means a stable demo identity belongs to an unrelated
+  record. The command stops instead of taking it over. Inspect the local database and
+  deliberately resolve the collision or reset disposable local data with
+  `make db-reset`.
+
 ### PostgreSQL test database
 
 Database integration tests use a separate disposable PostgreSQL database and refuse to
@@ -309,10 +361,10 @@ GitHub Actions runs the **Quality** workflow automatically for pull requests and
 to `main`. It uses clean environments, locked or pinned dependency installation, and
 temporary PostgreSQL 16 services without production secrets.
 
-| Required job | Local equivalent | Additional CI responsibility |
-|---|---|---|
-| `frontend` | Frontend stages of `make check` | Clean Node.js install and production build |
-| `backend` | Backend stages of `make check` | Clean Python install and ephemeral PostgreSQL tests |
+| Required job | Local equivalent                    | Additional CI responsibility                                  |
+| ------------ | ----------------------------------- | ------------------------------------------------------------- |
+| `frontend`   | Frontend stages of `make check`     | Clean Node.js install and production build                    |
+| `backend`    | Backend stages of `make check`      | Clean Python install and ephemeral PostgreSQL tests           |
 | `migrations` | Focused migration integration tests | Empty upgrade, downgrade to base, re-upgrade, and drift check |
 
 All three stable job names—`frontend`, `backend`, and `migrations`—are intended required

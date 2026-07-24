@@ -22,10 +22,10 @@ to run repeatedly and is not a one-time command.
 
 Creates missing local environment files by copying the committed examples:
 
-| Source | Destination |
-|---|---|
-| `.env.example` | `.env` |
-| `backend/.env.example` | `backend/.env` |
+| Source                  | Destination     |
+| ----------------------- | --------------- |
+| `.env.example`          | `.env`          |
+| `backend/.env.example`  | `backend/.env`  |
 | `frontend/.env.example` | `frontend/.env` |
 
 Existing destination files are preserved and never overwritten. Review any placeholder
@@ -119,6 +119,26 @@ when you want to stop it.
 **When to run it:** Run it at the start of a normal full-application development session
 after completing first-time installation and environment configuration. It can be run
 for every development session and is not limited to one use.
+
+### `make seed-demo`
+
+Creates or restores the guarded deterministic local demo dataset: one demo user, nine
+representative impulse-purchase entries, and three opportunity-cost examples. It
+refuses production and unsafe database targets, requires the database to be exactly at
+the current Alembic heads, and writes the complete dataset in one transaction.
+
+The command does not start PostgreSQL or apply migrations. Prepare the database first:
+
+```text
+make db-up
+make db-upgrade
+make seed-demo
+```
+
+**When to run it:** Run it once when you first want representative local data, after
+resetting the local database, or whenever known demo records need to be restored. It is
+not limited to one run: repeated runs reconcile the same stable records without
+creating duplicates or deleting manual and unrelated records.
 
 ## Local PostgreSQL
 
