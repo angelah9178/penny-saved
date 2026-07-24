@@ -373,6 +373,44 @@ The migration's `upgrade()` builds the schema. Its `downgrade()` removes the sch
 reverse dependency order, deleting the user-owned tables before `users` so foreign keys
 do not block the operation.
 
+### SQLAlchemy and Alembic
+
+SQLAlchemy and Alembic work together, but they solve different problems:
+
+| | SQLAlchemy | Alembic |
+|---|---|---|
+| Primary purpose | Lets Python code describe and work with relational data. | Manages versioned changes to the database structure. |
+| Main project files | Model classes such as `User`, `Session`, and `ImpulsePurchaseEntry`. | Revision files containing `upgrade()` and `downgrade()` operations. |
+| Used during normal requests | Yes. Repositories and services use SQLAlchemy to query and change records. | No. Alembic normally runs during setup, deployment, or intentional schema changes. |
+| Describes | What the current application expects the schema to look like. | How a database moves from one known schema version to another. |
+| Tracks history | No. Current model metadata does not explain how the schema changed over time. | Yes. Ordered revisions form the durable schema history. |
+| Changes PostgreSQL automatically | No. Changing a model does not update an existing database. | Only when a migration command explicitly applies reviewed revision operations. |
+
+Their relationship is:
+
+```text
+Current SQLAlchemy models
+          ↓ provide target metadata
+Alembic compares metadata with the current PostgreSQL schema
+          ↓ helps identify required structural changes
+Developer reviews and saves those changes in a migration
+          ↓
+Alembic applies the migration to PostgreSQL
+          ↓
+PostgreSQL schema matches what the SQLAlchemy models expect
+```
+
+SQLAlchemy remains responsible for application-side database interaction after the
+migration is complete. For example, a repository can use a SQLAlchemy `select()` to load
+a user or insert an entry. Alembic does not handle those everyday records; it handles
+structural changes such as creating a table, adding a column, or introducing an index.
+
+Both are required because current models alone provide no safe, ordered history for
+existing databases, while migration files alone do not give application code typed
+Python objects and query tools. Alembic is built to integrate with SQLAlchemy metadata,
+but migration revisions remain stable and self-contained rather than importing mutable
+model classes.
+
 Suggested commit message:
 
 ```text
