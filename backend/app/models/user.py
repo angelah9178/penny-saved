@@ -13,6 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.entry import ImpulsePurchaseEntry
     from app.models.session import Session
 
 
@@ -39,6 +40,12 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     sessions: Mapped[list[Session]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="raise",
+        passive_deletes=True,
+    )
+    entries: Mapped[list[ImpulsePurchaseEntry]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="raise",

@@ -7,8 +7,8 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 |  | Commit | Title | Depends on |
 |---|---|---|---|
 | &#91;x&#93; | [1](#commit-1--add-the-shared-orm-foundation-and-user-model) | Add ORM foundation and user model | — |
-| &#91; &#93; | [2](#commit-2--add-the-session-model) | Add secure session persistence | Commit 1 |
-| &#91; &#93; | [3](#commit-3--add-the-entry-model) | Add impulse-purchase entry persistence | Commit 1 |
+| &#91;x&#93; | [2](#commit-2--add-the-session-model) | Add secure session persistence | Commit 1 |
+| &#91;x&#93; | [3](#commit-3--add-the-entry-model) | Add impulse-purchase entry persistence | Commit 1 |
 | &#91; &#93; | [4](#commit-4--add-the-opportunity-cost-example-model) | Add opportunity-cost persistence | Commit 1 |
 | &#91; &#93; | [5](#commit-5--configure-alembic-and-create-the-initial-migration) | Add Alembic and the initial schema migration | Commits 1–4 |
 | &#91; &#93; | [6](#commit-6--add-postgresql-schema-and-migration-tests) | Verify PostgreSQL constraints and migrations | Commit 5 |
@@ -151,13 +151,52 @@ pytest tests/models/test_session.py
 
 ## Commit 3 — Add the Entry Model
 
-This commit adds the main product record: an impulse-purchase entry. It preserves the
-waiting, saved, and purchased lifecycle and stores prices as bounded integer cents.
+This commit defines how an impulse purchase is stored in PostgreSQL after a user creates
+it. Each entry records:
+
+- The user who owns it.
+- The item name.
+- The price as integer cents.
+- Why the user wanted the item.
+- Its current status.
+- An optional check-in comment.
+- When it was created, checked in, and last updated.
+
+The stored lifecycle is:
+
+```text
+Entry created
+    ↓
+waiting
+    ↓ after the waiting period
+User checks in
+    ├── saved
+    └── purchased
+```
+
+The database prevents invalid stored combinations. A `waiting` entry cannot have a
+`checked_in_at` time, while a `saved` or `purchased` entry must have one. Check-in and
+update times cannot be earlier than the creation time, prices must remain within the
+approved positive range, required text cannot be blank, and an optional comment cannot
+be blank when it is present.
+
+`needs_check_in` is not stored as another status. It is derived later from the current
+time and the entry's creation time:
+
+```text
+waiting + less than 48 hours old  → waiting
+waiting + at least 48 hours old   → needs check-in
+```
+
+Deriving this value prevents the database from storing an eligibility flag that becomes
+outdated merely because time passes.
 
 Unlike the authentication-focused session model, this model captures product state and
 the timestamps needed for dashboards and statistics. The database prevents impossible
 stored combinations, while services added later still enforce authorization, the exact
-48-hour eligibility rule, and legal state transitions.
+48-hour eligibility rule, and legal state transitions. Commit 3 defines the storage
+model and database safeguards; it does not yet implement the entry form, API endpoints,
+dashboard, or check-in operation.
 
 Suggested commit message:
 
