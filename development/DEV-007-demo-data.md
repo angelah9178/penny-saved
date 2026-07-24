@@ -377,9 +377,69 @@ git diff --check
 
 ## Commit 4 — Seed Opportunity Costs and Verify Idempotency
 
+**Status:** Complete.
+
 Commit 4 completes the logical dataset with opportunity-cost examples and proves the
 entire operation is safe to repeat. Examples translate saved cents into relatable units
 and must support both whole and fractional equivalents:
+
+**Idempotency** means that running the same operation repeatedly produces the same
+intended final state. For `make seed-demo`, the first run creates the known demo data,
+while later runs find and reconcile those same stable records. Repeating the command
+must not create duplicate users, entries, or opportunity-cost examples, increase their
+counts, or modify unrelated and manually created records.
+
+Put simply:
+
+```text
+run once       → 1 demo user + 9 demo entries + the known opportunity-cost examples
+run ten times  → 1 demo user + 9 demo entries + the same opportunity-cost examples
+```
+
+The command may restore a known demo record that was changed or deleted, but once it
+finishes, the intended demo dataset is the same. That repeatable final result is what
+idempotency means here.
+
+The opportunity-cost examples are demo data similar to the nine entries from Commit 3,
+but they represent different comparison values rather than purchase lifecycle states.
+Their edge cases are aimed at future calculations: some unit values must divide a saved
+total evenly into whole units, while others must produce a fractional result. Commit 4
+also goes beyond adding these examples by verifying that the complete demo seed—the
+user, nine entries, and opportunity-cost examples—is idempotent and rolls back together
+if any part fails.
+
+The opportunity-cost calculation edge cases are:
+
+- **Whole-unit result:** the total saved amount divides evenly by the example's unit
+  value, producing an exact whole number.
+- **Fractional-unit result:** the total does not divide evenly, so the result contains a
+  fractional quantity that later presentation code must round or format.
+- **Unit value smaller than the saved total:** the result represents multiple units.
+- **Unit value larger than the saved total:** the result is less than one unit.
+- **Positive integer cents:** every value avoids floating-point money storage and
+  satisfies the database's lower and upper bounds.
+
+The three deterministic examples are calculated against the seeded saved total of
+`$985.00`:
+
+| Example | Unit value | Result from `$985.00` | Edge case |
+|---|---:|---:|---|
+| Coffees | `$5.00` | `197` | Exact whole-unit result |
+| Movie tickets | `$12.00` | `82.083…` | Fractional result greater than one |
+| Weekend trips | `$1,250.00` | `0.788` | Fractional result less than one |
+
+Every run reconciles these same three stable UUIDs rather than matching by their labels.
+
+The idempotency and safety edge cases are:
+
+- A second identical run must not create duplicate records.
+- A changed or deleted known demo record must be restored.
+- A manually created record must be preserved.
+- An unrelated user's records must remain unchanged.
+- A known stable UUID owned by another user must cause a collision error rather than a
+  takeover.
+- A failure partway through seeding must roll back the user, entries, and examples as
+  one transaction.
 
 ```text
 saved total ÷ unit value = equivalent quantity

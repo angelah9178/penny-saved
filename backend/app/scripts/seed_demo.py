@@ -19,6 +19,7 @@ from app.core.config import AppEnvironment, Settings, get_settings
 from app.core.security import hash_password, verify_password
 from app.core.time import Clock, SystemClock, normalize_utc
 from app.models.entry import EntryStatus, ImpulsePurchaseEntry
+from app.models.opportunity_cost_example import OpportunityCostExample
 from app.models.user import User
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -41,6 +42,16 @@ class DemoEntry:
     created_ago: timedelta
     checked_in_ago: timedelta | None = None
     comment: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DemoOpportunityCost:
+    """One deterministic opportunity-cost comparison."""
+
+    id: UUID
+    label: str
+    unit_name: str
+    dollar_value_cents: int
 
 
 DEMO_ENTRIES = (
@@ -126,6 +137,27 @@ DEMO_ENTRIES = (
     ),
 )
 
+DEMO_OPPORTUNITY_COSTS = (
+    DemoOpportunityCost(
+        id=UUID("40000000-0000-4000-8000-000000000001"),
+        label="Coffees",
+        unit_name="coffee",
+        dollar_value_cents=500,
+    ),
+    DemoOpportunityCost(
+        id=UUID("40000000-0000-4000-8000-000000000002"),
+        label="Movie tickets",
+        unit_name="movie ticket",
+        dollar_value_cents=1_200,
+    ),
+    DemoOpportunityCost(
+        id=UUID("40000000-0000-4000-8000-000000000003"),
+        label="Weekend trips",
+        unit_name="weekend trip",
+        dollar_value_cents=125_000,
+    ),
+)
+
 
 class SeedSafetyError(RuntimeError):
     """Raised when demo seeding cannot prove its target is safe."""
@@ -197,7 +229,13 @@ def seed_demo(
     seeded_at = normalize_utc(clock.now())
     reconcile_demo_user(connection, seeded_at=seeded_at)
     reconcile_demo_entries(connection, seeded_at=seeded_at)
-    return SeedResult(seeded_at=seeded_at, users=1, entries=len(DEMO_ENTRIES))
+    reconcile_demo_opportunity_costs(connection, seeded_at=seeded_at)
+    return SeedResult(
+        seeded_at=seeded_at,
+        users=1,
+        entries=len(DEMO_ENTRIES),
+        opportunity_cost_examples=len(DEMO_OPPORTUNITY_COSTS),
+    )
 
 
 def reconcile_demo_user(connection: Connection, *, seeded_at: datetime) -> None:
@@ -287,6 +325,47 @@ def reconcile_demo_entries(connection: Connection, *, seeded_at: datetime) -> No
             )
         else:
             connection.execute(entries.insert().values(id=demo_entry.id, **values))
+
+
+def reconcile_demo_opportunity_costs(
+    connection: Connection,
+    *,
+    seeded_at: datetime,
+) -> None:
+    """Create or restore the known demo-owned comparison examples."""
+    examples = OpportunityCostExample.__table__
+    demo_ids = tuple(example.id for example in DEMO_OPPORTUNITY_COSTS)
+    existing_owners = dict(
+        connection.execute(
+            select(examples.c.id, examples.c.user_id).where(examples.c.id.in_(demo_ids))
+        ).all()
+    )
+    conflicting_ids = sorted(
+        str(example_id)
+        for example_id, owner_id in existing_owners.items()
+        if owner_id != DEMO_USER_ID
+    )
+    if conflicting_ids:
+        raise SeedSafetyError(
+            "Refusing demo seed: known opportunity-cost IDs belong to another user: "
+            + ", ".join(conflicting_ids)
+        )
+
+    for demo_example in DEMO_OPPORTUNITY_COSTS:
+        values = {
+            "user_id": DEMO_USER_ID,
+            "label": demo_example.label,
+            "unit_name": demo_example.unit_name,
+            "dollar_value_cents": demo_example.dollar_value_cents,
+            "created_at": seeded_at,
+            "updated_at": seeded_at,
+        }
+        if demo_example.id in existing_owners:
+            connection.execute(
+                examples.update().where(examples.c.id == demo_example.id).values(**values)
+            )
+        else:
+            connection.execute(examples.insert().values(id=demo_example.id, **values))
 
 
 def run_seed(
