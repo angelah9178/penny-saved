@@ -33,14 +33,32 @@ configured by `TEST_DATABASE_URL`.
 
 ## Commit 1 — Add the Shared ORM Foundation and User Model
 
-This commit establishes the common SQLAlchemy foundation and the first root entity:
-`users`. It defines the conventions every later model follows, including typed mappings,
-UUID primary keys, timezone-aware timestamps, explicit names, and relationships that
-refuse accidental lazy loading.
+The ORM foundation is the shared setup that lets SQLAlchemy represent database tables as
+Python classes. It defines the common base that every database model—users, sessions,
+entries, and opportunity-cost examples—will inherit from. It also establishes the
+conventions every later model follows, including typed mappings, UUID primary keys,
+timezone-aware timestamps, explicit names, and relationships that refuse accidental
+lazy loading.
 
-The user is added first because sessions, entries, and opportunity-cost examples are all
-owned by a user. Unlike the later commits, this step focuses on identity and shared ORM
-structure rather than dependent product data.
+Users are created first because they are the ownership foundation for the other records
+and the starting point for the user data flow:
+
+```text
+User
+├── Sessions
+├── Impulse-purchase entries
+└── Opportunity-cost examples
+```
+
+Each session, entry, and opportunity-cost example contains a `user_id` foreign key that
+connects it to its owner. This ownership link allows the application to ensure that each
+user sees and manages only their own information.
+
+The user's sessions, entries, and opportunity-cost examples remain in separate tables
+connected through `user_id`. This avoids duplicating account information and keeps each
+kind of data independently manageable. Unlike the later commits, this step focuses on
+the shared ORM structure and user identity rather than the dependent authentication and
+product records.
 
 Suggested commit message:
 
@@ -56,8 +74,9 @@ Implement:
 - Use application-supplied UUIDv4 identifiers and timezone-aware timestamps without
   model hooks or mutable server defaults.
 - Add the explicitly named unique email index and nonblank-email check constraint.
-- Define typed relationships for the user's sessions, entries, and opportunity-cost
-  examples with `lazy="raise"` and delete-orphan ownership behavior.
+- Establish the relationship conventions (`lazy="raise"` and delete-orphan ownership);
+  add each typed user relationship with its target model in Commits 2–4 so every
+  intermediate commit remains runnable.
 - Export all model metadata through one deliberate import location for Alembic.
 - Add metadata-focused tests for table names, column types, nullability, names,
   relationships, and the absence of plaintext-password persistence fields.

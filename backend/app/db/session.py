@@ -8,7 +8,6 @@ from collections.abc import (
 )
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
-from app.core.config import Settings
 from fastapi import FastAPI, Request
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -16,6 +15,8 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+
+from app.core.config import Settings
 
 EngineBuilder = Callable[[str], AsyncEngine]
 SessionFactory = async_sessionmaker[AsyncSession]
