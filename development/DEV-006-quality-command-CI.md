@@ -325,6 +325,33 @@ every pull request and every push to the default branch. Separate frontend and b
 jobs make ownership and failures obvious while allowing independent checks to run in
 parallel.
 
+Commit 4 does not add another main Make command for a contributor to remember. It adds a
+GitHub Actions workflow that GitHub starts automatically when a pull request is opened
+or updated and when code is pushed to the default branch. GitHub creates temporary clean
+environments, installs the declared dependencies, runs the checks, and displays a
+passing or failing result on the commit or pull request.
+
+The local and automatic workflows complement each other:
+
+| Workflow | Where it runs | When it runs | Purpose |
+|---|---|---|---|
+| `make check` | The contributor's computer | Manually before committing or pushing | Finds problems quickly using the configured local environment. |
+| GitHub Actions | Temporary GitHub-hosted environments | Automatically for pull requests and default-branch pushes | Independently proves the committed code passes from a clean setup. |
+
+A local result can be affected by previously installed dependencies, generated files,
+caches, uncommitted configuration, or other machine-specific state. GitHub Actions
+checks only the pushed repository state in a predictable environment. Contributors
+should still run `make check` before pushing; CI independently repeats the equivalent
+quality gates rather than replacing local validation.
+
+GitHub splits the work into `frontend` and `backend` jobs instead of reporting one large
+combined result. This provides three benefits:
+
+- A failure immediately identifies whether the TypeScript/React or Python/PostgreSQL
+  side needs attention.
+- The independent jobs can run at the same time, reducing the total feedback time.
+- Each job installs and caches only the runtime and dependencies it needs.
+
 The jobs reproduce the checked-in runtime baselines:
 
 | Job | Environment | Checks |
@@ -382,6 +409,22 @@ git status --short
 
 After pushing the commit, verify both GitHub Actions jobs complete successfully on the
 branch before marking this commit complete.
+
+Post-push verification:
+
+1. Commit the workflow and related tests, then push the branch to GitHub.
+2. Open or update the branch's pull request. A feature-branch push triggers this workflow
+   through its pull request; a direct push triggers it automatically only on the default
+   branch.
+3. Open the pull request's checks or the repository's **Actions** tab.
+4. Select the **Quality** workflow run for the pushed commit.
+5. Confirm both required jobs finish successfully:
+   - `frontend`
+   - `backend`
+6. If either job fails, open that job, inspect the first failing step, reproduce the
+   equivalent check locally, fix it, and push the update. GitHub automatically starts a
+   new workflow run.
+7. Mark Commit 4 complete only when both jobs are green for the latest pushed commit.
 
 ## Commit 5 — Add PostgreSQL Migration Continuous Integration
 
