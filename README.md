@@ -33,6 +33,50 @@ make db-up
 
 `compose.yaml` binds PostgreSQL only to `127.0.0.1` and stores its data in the named `penny_saved_postgres_data` volume. `make db-down` stops PostgreSQL while preserving that volume.
 
+## Combined development workflow
+
+After installation and environment setup, start the complete local application from the
+repository root:
+
+```bash
+make dev
+```
+
+The command checks its prerequisites, starts PostgreSQL and waits for it to become
+healthy, applies pending Alembic migrations, then starts the FastAPI backend and Vite
+frontend concurrently:
+
+```text
+make dev
+    ├── PostgreSQL 16
+    ├── Alembic upgrade to head
+    ├── FastAPI/Uvicorn on http://127.0.0.1:8000
+    └── Vite on http://localhost:5173
+```
+
+Press `Ctrl+C` to stop both application servers. The process supervisor forwards the
+termination signal, stops the sibling server if either process exits, and waits so
+neither server is left running. PostgreSQL and its named data volume remain available.
+Run `make db-down` separately when you want to stop PostgreSQL without deleting its
+data.
+
+Use `make frontend-dev` or `make backend-dev` when you intentionally want to run one
+server in a separate terminal. Those focused targets do not start PostgreSQL or apply
+migrations for you.
+
+### Combined startup troubleshooting
+
+- A missing dependency message means `make install` has not been run or dependencies
+  are out of date.
+- A missing environment message means `make env-setup` must be run and its placeholder
+  values reviewed.
+- A Docker or PostgreSQL health failure stops startup before either application server
+  launches. Check Docker, then run `make db-logs`.
+- A migration failure stops startup before the servers launch. Review the reported
+  Alembic error; do not bypass or edit an already shared revision.
+- If port `8000` or `5173` is already in use, stop the existing process before running
+  `make dev` again.
+
 ## Backend development server
 
 Start PostgreSQL first, then run the FastAPI application factory from `backend/`:
@@ -226,27 +270,63 @@ with `APP_ENV=development`. Never downgrade a shared, test, staging, or producti
 database. Tests must supply an explicit `TEST_DATABASE_URL`; they must not derive it
 from `DATABASE_URL`.
 
-## Baseline checks
+## Quality checks and continuous integration
 
-Frontend commands are run from `frontend/`:
-
-```bash
-npm run format:check
-npm run lint
-npm run typecheck
-npm test
-npm run build
-```
-
-Backend commands are run from `backend/` with the virtual environment active:
+Run the complete local quality gate from the repository root:
 
 ```bash
-ruff format --check .
-ruff check .
-set -a
-source .env
-set +a
-pytest
+make check
 ```
 
-Combined application development commands are added in later foundation work.
+It stops at the first failure and runs these stages in order:
+
+```text
+format-check → lint → typecheck → test → build
+```
+
+The command validates both workspaces: Prettier, ESLint, TypeScript, Vitest, Ruff,
+Pytest, the production frontend build, and backend application construction. It does
+not install dependencies. Run `make install` first, start PostgreSQL, and configure the
+explicit `TEST_DATABASE_URL` described above. The backend integration suite may rebuild
+only that dedicated `_test` database.
+
+Run `make check` before committing, pushing, or opening a pull request. Focused
+frontend/backend and individual-stage targets are listed by `make help` when a failure
+needs to be reproduced without repeating the whole gate.
+
+Remove replaceable generated artifacts with:
+
+```bash
+make clean
+```
+
+Cleanup removes known frontend build and coverage output, Python bytecode, Pytest and
+Ruff caches, coverage data, and TypeScript incremental metadata. It preserves source,
+tests, migrations, `.env` files, `.venv`, `frontend/node_modules`, dependency files,
+Docker resources, and PostgreSQL data. It is safe to run repeatedly.
+
+GitHub Actions runs the **Quality** workflow automatically for pull requests and pushes
+to `main`. It uses clean environments, locked or pinned dependency installation, and
+temporary PostgreSQL 16 services without production secrets.
+
+| Required job | Local equivalent | Additional CI responsibility |
+|---|---|---|
+| `frontend` | Frontend stages of `make check` | Clean Node.js install and production build |
+| `backend` | Backend stages of `make check` | Clean Python install and ephemeral PostgreSQL tests |
+| `migrations` | Focused migration integration tests | Empty upgrade, downgrade to base, re-upgrade, and drift check |
+
+All three stable job names—`frontend`, `backend`, and `migrations`—are intended required
+merge checks. Configuring repository branch protection is a GitHub administrator action
+and is not performed by the workflow itself.
+
+### Quality and CI troubleshooting
+
+- A local formatting, lint, typing, test, or build failure can be reproduced with the
+  focused target shown by `make help`.
+- `Missing TEST_DATABASE_URL` means `backend/.env` does not contain the explicit
+  disposable PostgreSQL test URL.
+- A PostgreSQL connection failure usually means the container is stopped or the host
+  port in `backend/.env` does not match `docker compose ps`.
+- On GitHub, open the first failing step in the relevant `frontend`, `backend`, or
+  `migrations` job, reproduce its local equivalent, fix it, and push again. GitHub
+  automatically starts a new workflow run for the pull request.

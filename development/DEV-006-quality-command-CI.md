@@ -28,7 +28,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [2](#commit-2--add-guarded-generated-artifact-cleanup) | Add safe generated-artifact cleanup | Commit 1 |
 | &#91;x&#93; | [3](#commit-3--add-the-coordinated-local-development-command) | Add coordinated local development | Commit 1 |
 | &#91;x&#93; | [4](#commit-4--add-frontend-and-backend-continuous-integration) | Add frontend and backend CI jobs | Commit 1 |
-| &#91; &#93; | [5](#commit-5--add-postgresql-migration-continuous-integration) | Add PostgreSQL migration CI | Commit 4 |
+| &#91;x&#93; | [5](#commit-5--add-postgresql-migration-continuous-integration) | Add PostgreSQL migration CI | Commit 4 |
 | &#91; &#93; | [6](#commit-6--document-and-verify-the-completed-quality-workflow) | Document DEV-006 quality and CI workflow | Commits 1–5 |
 
 ## Objective
@@ -614,32 +614,96 @@ does not implement:
 
 ## Implementation Record
 
-Complete this section during Commit 6. Keep the table of contents synchronized if its
-headings change or more sections are added.
-
 ### Overview
 
-Record the final Makefile command surface, development process supervision, and GitHub
-Actions workflow structure implemented by DEV-006.
+DEV-006 established one root interface for application development and quality
+verification. `make check` validates both workspaces, `make clean` removes only known
+generated artifacts, and `make dev` starts PostgreSQL, applies migrations, and supervises
+the frontend and backend development servers.
+
+The GitHub Actions **Quality** workflow independently reproduces the committed quality
+standards in clean environments. Its parallel `frontend` and `backend` jobs validate
+each application workspace, while the separate `migrations` job cycles and inspects the
+Alembic history against ephemeral PostgreSQL 16.
 
 ### What It Achieved
 
-Record the verified contributor outcomes, failure behavior, cleanup protections,
-PostgreSQL enforcement, and required CI jobs.
+- Contributors can validate the frontend and backend from the repository root with one
+  fail-fast command.
+- Focused Make targets remain available to reproduce individual formatting, linting,
+  typing, test, build, and server failures.
+- Cleanup is idempotent and limited to enumerated build, coverage, bytecode, TypeScript,
+  Pytest, and Ruff artifacts. Tests prove it preserves source, migrations, environments,
+  installed dependencies, Git metadata, and a database-data sentinel.
+- The development supervisor forwards `SIGINT` and `SIGTERM`, stops the sibling when one
+  server exits, reaps both process groups, and preserves PostgreSQL data.
+- Backend tests require an explicit dedicated PostgreSQL URL ending in `_test`; neither
+  local quality commands nor CI substitute SQLite or infer the test target from the
+  development URL.
+- CI uses read-only repository permissions, dependency caches keyed by committed
+  dependency files, timeouts, concurrency cancellation, locked/pinned installs, and no
+  production secrets.
+- The stable CI job names intended for required merge checks are `frontend`, `backend`,
+  and `migrations`.
 
 ### Local and CI Equivalence
 
-Record the final mapping between each stage of `make check` and the frontend, backend,
-and migrations jobs, including any intentional difference such as CI's isolated
-migration cycle.
+| Local validation | GitHub Actions job |
+|---|---|
+| Prettier format check, ESLint, TypeScript, Vitest, and production frontend build | `frontend` |
+| Ruff format check, Ruff lint, complete Pytest suite, and backend construction coverage | `backend` |
+| PostgreSQL schema/migration integration tests | `migrations` |
+
+`make check` is the fast contributor-facing acceptance command and uses installed local
+dependencies plus the configured dedicated test database. GitHub performs fresh
+dependency installations and ephemeral PostgreSQL setup. The `migrations` job
+additionally starts from an empty schema, upgrades to head, downgrades to base,
+re-upgrades to head, and runs `alembic check`.
 
 ### Verification
 
-Record the exact local commands, test counts, migration results, clean-install result,
-workflow validation, and passing GitHub Actions runs used to complete DEV-006.
+DEV-006 verification includes:
+
+```text
+make clean
+make clean
+make install
+make check
+DATABASE_URL="$TEST_DATABASE_URL" python -m alembic downgrade base
+DATABASE_URL="$TEST_DATABASE_URL" python -m alembic upgrade head
+DATABASE_URL="$TEST_DATABASE_URL" python -m alembic check
+git diff --check
+```
+
+The final Commit 6 local gate passed with 61 frontend tests and 139 backend tests.
+`make clean` succeeded twice, `make install` completed the pinned backend and locked
+frontend installation, and the production frontend build plus backend application
+construction passed. The focused PostgreSQL gate passed all 30 schema and migration
+tests. The dedicated disposable test database downgraded to base, re-upgraded to
+`0001_initial_schema`, and finished with no model-to-migration drift.
+
+Workflow contract tests verify triggers, permissions, concurrency, action versions,
+dependency caching, PostgreSQL health checks, test-only configuration, exact migration
+ordering, and the absence of GitHub secrets and SQLite. The tracked-artifact audit found
+no local environment file, virtual environment, dependency directory, database dump,
+coverage output, build output, bytecode, or tool cache committed.
+
+The user confirmed that the `frontend`, `backend`, and `migrations` GitHub Actions jobs
+were green for Commit 5. Record the final Commit 6 run results here after the
+documentation commit is pushed and its three jobs pass.
 
 ### Limitations and Follow-up
 
-Record deferred security scanning, end-to-end testing, release automation, production
-operations, and any quality checks that later DEV tasks must add to both `make check`
-and CI.
+- GitHub branch-protection configuration remains an administrator action; the workflow
+  supplies stable job names but does not change repository settings.
+- Dependency vulnerability and license policies, automated dependency updates, and an
+  SBOM remain future hardening work.
+- The final locked frontend installation reported two high-severity npm advisories.
+  DEV-006 does not apply an unreviewed breaking `npm audit fix --force`; dependency
+  remediation and a documented severity policy remain follow-up hardening work.
+- End-to-end browser journeys, accessibility audits, screenshots/failure artifacts, and
+  release smoke tests remain later DEV tasks.
+- Production deployment, backup, restore, rollback, monitoring, and incident procedures
+  remain release and operations work.
+- Later features must add their relevant checks to both the local quality contract and
+  CI so the two paths remain equivalent.

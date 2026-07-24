@@ -77,9 +77,11 @@ tree from the lockfile.
 These commands provide one root interface for frontend and backend development and
 quality checks.
 
-GitHub Actions continuous-integration jobs are added later in DEV-006. As those jobs and
-any additional Make commands are completed, this section must be updated to keep the
-local and CI workflows aligned.
+GitHub Actions automatically runs the equivalent quality workflow for pull requests and
+pushes to `main`. Its stable jobs are `frontend`, `backend`, and `migrations`. The first
+two distribute the frontend and backend stages of `make check`; `migrations` adds an
+isolated PostgreSQL upgrade, downgrade, re-upgrade, and drift check. There is no separate
+main Make command for the CI jobs.
 
 ### `make check`
 
