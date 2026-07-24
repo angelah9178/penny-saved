@@ -130,12 +130,90 @@ passwords, session values, database URLs, API secrets, or other credentials in a
 - The current DEV-004 home and not-found pages are foundation placeholders. Login,
   dashboard, entry, and statistics screens are added by later DEV tasks.
 
-Migration commands become usable when DEV-005 adds the Alembic configuration:
+## Database migrations
+
+Alembic migrations are the only supported way to change a shared database schema.
+Start PostgreSQL and apply every pending migration from the repository root:
 
 ```bash
+make db-up
 make db-upgrade
+```
+
+The initial migration creates the users, sessions, impulse-purchase entries, and
+opportunity-cost example tables. Alembic records the applied revision in its
+`alembic_version` table.
+
+When intentionally changing SQLAlchemy models, generate a new revision:
+
+```bash
 make db-revision message="describe_change"
 ```
+
+Review the generated upgrade, downgrade, data types, constraint names, index order, and
+data-safety implications before applying or committing it. A revision must contain
+stable Alembic operations and SQLAlchemy types; it must not import mutable application
+models. Never edit a migration that may already have been applied to a shared database.
+
+Useful inspection commands run from `backend/`:
+
+```bash
+../.venv/bin/python -m alembic current
+../.venv/bin/python -m alembic history
+../.venv/bin/python -m alembic check
+```
+
+`alembic check` reports whether the current SQLAlchemy metadata would require another
+migration. Production and shared environments should migrate forward only through
+reviewed revisions. A downgrade is a separate destructive decision, not the normal
+production rollback strategy.
+
+### PostgreSQL test database
+
+Database integration tests use a separate disposable PostgreSQL database and refuse to
+reuse the development database. Create the standard local test database once:
+
+```bash
+docker compose exec postgres sh -c \
+  'createdb --username="$POSTGRES_USER" penny_saved_test'
+```
+
+If PostgreSQL reports that the database already exists, no additional creation is
+needed. Ensure `backend/.env` contains a matching explicit URL:
+
+```text
+TEST_DATABASE_URL=postgresql+psycopg://penny_saved:your-local-password@localhost:5432/penny_saved_test
+```
+
+Match the username, password, host, and port in `DATABASE_URL`; change only the database
+name to the dedicated `_test` name. Export the backend environment and run the suite from
+`backend/`:
+
+```bash
+set -a
+source .env
+set +a
+../.venv/bin/pytest
+```
+
+The integration suite may migrate, empty, and rebuild only the database selected by
+`TEST_DATABASE_URL`. Never point it at development, staging, production, or any database
+whose contents need to be preserved.
+
+### Migration troubleshooting
+
+- `Missing backend/.env` or a settings error means local configuration is absent or
+  invalid. Run `make env-setup` and replace its placeholders.
+- `connection refused` means PostgreSQL is unavailable or the configured host/port is
+  incorrect. Run `make db-up` and compare both environment files.
+- `database "penny_saved_test" does not exist` means the one-time test-database creation
+  command has not been run.
+- `Integration tests require an explicit TEST_DATABASE_URL` means the variable has not
+  been exported into the test process.
+- `Target database is not up to date` means pending revisions must be applied before
+  generating another migration.
+- A nonempty `alembic check` result means model metadata and migration head have drifted;
+  create and review a new migration rather than changing an applied revision.
 
 Run `make help` to list all available commands.
 
@@ -143,7 +221,10 @@ Run `make help` to list all available commands.
 
 `make db-reset` permanently deletes only the named local development volume after requiring the exact confirmation word `reset`. It refuses to run in CI, production mode, or against a non-local database URL.
 
-`make db-downgrade` also requires confirmation and is restricted to a local database with `APP_ENV=development`. Never downgrade a shared, test, staging, or production database. Tests must supply an explicit `TEST_DATABASE_URL`; they must not derive it from `DATABASE_URL`.
+`make db-downgrade` also requires confirmation and is restricted to a local database
+with `APP_ENV=development`. Never downgrade a shared, test, staging, or production
+database. Tests must supply an explicit `TEST_DATABASE_URL`; they must not derive it
+from `DATABASE_URL`.
 
 ## Baseline checks
 
@@ -162,6 +243,9 @@ Backend commands are run from `backend/` with the virtual environment active:
 ```bash
 ruff format --check .
 ruff check .
+set -a
+source .env
+set +a
 pytest
 ```
 
