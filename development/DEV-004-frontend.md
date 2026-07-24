@@ -11,7 +11,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [3](#commit-3--configure-tanstack-query-behavior) | Configure frontend query behavior | Commit 1 |
 | &#91;x&#93; | [4](#commit-4--add-common-request-state-components) | Add accessible request-state components | — |
 | &#91;x&#93; | [5](#commit-5--build-the-router-provider-tree-and-application-shell) | Add the router, providers, and application shell | Commits 3, 4 |
-| &#91;&#160;&#93; | [6](#commit-6--add-msw-api-testing-and-the-development-proxy) | Add MSW API testing and the Vite proxy | Commits 2, 5 |
+| &#91;x&#93; | [6](#commit-6--add-msw-api-testing-and-the-development-proxy) | Add MSW API testing and the Vite proxy | Commits 2, 5 |
 | &#91;&#160;&#93; | [7](#commit-7--document-and-verify-the-completed-foundation) | Document DEV-004 frontend foundation | Commits 1–6 |
 
 ## Objective
@@ -433,6 +433,22 @@ npm run build
 ```
 
 ## Commit 6 — Add MSW API Testing and the Development Proxy
+
+Mock Service Worker (MSW) lets frontend tests pretend that a backend API exists. It
+intercepts the frontend's normal API requests and returns controlled mock responses
+without requiring FastAPI or PostgreSQL to be running.
+
+Tests can ask MSW to return successful data, an empty response, a validation error, a
+network failure, or a temporary server error. This verifies that the frontend displays
+the correct content, error message, and retry behavior for each situation.
+
+MSW makes frontend API tests:
+
+- Fast because they do not wait for a real backend or database.
+- Repeatable because every test controls its exact response.
+- Independent of FastAPI and PostgreSQL availability.
+- Able to reproduce uncommon failures reliably.
+- Focused on visible user behavior instead of internal implementation details.
 
 Mock Service Worker intercepts requests at the network boundary. Components and
 integration tests call the real `apiFetch()` client while MSW supplies controlled API
