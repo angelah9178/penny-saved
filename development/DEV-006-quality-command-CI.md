@@ -24,7 +24,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 
 |  | Commit | Title | Depends on |
 |---|---|---|---|
-| &#91; &#93; | [1](#commit-1--add-the-root-quality-command-interface) | Add root quality commands | — |
+| &#91;x&#93; | [1](#commit-1--add-the-root-quality-command-interface) | Add root quality commands | — |
 | &#91; &#93; | [2](#commit-2--add-guarded-generated-artifact-cleanup) | Add safe generated-artifact cleanup | Commit 1 |
 | &#91; &#93; | [3](#commit-3--add-the-coordinated-local-development-command) | Add coordinated local development | Commit 1 |
 | &#91; &#93; | [4](#commit-4--add-frontend-and-backend-continuous-integration) | Add frontend and backend CI jobs | Commit 1 |
@@ -79,6 +79,10 @@ The repository already has working quality tools in each application workspace, 
 contributor currently needs to remember which commands run from `frontend/`, which run
 from `backend/`, and which Python executable belongs to the root virtual environment.
 This commit makes the root Makefile the stable interface for those operations.
+
+In plain language, Commit 1 creates one `make check` command that validates both the
+frontend and backend. This simplifies the complete project-quality check into one
+command run from the repository root.
 
 The Make targets remain small wrappers around the tools that own each check:
 
