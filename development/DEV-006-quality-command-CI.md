@@ -27,7 +27,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [1](#commit-1--add-the-root-quality-command-interface) | Add root quality commands | — |
 | &#91;x&#93; | [2](#commit-2--add-guarded-generated-artifact-cleanup) | Add safe generated-artifact cleanup | Commit 1 |
 | &#91;x&#93; | [3](#commit-3--add-the-coordinated-local-development-command) | Add coordinated local development | Commit 1 |
-| &#91; &#93; | [4](#commit-4--add-frontend-and-backend-continuous-integration) | Add frontend and backend CI jobs | Commit 1 |
+| &#91;x&#93; | [4](#commit-4--add-frontend-and-backend-continuous-integration) | Add frontend and backend CI jobs | Commit 1 |
 | &#91; &#93; | [5](#commit-5--add-postgresql-migration-continuous-integration) | Add PostgreSQL migration CI | Commit 4 |
 | &#91; &#93; | [6](#commit-6--document-and-verify-the-completed-quality-workflow) | Document DEV-006 quality and CI workflow | Commits 1–5 |
 
@@ -433,7 +433,41 @@ that a database can be constructed and moved through the committed Alembic histo
 is kept separate from the backend job so migration failures are visible as their own
 required merge check.
 
+Commit 5 adds `migrations` as the third automatic GitHub Actions job alongside:
+
+```text
+frontend
+backend
+migrations
+```
+
+It does not add another main Make command. GitHub starts all three jobs automatically
+for the configured pull-request and default-branch events. The `backend` job verifies
+Python application behavior and tests against the current schema, while the
+`migrations` job specifically proves that the committed Alembic history can construct,
+reverse, reconstruct, and validate the database schema. A separate result makes the
+source of a failure clear:
+
+```text
+backend failed    → Python or application behavior problem
+migrations failed → PostgreSQL schema or Alembic history problem
+```
+
 This job starts from a fresh PostgreSQL 16 service and verifies:
+
+```text
+empty PostgreSQL database
+    ↓
+alembic upgrade head
+    ↓
+alembic downgrade base
+    ↓
+alembic upgrade head
+    ↓
+alembic check
+    ↓
+focused PostgreSQL schema and migration tests
+```
 
 1. `alembic upgrade head` constructs the current schema.
 2. `alembic downgrade base` reverses the complete migration history.
@@ -441,10 +475,17 @@ This job starts from a fresh PostgreSQL 16 service and verifies:
 4. `alembic check` reports no model-to-migration drift.
 5. The PostgreSQL migration integration tests pass against the ephemeral test database.
 
+Migration drift occurs when the SQLAlchemy models and Alembic migration history describe
+different schemas, such as when a model contains a new column but no migration creates
+it. The drift check prevents a database built from migrations from silently differing
+from the schema expected by the application.
+
 The reverse cycle is a CI verification technique, not authorization to downgrade a
 shared or production database. The workflow calls Alembic directly with explicit test
 configuration rather than using the interactive, local-development-only
-`make db-downgrade` target.
+`make db-downgrade` target. Its PostgreSQL service and credentials are temporary and
+test-only; the job never connects to local development, shared, or production data and
+never substitutes SQLite.
 
 Suggested commit message:
 

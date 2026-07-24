@@ -91,3 +91,66 @@ jobs:
       - name: Test backend
         run: python -m pytest
         working-directory: backend
+
+  migrations:
+    name: migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://penny_saved_ci:penny_saved_ci@localhost:5432/penny_saved
+      TEST_DATABASE_URL: postgresql+psycopg://penny_saved_ci:penny_saved_ci@localhost:5432/penny_saved_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: penny_saved_test
+          POSTGRES_USER: penny_saved_ci
+          POSTGRES_PASSWORD: penny_saved_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username=penny_saved_ci --dbname=penny_saved_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - name: Install pinned backend dependencies
+        run: python -m pip install -r requirements-dev.txt
+        working-directory: backend
+      - name: Upgrade empty database to migration head
+        run: python -m alembic upgrade head
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+      - name: Downgrade complete migration history to base
+        run: python -m alembic downgrade base
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+      - name: Re-upgrade database to migration head
+        run: python -m alembic upgrade head
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+      - name: Check model and migration drift
+        run: python -m alembic check
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+      - name: Test PostgreSQL schema and migrations
+        run: >-
+          python -m pytest
+          tests/integration/test_database_schema.py
+          tests/integration/test_migrations.py
+        working-directory: backend

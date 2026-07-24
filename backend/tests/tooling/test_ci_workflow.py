@@ -95,6 +95,64 @@ def test_backend_job_uses_postgresql_pinned_dependencies_and_required_checks() -
     )
 
 
+def test_migrations_job_cycles_postgresql_schema_and_checks_drift() -> None:
+    migrations = _workflow()["jobs"]["migrations"]
+    steps = _steps(migrations)
+    postgres = migrations["services"]["postgres"]
+
+    assert migrations["name"] == "migrations"
+    assert migrations["timeout-minutes"] == "15"
+    assert postgres["image"] == "postgres:16"
+    assert postgres["env"]["POSTGRES_DB"] == "penny_saved_test"
+    assert "pg_isready" in postgres["options"]
+    assert migrations["env"]["APP_ENV"] == "test"
+    assert migrations["env"]["TEST_DATABASE_URL"].endswith("/penny_saved_test")
+    assert migrations["env"]["DATABASE_URL"] != migrations["env"]["TEST_DATABASE_URL"]
+
+    assert steps["Check out repository"]["uses"] == "actions/checkout@v6"
+    assert steps["Set up Python"]["uses"] == "actions/setup-python@v6"
+    assert steps["Set up Python"]["with"]["python-version-file"] == ".python-version"
+    assert steps["Set up Python"]["with"]["cache"] == "pip"
+    assert (
+        steps["Upgrade empty database to migration head"]["env"]["DATABASE_URL"]
+        == "${{ env.TEST_DATABASE_URL }}"
+    )
+    assert (
+        steps["Downgrade complete migration history to base"]["env"]["DATABASE_URL"]
+        == "${{ env.TEST_DATABASE_URL }}"
+    )
+    assert (
+        steps["Re-upgrade database to migration head"]["env"]["DATABASE_URL"]
+        == "${{ env.TEST_DATABASE_URL }}"
+    )
+    assert (
+        steps["Check model and migration drift"]["env"]["DATABASE_URL"]
+        == "${{ env.TEST_DATABASE_URL }}"
+    )
+
+    migration_commands = [
+        "python -m alembic upgrade head",
+        "python -m alembic downgrade base",
+        "python -m alembic upgrade head",
+        "python -m alembic check",
+    ]
+    actual_commands = [
+        step["run"]
+        for step in migrations["steps"]
+        if step["name"]
+        not in {
+            "Check out repository",
+            "Set up Python",
+            "Install pinned backend dependencies",
+            "Test PostgreSQL schema and migrations",
+        }
+    ]
+    assert actual_commands == migration_commands
+    focused_tests = steps["Test PostgreSQL schema and migrations"]["run"]
+    assert "tests/integration/test_database_schema.py" in focused_tests
+    assert "tests/integration/test_migrations.py" in focused_tests
+
+
 def test_workflow_needs_no_secrets_and_never_uses_sqlite() -> None:
     workflow_text = WORKFLOW_PATH.read_text().lower()
 
