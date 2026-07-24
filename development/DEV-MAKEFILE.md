@@ -72,6 +72,54 @@ directory. `npm ci` installs the exact dependency versions recorded in
 is needed. It is safe to run repeatedly; `npm ci` recreates the installed dependency
 tree from the lockfile.
 
+## Quality Commands and Continuous Integration
+
+These commands provide one root interface for frontend and backend development and
+quality checks.
+
+GitHub Actions automatically runs the equivalent quality workflow for pull requests and
+pushes to `main`. Its stable jobs are `frontend`, `backend`, and `migrations`. The first
+two distribute the frontend and backend stages of `make check`; `migrations` adds an
+isolated PostgreSQL upgrade, downgrade, re-upgrade, and drift check. There is no separate
+main Make command for the CI jobs.
+
+### `make check`
+
+Validates both the frontend and backend through one command. It runs:
+
+```text
+format-check → lint → typecheck → test → build
+```
+
+The command stops at the first failing stage. It does not install or update
+dependencies. The backend test stage requires the dedicated PostgreSQL test database.
+
+**When to run it:** Run it before committing, pushing, or opening a pull request. Run it
+again after resolving a failure. It is the primary local quality gate and is safe to run
+repeatedly.
+
+### `make clean`
+
+Removes only known generated build, coverage, bytecode, TypeScript metadata, Pytest
+cache, and Ruff cache artifacts. It preserves source code, tests, migrations, `.env`
+files, `.venv`, `frontend/node_modules`, Docker resources, and PostgreSQL data.
+
+**When to run it:** Run it when generated output or caches may be stale, before testing
+a clean rebuild, or when reclaiming space used by replaceable artifacts. It is safe to
+run repeatedly and is not required during every development session.
+
+### `make dev`
+
+Checks prerequisites, starts and health-checks PostgreSQL, applies pending Alembic
+migrations, then supervises the Vite frontend and FastAPI backend concurrently.
+Pressing `Ctrl+C` stops both application servers and waits for them to exit. PostgreSQL
+continues running and its named volume remains intact; use `make db-down` separately
+when you want to stop it.
+
+**When to run it:** Run it at the start of a normal full-application development session
+after completing first-time installation and environment configuration. It can be run
+for every development session and is not limited to one use.
+
 ## Local PostgreSQL
 
 These commands require Docker Engine, Docker Compose v2, and a root `.env` file. Run
