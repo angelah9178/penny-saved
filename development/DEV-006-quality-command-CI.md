@@ -344,6 +344,41 @@ checks only the pushed repository state in a predictable environment. Contributo
 should still run `make check` before pushing; CI independently repeats the equivalent
 quality gates rather than replacing local validation.
 
+The practical difference is that `make check` gives the contributor fast feedback about
+the files currently on their computer, including uncommitted changes, while GitHub
+Actions verifies only the exact commit that was pushed. A local check can therefore
+pass because it sees an uncommitted file that GitHub does not receive. GitHub's clean
+environment can also expose a missing dependency or setup step that an existing local
+installation accidentally hides.
+
+GitHub Actions provides several advantages beyond the local command:
+
+- It starts automatically, so the shared verification does not depend on someone
+  remembering to run it.
+- It uses clean, consistent environments built only from committed dependency files.
+- Its passing or failing results and logs are visible to everyone reviewing the pull
+  request.
+- Branch protection can require the stable jobs to pass before GitHub permits a merge.
+- Frontend, backend, and migration jobs can run concurrently for faster feedback.
+- Temporary PostgreSQL services test real database behavior without touching local,
+  shared, or production data.
+- A failed job identifies the relevant workspace and first failing step, making the
+  problem easier to reproduce.
+
+The intended sequence uses both forms of validation:
+
+```text
+change code
+    ↓
+make check validates local files
+    ↓
+commit and push
+    ↓
+GitHub Actions validates the pushed commit
+    ↓
+merge after every required job passes
+```
+
 GitHub splits the work into `frontend` and `backend` jobs instead of reporting one large
 combined result. This provides three benefits:
 
