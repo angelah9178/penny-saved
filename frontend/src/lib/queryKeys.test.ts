@@ -27,11 +27,7 @@ describe("queryKeys", () => {
     "last_year",
     "all_time",
   ])("includes the %s range in a statistics key", (range) => {
-    expect(queryKeys.stats.summary(range)).toEqual([
-      "stats",
-      "summary",
-      range,
-    ]);
+    expect(queryKeys.stats.summary(range)).toEqual(["stats", "summary", range]);
   });
 
   it("creates the opportunity-cost list key", () => {
