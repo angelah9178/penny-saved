@@ -8,7 +8,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 |---|---|---|---|
 | &#91;x&#93; | [1](#commit-1--define-api-contract-types-and-query-keys) | Add frontend API contracts and query keys | — |
 | &#91;x&#93; | [2](#commit-2--add-the-credentialed-api-client) | Add the credentialed API client | Commit 1 |
-| &#91;&#160;&#93; | [3](#commit-3--configure-tanstack-query-behavior) | Configure frontend query behavior | Commit 1 |
+| &#91;x&#93; | [3](#commit-3--configure-tanstack-query-behavior) | Configure frontend query behavior | Commit 1 |
 | &#91;&#160;&#93; | [4](#commit-4--add-common-request-state-components) | Add accessible request-state components | — |
 | &#91;&#160;&#93; | [5](#commit-5--build-the-router-provider-tree-and-application-shell) | Add the router, providers, and application shell | Commits 3, 4 |
 | &#91;&#160;&#93; | [6](#commit-6--add-msw-api-testing-and-the-development-proxy) | Add MSW API testing and the Vite proxy | Commits 2, 5 |
@@ -211,10 +211,43 @@ npm test -- src/api
 
 ## Commit 3 — Configure TanStack Query Behavior
 
+TanStack Query manages the data that the frontend receives from the backend. The API
+client from Commit 2 knows how to send and receive one individual request. TanStack Query
+uses that API client while coordinating the many requests, cached results, loading
+states, errors, retries, and refreshes needed across the whole application.
+
+The overall flow is:
+
+```text
+React component
+      ↓ asks TanStack Query for data
+TanStack Query
+      ↓ checks whether fresh data is already cached
+API client
+      ↓ sends an individual request when needed
+FastAPI backend
+      ↓ performs the work and returns data
+TanStack Query
+      ↓ stores and shares the result
+React component
+      ↓ displays the data
+```
+
 TanStack Query owns remote server state. A shared `QueryClient` gives the application one
 place to define when requests are considered stale and which failures may be retried.
 Components and feature hooks can then focus on their data rather than recreating global
 network policy.
+
+One of TanStack Query's most important benefits is preventing unnecessary duplicate
+requests for the same data. If multiple components request dashboard entries using the
+same query key, TanStack Query can make one API request, cache the result, and share it
+with every component that needs it. This reduces repeated frontend code, network traffic,
+and backend/database work.
+
+TanStack Query does not normally combine unrelated requests into one larger request.
+Entries and statistics still use their separate backend endpoints. It manages those
+requests together while sharing results only when components are asking for the same
+query.
 
 Queries may retry temporary network failures and `5xx` responses at most twice with a
 short backoff. Retrying a `4xx` response is normally wasteful because the same request
