@@ -1,5 +1,31 @@
 # Make Command Reference
 
+## Table of Contents
+
+- [Setup and Installation](#setup-and-installation)
+  - [`make help`](#make-help)
+  - [`make env-setup`](#make-env-setup)
+  - [`make install`](#make-install)
+  - [`make backend-install`](#make-backend-install)
+  - [`make frontend-install`](#make-frontend-install)
+- [Quality Commands and Continuous Integration](#quality-commands-and-continuous-integration)
+  - [`make check`](#make-check)
+  - [`make clean`](#make-clean)
+  - [`make dev`](#make-dev)
+  - [`make seed-demo`](#make-seed-demo)
+- [Local PostgreSQL](#local-postgresql)
+  - [`make db-up`](#make-db-up)
+  - [`make db-down`](#make-db-down)
+  - [`make db-logs`](#make-db-logs)
+  - [`make db-reset`](#make-db-reset)
+- [Database Migrations](#database-migrations)
+  - [`make db-upgrade`](#make-db-upgrade)
+  - [`make db-downgrade`](#make-db-downgrade)
+  - [`make db-revision message="description"`](#make-db-revision-messagedescription)
+- [Internal Prerequisite Targets](#internal-prerequisite-targets)
+  - [`make check-docker`](#make-check-docker)
+  - [`make check-alembic`](#make-check-alembic)
+
 Run these commands from the repository root:
 
 ```text
