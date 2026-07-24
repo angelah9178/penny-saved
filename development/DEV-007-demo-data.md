@@ -24,7 +24,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 
 |  | Commit | Title | Depends on |
 |---|---|---|---|
-| &#91; &#93; | [1](#commit-1--add-the-guarded-demo-seed-foundation) | Add guarded demo-seed foundation | — |
+| &#91;x&#93; | [1](#commit-1--add-the-guarded-demo-seed-foundation) | Add guarded demo-seed foundation | — |
 | &#91; &#93; | [2](#commit-2--add-the-deterministic-demo-user) | Add deterministic demo identity | Commit 1 |
 | &#91; &#93; | [3](#commit-3--seed-every-entry-and-statistics-state) | Add representative demo entries | Commit 2 |
 | &#91; &#93; | [4](#commit-4--seed-opportunity-costs-and-verify-idempotency) | Add opportunity costs and idempotency coverage | Commit 3 |
@@ -66,6 +66,23 @@ all database-writing tests must use only the explicit disposable `TEST_DATABASE_
 The seeder must never modify records owned by a non-demo user.
 
 ## Commit 1 — Add the Guarded Demo-Seed Foundation
+
+To **seed** a database means to populate it with prepared starting data. In this project,
+demo seeding will create a known local account and representative purchase records so a
+contributor can inspect the application without entering every scenario manually:
+
+```text
+empty migrated development database
+    ↓
+make seed-demo
+    ↓
+database contains the known demonstration dataset
+```
+
+Commit 1 establishes the rules and boundaries for that command before later commits add
+the user, entries, and opportunity-cost examples. Its purpose is to make every future
+demo-data write pass through one protected path: never production, never an unsafe
+database target, never an outdated schema, and never a partial transaction.
 
 Commit 1 creates the command path and safety boundary before adding demo records. The
 seeder is backend-owned because it writes SQLAlchemy models, uses the backend clock and

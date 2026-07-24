@@ -36,6 +36,7 @@ def test_makefile_exposes_focused_and_combined_quality_targets() -> None:
         "frontend-dev",
         "backend-dev",
         "dev",
+        "seed-demo",
     }
     phony = makefile.split(".PHONY:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
 
@@ -105,3 +106,16 @@ def test_focused_dev_targets_use_the_supported_servers() -> None:
     assert "app.main:create_app" in backend_dev
     assert "--factory" in backend_dev
     assert "--reload" in backend_dev
+
+
+def test_seed_demo_uses_backend_configuration_without_starting_dependencies() -> None:
+    makefile = _makefile_text()
+    seed_demo = makefile.split("\nseed-demo:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
+
+    assert "check-alembic" in seed_demo
+    assert "cd backend" in seed_demo
+    assert "$(BACKEND_PYTHON) -m app.scripts.seed_demo" in seed_demo
+    assert "$(MAKE) db-up" not in seed_demo
+    assert "$(MAKE) db-upgrade" not in seed_demo
+    assert "pip install" not in seed_demo
+    assert "npm " not in seed_demo
