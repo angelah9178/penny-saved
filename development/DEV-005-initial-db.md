@@ -11,7 +11,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93; | [3](#commit-3--add-the-entry-model) | Add impulse-purchase entry persistence | Commit 1 |
 | &#91;x&#93; | [4](#commit-4--add-the-opportunity-cost-example-model) | Add opportunity-cost persistence | Commit 1 |
 | &#91;x&#93; | [5](#commit-5--configure-alembic-and-create-the-initial-migration) | Add Alembic and the initial schema migration | Commits 1–4 |
-| &#91; &#93; | [6](#commit-6--add-postgresql-schema-and-migration-tests) | Verify PostgreSQL constraints and migrations | Commit 5 |
+| &#91;x&#93; | [6](#commit-6--add-postgresql-schema-and-migration-tests) | Verify PostgreSQL constraints and migrations | Commit 5 |
 | &#91; &#93; | [7](#commit-7--document-and-verify-the-completed-database-foundation) | Document DEV-005 database foundation | Commits 1–6 |
 
 ## Objective
@@ -375,6 +375,30 @@ alembic upgrade head
 This commit proves that the model and migration design works against PostgreSQL rather
 than only looking correct in Python. It tests actual constraint failures, cascading
 deletes, migration reversibility, and drift between Alembic head and model metadata.
+
+Here, “real PostgreSQL” means the actual PostgreSQL database engine running in Docker,
+not production data or records created by real users. Commit 6 uses a separate,
+disposable test database identified by `TEST_DATABASE_URL`. Tests can safely create
+invalid and valid sample records, remove tables, and rebuild the schema without changing
+the normal development database.
+
+In simple terms, the database tools have different responsibilities. Using the same
+building metaphor:
+
+| Tool | Technical role | Building metaphor |
+|---|---|---|
+| SQL | The language used to give database instructions. | The shared language used to describe construction work and request information from the building. |
+| PostgreSQL | The database software that stores data and executes SQL. | The actual building, including the staff who store, find, protect, and update everything inside it. |
+| SQLAlchemy | The Python toolkit that maps classes and Python operations to SQL. | The interpreter that translates the application's Python requests into instructions the building staff understand. |
+| Models | The Python description of the application's intended tables, columns, and relationships. | The architect's current blueprints describing how the finished building should be arranged. |
+| Migrations | Versioned instructions for changing the database structure. | Numbered construction and renovation plans explaining how to build or modify the structure step by step. |
+| Alembic | The tool that executes and tracks migrations. | The construction manager who identifies unfinished plans, directs the work, and records which renovations are complete. |
+| Commit 6 tests | Verification of the resulting structure in a disposable PostgreSQL database. | Building inspectors who test the finished structure, safety rules, locks, and connections before it is approved. |
+
+The development database created through `make db-up` and the test database both use the
+same PostgreSQL engine, but they serve different purposes. The development database
+holds local application data while a developer uses the application. The test database
+exists for automated verification and may be repeatedly emptied or rebuilt.
 
 This differs from the earlier metadata tests: those quickly inspect declarations, while
 these integration tests execute the resulting schema and verify PostgreSQL is the final
