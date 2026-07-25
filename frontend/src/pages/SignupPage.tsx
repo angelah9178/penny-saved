@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 
+import { AuthForm } from "../features/auth/AuthForm";
+
 export function SignupPage() {
   return (
     <>
       <h1>Create your account</h1>
-      <p>The signup form will be added in Commit 4.</p>
+      <AuthForm mode="signup" />
       <Link to="/login">Log in to an existing account</Link>
     </>
   );

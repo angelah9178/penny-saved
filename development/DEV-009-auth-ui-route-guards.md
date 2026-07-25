@@ -29,7 +29,7 @@ complete.
 | &#91;x&#93;      | [1](#commit-1--add-frontend-authentication-types-and-api-requests) | Add auth types and API requests   | —           |
 | &#91;x&#93;      | [2](#commit-2--bootstrap-and-cache-the-current-session)            | Bootstrap the current session     | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--add-protected-and-guest-only-route-guards)          | Add route guards                  | Commit 2    |
-| &#91;&#160;&#93; | [4](#commit-4--build-accessible-signup-and-login-flows)            | Build signup and login flows      | Commit 3    |
+| &#91;x&#93;      | [4](#commit-4--build-accessible-signup-and-login-flows)            | Build signup and login flows      | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--add-logout-and-session-expiry-recovery)             | Add logout and expiry recovery    | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-auth-ux-security-and-verification)         | Complete auth UX and verification | Commits 1–5 |
 
@@ -338,10 +338,36 @@ git diff --check
 
 ## Commit 4 — Build Accessible Signup and Login Flows
 
+**Status:** Complete.
+
 Commit 4 adds the two guest forms and reconciles successful authentication directly
 into the existing current-user cache. Both forms use React Hook Form and Zod for
 immediate usability feedback, while DEV-008 remains authoritative for normalization,
 validation, duplicate email detection, and credential verification.
+
+In plain language, Commit 4 builds the actual signup and login forms. The signup form
+asks for:
+
+```text
+Email
+Password
+Create account
+```
+
+The login form asks for:
+
+```text
+Email
+Password
+Log in
+```
+
+Before either form contacts the backend, the frontend performs basic checks so it can
+quickly identify a missing or malformed email and a password that is too short or too
+long. These checks make the form easier to use, but they do not decide whether an
+account may be created or whether credentials are correct. The backend remains the
+authority and performs the final validation, account lookup, password verification,
+and session creation.
 
 Shared input behavior:
 
