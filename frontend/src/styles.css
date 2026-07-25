@@ -72,6 +72,10 @@ button {
   padding: 1rem;
   font-size: 1.125rem;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .page-content {
@@ -141,6 +145,14 @@ button {
 .field-error {
   margin: 0;
   color: #991b1b;
+}
+
+.account-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
 }
 
 .loading-indicator {

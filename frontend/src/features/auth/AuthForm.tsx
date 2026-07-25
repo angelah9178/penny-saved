@@ -8,6 +8,7 @@ import { queryKeys } from "../../lib/queryKeys";
 import { safeReturnPath } from "../../routes/returnPath";
 import type { AuthRequest, AuthResponse } from "../../types/api";
 import { login, signup } from "./api";
+import { resetSessionExpiry } from "./sessionExpiry";
 import { authFormSchema, type AuthFormValues } from "./validation";
 
 export type AuthFormProps = {
@@ -73,6 +74,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         queryKeys.auth.me(),
         response,
       );
+      resetSessionExpiry();
       await navigate(returnPathFromState(location.state), { replace: true });
     } catch (error) {
       applyApiError(

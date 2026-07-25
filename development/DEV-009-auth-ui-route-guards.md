@@ -30,7 +30,7 @@ complete.
 | &#91;x&#93;      | [2](#commit-2--bootstrap-and-cache-the-current-session)            | Bootstrap the current session     | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--add-protected-and-guest-only-route-guards)          | Add route guards                  | Commit 2    |
 | &#91;x&#93;      | [4](#commit-4--build-accessible-signup-and-login-flows)            | Build signup and login flows      | Commit 3    |
-| &#91;&#160;&#93; | [5](#commit-5--add-logout-and-session-expiry-recovery)             | Add logout and expiry recovery    | Commit 4    |
+| &#91;x&#93;      | [5](#commit-5--add-logout-and-session-expiry-recovery)             | Add logout and expiry recovery    | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-auth-ux-security-and-verification)         | Complete auth UX and verification | Commits 1–5 |
 
 ## Objective
@@ -440,11 +440,64 @@ git diff --check
 
 ## Commit 5 — Add Logout and Session-Expiry Recovery
 
+**Status:** Complete.
+
 Commit 5 completes the session lifecycle after initial authentication. Logout calls
 the server, clears the entire TanStack Query cache, and replace-navigates to `/login`.
 The local cleanup and navigation must occur even when the server reports an already
 expired session or the logout request fails, because the browser must not continue to
 present stale private data as authenticated.
+
+In plain language, Commit 5 gives users a reliable way to log out and handles sessions
+that become invalid while the application is open. The protected application header
+shows the logged-in user's email and a Logout button.
+
+Intentional logout follows this flow:
+
+```text
+user selects Logout
+    ↓
+frontend calls POST /api/auth/logout
+    ↓
+backend deletes the active session and clears its cookie
+    ↓
+frontend clears all cached account data
+    ↓
+user is sent to /login
+```
+
+Clearing the entire frontend cache prevents entries, statistics, settings, or other
+private data from the previous account appearing if another person later logs in on
+the same browser. The frontend still clears its cache and goes to `/login` when the
+session already expired, the logout request is unauthorized, the network fails, or the
+server temporarily fails. Repeated Logout clicks produce only one active request.
+
+A session can also expire while the application remains open:
+
+```text
+user leaves the application open
+    ↓
+the server-side session expires
+    ↓
+the user later requests protected data
+    ↓
+the backend returns 401 Unauthorized
+```
+
+In that situation, the frontend clears cached authentication and account data,
+redirects to `/login`, remembers the safe internal page the user was visiting, and
+displays “Your session expired. Please sign in again.” After a successful login, the
+user returns safely to that page:
+
+```text
+session expires on /entries/new
+    ↓
+redirect to /login with the expiration message
+    ↓
+user logs in again
+    ↓
+return safely to /entries/new
+```
 
 Unexpected `401` responses from protected application requests represent session
 expiry. They must converge through one handler:
@@ -461,7 +514,9 @@ announce “Your session expired. Please sign in again.”
 
 Expected `401` responses from `/auth/me` bootstrap and invalid login must not trigger
 the expiry flow. The API layer should report typed errors; navigation-aware auth
-coordination decides which `401` is an expired authenticated session.
+coordination decides which `401` is an expired authenticated session. If several
+protected requests return `401` together, they are handled as one expiration event
+rather than repeatedly clearing the cache, redirecting, or showing duplicate messages.
 
 Suggested commit message:
 

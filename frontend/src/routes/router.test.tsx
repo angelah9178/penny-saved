@@ -59,6 +59,8 @@ describe("authentication routes", () => {
         "You are signed in. The complete dashboard will be added in DEV-011.",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("person@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   });
 
   it("redirects a guest from protected content and preserves the intended path", async () => {
@@ -139,6 +141,20 @@ describe("authentication routes", () => {
     expect(
       await screen.findByRole("heading", { name: "Page not found" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows the session-expired message once on login", async () => {
+    renderRoute({
+      pathname: "/login",
+      state: {
+        returnTo: "/dashboard",
+        sessionExpired: true,
+      },
+    });
+
+    expect(
+      await screen.findByText("Your session expired. Please sign in again."),
+    ).toHaveAttribute("role", "status");
   });
 });
 
