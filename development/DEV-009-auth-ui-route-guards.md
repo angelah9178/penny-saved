@@ -24,14 +24,14 @@
 Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 complete.
 
-|                  | Commit                                                             | Title                             | Depends on  |
-| ---------------- | ------------------------------------------------------------------ | --------------------------------- | ----------- |
-| &#91;x&#93;      | [1](#commit-1--add-frontend-authentication-types-and-api-requests) | Add auth types and API requests   | —           |
-| &#91;x&#93;      | [2](#commit-2--bootstrap-and-cache-the-current-session)            | Bootstrap the current session     | Commit 1    |
-| &#91;x&#93;      | [3](#commit-3--add-protected-and-guest-only-route-guards)          | Add route guards                  | Commit 2    |
-| &#91;x&#93;      | [4](#commit-4--build-accessible-signup-and-login-flows)            | Build signup and login flows      | Commit 3    |
-| &#91;x&#93;      | [5](#commit-5--add-logout-and-session-expiry-recovery)             | Add logout and expiry recovery    | Commit 4    |
-| &#91;&#160;&#93; | [6](#commit-6--complete-auth-ux-security-and-verification)         | Complete auth UX and verification | Commits 1–5 |
+|             | Commit                                                             | Title                             | Depends on  |
+| ----------- | ------------------------------------------------------------------ | --------------------------------- | ----------- |
+| &#91;x&#93; | [1](#commit-1--add-frontend-authentication-types-and-api-requests) | Add auth types and API requests   | —           |
+| &#91;x&#93; | [2](#commit-2--bootstrap-and-cache-the-current-session)            | Bootstrap the current session     | Commit 1    |
+| &#91;x&#93; | [3](#commit-3--add-protected-and-guest-only-route-guards)          | Add route guards                  | Commit 2    |
+| &#91;x&#93; | [4](#commit-4--build-accessible-signup-and-login-flows)            | Build signup and login flows      | Commit 3    |
+| &#91;x&#93; | [5](#commit-5--add-logout-and-session-expiry-recovery)             | Add logout and expiry recovery    | Commit 4    |
+| &#91;x&#93; | [6](#commit-6--complete-auth-ux-security-and-verification)         | Complete auth UX and verification | Commits 1–5 |
 
 ## Objective
 
@@ -561,9 +561,40 @@ git diff --check
 
 ## Commit 6 — Complete Auth UX, Security, and Verification
 
+**Status:** Complete.
+
 Commit 6 verifies the feature as a complete browser workflow and closes usability,
 accessibility, responsive, and documentation gaps. It must validate behavior at the
 HTTP and router boundaries rather than merely recording planned coverage.
+
+In plain language, Commits 1–5 build the authentication functionality, while Commit 6
+checks that everything works together as a secure, accessible, responsive browser
+experience. It tests the complete user journey:
+
+```text
+create an account
+    ↓
+reach the protected dashboard
+    ↓
+refresh and restore the existing session
+    ↓
+log out
+    ↓
+request protected content and return to login
+```
+
+It also proves that a guest who originally requested a protected page can log in and
+return safely to that page. The review covers keyboard and assistive-technology use,
+visible focus, labels and error associations, loading announcements, 44×44 pixel
+targets, reduced motion, and layouts down to 320 CSS pixels without horizontal page
+scrolling.
+
+Commit 6 reviews the security boundaries to confirm that passwords remain only in
+temporary form state and the request body, raw session tokens remain only in
+browser-managed `HttpOnly` cookies, public user data remains only in the in-memory
+query cache, and return paths remain validated internal routes. It also updates the
+project documentation and replaces the planned Implementation Record with actual
+files, commands, test counts, and remaining limitations.
 
 The final verification must demonstrate:
 
@@ -637,27 +668,85 @@ git status --short
 
 ## Implementation Record
 
-Complete this section during Commit 6 with verified results.
-
 ### Overview
 
-Not implemented yet.
+DEV-009 added the complete browser authentication experience on top of the DEV-008
+cookie-session API. The frontend now provides typed auth requests, current-session
+bootstrap, protected and guest-only route guards, accessible signup and login forms,
+logout, expired-session recovery, safe return navigation, and a protected dashboard
+placeholder for DEV-011.
 
 ### What It Achieved
 
-Not implemented yet.
+Users can create an account, log in, refresh without losing a valid session, log out,
+and recover safely when a protected request discovers an expired session. TanStack
+Query owns the public user as in-memory server state. React Hook Form and Zod provide
+immediate form feedback while the backend remains authoritative for validation,
+credential verification, session creation, and authorization.
+
+Signup and login reconcile the returned public user directly into the current-session
+cache before replace-navigation, avoiding a redundant `/auth/me` request. Logout
+revokes the presented server session when reachable, clears private frontend query
+data for every outcome, records a guest cache state, and navigates to `/login`.
 
 ### Routes and Session Behavior
 
-Not implemented yet.
+`/` resolves to `/dashboard` for an authenticated user and `/login` for a guest.
+`/login` and `/signup` are guest-only, while `/dashboard` is protected. All decisions
+wait for `/api/auth/me`, so a valid refreshed session does not flash the login screen
+and a guest does not see protected content. Network and server bootstrap failures show
+a focused retry state rather than masquerading as logout.
+
+Protected redirects preserve the path, query, and fragment in router state. Only
+validated internal paths are accepted; absolute URLs, protocol-relative URLs,
+backslashes, malformed or repeatedly encoded paths, control characters, and auth-route
+loops fall back to `/dashboard`. Concurrent protected-request `401` responses converge
+into one cache clear, redirect, and expiry message. Bootstrap and invalid-login `401`
+responses do not enter this expiry flow.
 
 ### Accessibility and Security
 
-Not implemented yet.
+Signup and login have visible programmatic labels, correct autocomplete values,
+associated field errors, keyboard submission, disabled pending actions, and focused
+global error summaries. Loading, expiry, and failure states use live status or alert
+semantics. Shared controls retain visible focus and minimum 44×44 CSS pixel targets.
+The layout supports a 320 CSS pixel viewport with bounded content, wrapping header
+controls, full-width shrinkable inputs, and reduced-motion behavior.
+
+Passwords remain in transient form state and credential request bodies, are preserved
+exactly as entered, and are cleared after success or unmount. The frontend neither
+reads the `HttpOnly` cookie nor writes passwords, session values, or public users to
+local/session storage or URLs. API messages render through React as plain text.
+Return-path validation prevents external post-login navigation. Route guards remain a
+navigation convenience; backend authentication and authorization remain mandatory.
 
 ### Verification
 
-Not run yet.
+The completed verification ran:
+
+```text
+make clean
+make install
+make check
+cd frontend
+npm run test:coverage
+npm run build
+cd ..
+git diff --check
+git status --short
+```
+
+The clean locked installation completed successfully. `make check` passed formatting,
+ESLint, strict TypeScript, 135 frontend tests, 232 backend tests using the explicit
+PostgreSQL test database, frontend production build, and backend construction. The
+frontend suite includes complete MSW-backed signup → dashboard → refresh restoration →
+logout → protected redirect and protected route → login → safe return flows.
+
+Coverage completed at 96.63% statements, 94% branches, 97.64% functions, and 96.58%
+lines overall. Authentication feature coverage was 96.77% statements, 92.15% branches,
+100% functions, and 96.71% lines. The production build emitted separate lazy chunks
+for login, signup, dashboard, and the shared authentication form. Markdown/Prettier
+formatting and `git diff --check` passed.
 
 ### Limitations and Follow-up
 
@@ -665,4 +754,11 @@ DEV-011 will replace the temporary protected dashboard destination with the comp
 dashboard and entry lists. DEV-020 will complete shared application-wide UX,
 accessibility, and responsive hardening. DEV-021 will add production authentication
 rate limiting and remaining abuse protections, and DEV-023 will add live end-to-end
-smoke coverage.
+smoke coverage against a real browser and backend. Commit 6 used behavior-focused
+Testing Library/MSW integration coverage rather than the live-browser suite owned by
+DEV-023.
+
+The locked frontend installation reported seven high-severity dependency audit
+findings. No dependency versions were changed within DEV-009; they require a separate
+review of available compatible upgrades rather than an automatic breaking
+`npm audit fix --force`.

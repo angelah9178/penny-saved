@@ -219,6 +219,31 @@ describe("AuthForm", () => {
       screen.queryByText(new RegExp(password, "u")),
     ).not.toBeInTheDocument();
   });
+
+  it("renders API messages as text rather than HTML", async () => {
+    const user = userEvent.setup();
+    const message = "<img src=x onerror=alert(1)>";
+    server.use(
+      http.post("/api/auth/signup", () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "service_error",
+              message,
+            },
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderWithApp(<AuthForm mode="signup" />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(document.querySelector("img")).toBeNull();
+  });
 });
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
