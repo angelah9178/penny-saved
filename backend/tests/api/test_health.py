@@ -204,6 +204,32 @@ async def test_non_production_exposes_openapi_with_stable_operations(
 
 
 @pytest.mark.asyncio
+async def test_openapi_documents_complete_authentication_contract(
+    settings: Settings,
+) -> None:
+    app = create_app(settings, lifespan=no_database_lifespan)
+
+    async with api_client(app) as client:
+        document = (await client.get("/openapi.json")).json()
+
+    paths = document["paths"]
+    assert paths["/api/auth/signup"]["post"]["operationId"] == "signup"
+    assert paths["/api/auth/login"]["post"]["operationId"] == "login"
+    assert paths["/api/auth/me"]["get"]["operationId"] == "get_current_session"
+    assert paths["/api/auth/logout"]["post"]["operationId"] == "logout"
+    assert set(paths["/api/auth/signup"]["post"]["responses"]) >= {"201", "409", "422"}
+    assert set(paths["/api/auth/login"]["post"]["responses"]) >= {"200", "401", "422"}
+    assert set(paths["/api/auth/me"]["get"]["responses"]) >= {"200", "401"}
+    schemas = document["components"]["schemas"]
+    assert set(schemas["AuthRequest"]["properties"]) == {"email", "password"}
+    assert set(schemas["UserResponse"]["properties"]) == {"id", "email"}
+    serialized = str(document)
+    assert "password_hash" not in serialized
+    assert "session_token_hash" not in serialized
+    assert "raw_token" not in serialized
+
+
+@pytest.mark.asyncio
 async def test_production_hides_interactive_api_documentation() -> None:
     settings = Settings(
         _env_file=None,

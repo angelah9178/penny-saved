@@ -54,10 +54,15 @@ def _settings(
     app_env: AppEnvironment = AppEnvironment.DEVELOPMENT,
     database_url: str = "postgresql+psycopg://seed:seed@localhost:5432/penny_saved",
 ) -> Settings:
+    frontend_origin = {
+        AppEnvironment.TEST: None,
+        AppEnvironment.DEVELOPMENT: "http://localhost:5173",
+        AppEnvironment.PRODUCTION: "https://stopimpulsebuying.us",
+    }[app_env]
     return Settings(
         app_env=app_env,
         database_url=database_url,
-        frontend_origin=(None if app_env == AppEnvironment.TEST else "http://localhost:5173"),
+        frontend_origin=frontend_origin,
         session_cookie_secure=app_env == AppEnvironment.PRODUCTION,
     )
 

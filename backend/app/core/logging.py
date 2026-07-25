@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sys
 import traceback
 from contextvars import ContextVar, Token
@@ -19,6 +20,15 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 LOGGER_NAME = "penny_saved"
 REQUEST_ID_HEADER = "X-Request-ID"
 _request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
+_SENSITIVE_VALUE_PATTERN = re.compile(
+    r"(?i)\b(password|cookie|set-cookie|authorization|session_token|"
+    r"session_token_hash|session_digest)\b(\s*[:=]\s*)([^\s,;]+)"
+)
+
+
+def redact_sensitive_text(value: str) -> str:
+    """Redact labeled authentication material before it reaches structured output."""
+    return _SENSITIVE_VALUE_PATTERN.sub(r"\1\2<redacted>", value)
 
 
 class JsonFormatter(logging.Formatter):
@@ -34,7 +44,7 @@ class JsonFormatter(logging.Formatter):
             "timestamp": timestamp,
             "level": record.levelname,
             "environment": getattr(record, "environment", self.environment),
-            "message": record.getMessage(),
+            "message": redact_sensitive_text(record.getMessage()),
         }
         for field in (
             "request_id",

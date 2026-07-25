@@ -75,6 +75,28 @@ def test_formatter_omits_unapproved_sensitive_extra_fields() -> None:
     assert "session-secret" not in output
 
 
+def test_formatter_redacts_labeled_authentication_material_in_messages() -> None:
+    stream = StringIO()
+    logger = configure_logging(AppEnvironment.TEST, LogLevel.INFO, stream=stream)
+
+    logger.warning(
+        "password=plain-secret Cookie:cookie-secret "
+        "Set-Cookie=session-secret authorization=bearer-secret "
+        "session_token_hash=digest-secret"
+    )
+
+    output = stream.getvalue()
+    for secret in (
+        "plain-secret",
+        "cookie-secret",
+        "session-secret",
+        "bearer-secret",
+        "digest-secret",
+    ):
+        assert secret not in output
+    assert output.count("<redacted>") == 5
+
+
 def test_configuration_is_isolated_from_root_logger() -> None:
     root_handlers = list(logging.getLogger().handlers)
 
