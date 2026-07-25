@@ -54,7 +54,13 @@ export async function apiFetch<T>(
   }
 
   try {
-    return (await response.json()) as T;
+    const responseBody = await response.text();
+
+    if (responseBody === "") {
+      return undefined as T;
+    }
+
+    return JSON.parse(responseBody) as T;
   } catch {
     throw invalidResponseApiError(response.status);
   }

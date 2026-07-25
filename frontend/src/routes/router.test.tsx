@@ -1,56 +1,170 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { createMemoryRouter } from "react-router-dom";
+import { http, HttpResponse, delay } from "msw";
+import { createMemoryRouter, type InitialEntry } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
 import { AppProviders } from "../app/providers";
 import { createQueryClient } from "../app/queryClient";
+import { server } from "../test/server";
 import { appRoutes } from "./router";
 
-describe("application router", () => {
-  it("renders the home route inside the shared page shell", () => {
-    renderRoute("/");
+const authenticatedResponse = {
+  user: { id: "user-1", email: "person@example.com" },
+};
 
-    expect(screen.getByRole("banner")).toHaveTextContent("A Penny Saved");
+describe("authentication routes", () => {
+  it("redirects an authenticated index visit to the dashboard", async () => {
+    useAuthenticatedSession();
+    const { router } = renderRoute("/");
+
     expect(
-      screen.getByRole("heading", { level: 1, name: "A Penny Saved" }),
+      await screen.findByRole("heading", { name: "Dashboard" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("main")).toHaveTextContent(
-      "Application setup is in progress.",
-    );
-    expect(
-      screen.getByRole("link", { name: "Skip to main content" }),
-    ).toHaveAttribute("href", "#main-content");
+    expect(router.state.location.pathname).toBe("/dashboard");
   });
 
-  it("renders an unknown route inside the same page shell", () => {
+  it("redirects a guest index visit to login", async () => {
+    const { router } = renderRoute("/");
+
+    expect(
+      await screen.findByRole("heading", { name: "Log in" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+  });
+
+  it("renders guest-only routes for a guest", async () => {
+    renderRoute("/signup");
+
+    expect(
+      await screen.findByRole("heading", { name: "Create your account" }),
+    ).toBeInTheDocument();
+  });
+
+  it("redirects an authenticated user away from a guest-only route", async () => {
+    useAuthenticatedSession();
+    const { router } = renderRoute("/login");
+
+    expect(
+      await screen.findByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/dashboard");
+  });
+
+  it("renders protected content for an authenticated user", async () => {
+    useAuthenticatedSession();
+    renderRoute("/dashboard");
+
+    expect(
+      await screen.findByText(
+        "You are signed in. The complete dashboard will be added in DEV-011.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("person@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+  });
+
+  it("redirects a guest from protected content and preserves the intended path", async () => {
+    const { router } = renderRoute("/dashboard?view=recent#top");
+
+    expect(
+      await screen.findByRole("heading", { name: "Log in" }),
+    ).toBeInTheDocument();
+    expect(router.state.location).toMatchObject({
+      pathname: "/login",
+      state: { returnTo: "/dashboard?view=recent#top" },
+    });
+  });
+
+  it("returns an authenticated user to a validated intended path", async () => {
+    useAuthenticatedSession();
+    const { router } = renderRoute({
+      pathname: "/login",
+      state: { returnTo: "/dashboard?view=recent#top" },
+    });
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    expect(router.state.location).toMatchObject({
+      pathname: "/dashboard",
+      search: "?view=recent",
+      hash: "#top",
+    });
+  });
+
+  it("falls back safely from a malicious intended path", async () => {
+    useAuthenticatedSession();
+    const { router } = renderRoute({
+      pathname: "/login",
+      state: { returnTo: "https://attacker.example/steal" },
+    });
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    expect(router.state.location.pathname).toBe("/dashboard");
+  });
+
+  it("shows neither guest nor protected content while bootstrap is pending", () => {
+    server.use(
+      http.get("/api/auth/me", async () => {
+        await delay("infinite");
+        return HttpResponse.json(authenticatedResponse);
+      }),
+    );
+    renderRoute("/dashboard");
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading the application…",
+    );
+    expect(screen.queryByRole("heading", { name: "Dashboard" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Log in" })).toBeNull();
+  });
+
+  it("shows the retryable bootstrap error instead of deciding a route", async () => {
+    server.use(
+      http.get("/api/auth/me", () =>
+        HttpResponse.json(
+          { error: { code: "bad_request", message: "Failed." } },
+          { status: 400 },
+        ),
+      ),
+    );
+    renderRoute("/dashboard");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We could not check your session. Please try again.",
+    );
+    expect(screen.queryByRole("heading", { name: "Dashboard" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Log in" })).toBeNull();
+  });
+
+  it("keeps the not-found route available to guests", async () => {
     renderRoute("/does-not-exist");
 
-    expect(screen.getByRole("banner")).toHaveTextContent("A Penny Saved");
     expect(
-      screen.getByRole("heading", { level: 1, name: "Page not found" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Return home" }),
+      await screen.findByRole("heading", { name: "Page not found" }),
     ).toBeInTheDocument();
   });
 
-  it("navigates home without replacing the application shell", async () => {
-    const user = userEvent.setup();
-    const { router } = renderRoute("/does-not-exist");
-    const banner = screen.getByRole("banner");
+  it("shows the session-expired message once on login", async () => {
+    renderRoute({
+      pathname: "/login",
+      state: {
+        returnTo: "/dashboard",
+        sessionExpired: true,
+      },
+    });
 
-    await user.click(screen.getByRole("link", { name: "Return home" }));
-
-    expect(router.state.location.pathname).toBe("/");
-    expect(screen.getByRole("banner")).toBe(banner);
     expect(
-      screen.getByRole("heading", { level: 1, name: "A Penny Saved" }),
-    ).toBeInTheDocument();
+      await screen.findByText("Your session expired. Please sign in again."),
+    ).toHaveAttribute("role", "status");
   });
 });
 
-function renderRoute(initialEntry: string) {
+function useAuthenticatedSession() {
+  server.use(
+    http.get("/api/auth/me", () => HttpResponse.json(authenticatedResponse)),
+  );
+}
+
+function renderRoute(initialEntry: InitialEntry) {
   const queryClient = createQueryClient();
   const router = createMemoryRouter(appRoutes, {
     initialEntries: [initialEntry],

@@ -7,4 +7,15 @@ export const handlers = [
   http.get(`${TEST_API_BASE_URL}/health`, () => {
     return HttpResponse.json({ status: "ok" });
   }),
+  http.get("/api/auth/me", () => {
+    return HttpResponse.json(
+      {
+        error: {
+          code: "unauthorized",
+          message: "Authentication is required.",
+        },
+      },
+      { status: 401 },
+    );
+  }),
 ];

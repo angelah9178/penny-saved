@@ -163,6 +163,46 @@ exactly matches `FRONTEND_ORIGIN`; authenticated non-browser requests without an
 `Origin` remain supported. Production requires an HTTPS frontend origin and secure
 cookies.
 
+### Frontend authentication workflow
+
+Open `/signup` to create a local account or `/login` to use an existing account. Both
+forms provide client-side usability checks, while the backend remains authoritative
+for validation and credential verification. The password exists only in temporary
+form state and the credentialed request body; the frontend does not write passwords,
+session tokens, or user records to browser storage.
+
+On every initial load or refresh, the frontend calls `/api/auth/me`. The browser sends
+the `HttpOnly` session cookie automatically. A valid session restores the user directly
+to protected content without requiring another login or briefly flashing the login
+screen. A missing, invalid, or expired session is treated as a guest session.
+
+The frontend route behavior is:
+
+| Route        | Guest behavior       | Authenticated behavior |
+| ------------ | -------------------- | ---------------------- |
+| `/`          | Redirect to `/login` | Redirect to dashboard  |
+| `/login`     | Show login form      | Redirect to dashboard  |
+| `/signup`    | Show signup form     | Redirect to dashboard  |
+| `/dashboard` | Redirect to `/login` | Show protected content |
+
+When login is required for a protected route, the frontend preserves only a validated
+internal return path and navigates there after successful authentication. Frontend
+guards are a navigation convenience; every protected backend endpoint must still
+authenticate and authorize the request.
+
+The protected header displays the current public email and a Logout button. Logout
+revokes the presented server session, clears all frontend query data, and returns to
+`/login`. If a protected request discovers that the session expired, the frontend
+clears private cached data, displays “Your session expired. Please sign in again,” and
+returns the user to the safe original route after login.
+
+For a ready-made local account, run `make seed-demo` and use:
+
+```text
+Email:    demo@penny-saved.local
+Password: PennySavedDemo!2026
+```
+
 ## Frontend development server
 
 Install the locked frontend dependencies during first-time setup or whenever
@@ -213,8 +253,9 @@ passwords, session values, database URLs, API secrets, or other credentials in a
   FastAPI server is not running at `http://127.0.0.1:8000`.
 - Run frontend commands from `frontend/`; running them from the repository root will not
   find the frontend `package.json`.
-- The current DEV-004 home and not-found pages are foundation placeholders. Login,
-  dashboard, entry, and statistics screens are added by later DEV tasks.
+- The login and signup screens are implemented. The current dashboard remains a
+  protected placeholder until DEV-011; entry and statistics screens arrive in later
+  development tasks.
 
 ## Database migrations
 

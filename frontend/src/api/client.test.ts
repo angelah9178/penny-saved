@@ -100,6 +100,14 @@ describe("apiFetch", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("returns undefined for a successful empty response", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+
+    await expect(
+      apiFetch<void>("/auth/logout", { method: "POST" }),
+    ).resolves.toBeUndefined();
+  });
+
   it("throws the parsed standard error response", async () => {
     fetchMock.mockResolvedValue(
       Response.json(
