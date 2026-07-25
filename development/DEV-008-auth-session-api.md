@@ -26,7 +26,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 |                  | Commit                                                                   | Title                                    | Depends on  |
 | ---------------- | ------------------------------------------------------------------------ | ---------------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--define-authentication-contracts-and-security-primitives)  | Define auth contracts and primitives     | —           |
-| &#91;&#160;&#93; | [2](#commit-2--add-session-persistence-and-lifecycle-services)           | Add session lifecycle services           | Commit 1    |
+| &#91;x&#93;      | [2](#commit-2--add-session-persistence-and-lifecycle-services)           | Add session lifecycle services           | Commit 1    |
 | &#91;&#160;&#93; | [3](#commit-3--implement-signup-and-concurrent-duplicate-protection)     | Implement signup                         | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--implement-login-and-credential-verification)              | Implement login                          | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--add-session-resolution-current-user-and-logout)           | Add current-user resolution and logout   | Commit 4    |
@@ -198,9 +198,25 @@ git diff --check
 
 ## Commit 2 — Add Session Persistence and Lifecycle Services
 
+**Status:** Complete.
+
 Commit 2 implements repository operations and the shared session lifecycle before any
 route can issue a cookie. Repositories perform focused queries; services own transaction
 boundaries and authentication policy.
+
+In plain language, this commit defines how long a user stays logged in and what happens
+to the login session throughout its lifetime. A successful signup or login creates a
+session that lasts 30 days by default. That deadline is absolute: using the application
+does not restart or extend the 30-day period.
+
+The browser receives the raw session token in a secure `HttpOnly` cookie, while the
+database stores only its SHA-256 digest. Recent activity is recorded in `last_used_at`,
+but that timestamp is updated at most once per hour to avoid writing to the database on
+every request. When a session expires, it is rejected immediately and removed when
+encountered. Logout revokes the applicable session and clears its browser cookie.
+
+Commit 2 builds these underlying storage and lifecycle services. Later commits connect
+them to the signup, login, current-user, and logout API endpoints.
 
 A newly created session must have:
 
