@@ -8,12 +8,12 @@ import { createQueryClient } from "../app/queryClient";
 import { appRoutes } from "./router";
 
 describe("application router", () => {
-  it("renders the home route inside the shared page shell", () => {
+  it("renders the home route inside the shared page shell", async () => {
     renderRoute("/");
 
     expect(screen.getByRole("banner")).toHaveTextContent("A Penny Saved");
     expect(
-      screen.getByRole("heading", { level: 1, name: "A Penny Saved" }),
+      await screen.findByRole("heading", { level: 1, name: "A Penny Saved" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveTextContent(
       "Application setup is in progress.",
@@ -23,12 +23,15 @@ describe("application router", () => {
     ).toHaveAttribute("href", "#main-content");
   });
 
-  it("renders an unknown route inside the same page shell", () => {
+  it("renders an unknown route inside the same page shell", async () => {
     renderRoute("/does-not-exist");
 
     expect(screen.getByRole("banner")).toHaveTextContent("A Penny Saved");
     expect(
-      screen.getByRole("heading", { level: 1, name: "Page not found" }),
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Page not found",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Return home" }),
@@ -40,7 +43,7 @@ describe("application router", () => {
     const { router } = renderRoute("/does-not-exist");
     const banner = screen.getByRole("banner");
 
-    await user.click(screen.getByRole("link", { name: "Return home" }));
+    await user.click(await screen.findByRole("link", { name: "Return home" }));
 
     expect(router.state.location.pathname).toBe("/");
     expect(screen.getByRole("banner")).toBe(banner);

@@ -1,11 +1,14 @@
 import { Outlet } from "react-router-dom";
 
 import { PageShell } from "../components/PageShell";
+import { AuthBootstrap } from "../features/auth/AuthBootstrap";
 
 export function App() {
   return (
     <PageShell>
-      <Outlet />
+      <AuthBootstrap>
+        <Outlet />
+      </AuthBootstrap>
     </PageShell>
   );
 }

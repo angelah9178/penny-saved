@@ -27,7 +27,7 @@ complete.
 |                  | Commit                                                             | Title                             | Depends on  |
 | ---------------- | ------------------------------------------------------------------ | --------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--add-frontend-authentication-types-and-api-requests) | Add auth types and API requests   | —           |
-| &#91;&#160;&#93; | [2](#commit-2--bootstrap-and-cache-the-current-session)            | Bootstrap the current session     | Commit 1    |
+| &#91;x&#93;      | [2](#commit-2--bootstrap-and-cache-the-current-session)            | Bootstrap the current session     | Commit 1    |
 | &#91;&#160;&#93; | [3](#commit-3--add-protected-and-guest-only-route-guards)          | Add route guards                  | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--build-accessible-signup-and-login-flows)            | Build signup and login flows      | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--add-logout-and-session-expiry-recovery)             | Add logout and expiry recovery    | Commit 4    |
@@ -144,10 +144,40 @@ git diff --check
 
 ## Commit 2 — Bootstrap and Cache the Current Session
 
+**Status:** Complete.
+
 Commit 2 makes `/auth/me` the only source of truth for the initial browser
 authentication state. A missing, invalid, or expired session is a normal guest result;
 a network or server failure is not. The latter must offer recovery instead of silently
 pretending the user is signed out.
+
+In plain language, **bootstrap authentication** means initializing the frontend's
+authentication state when the application first opens or refreshes. JavaScript cannot
+read the secure `HttpOnly` session cookie directly, so the frontend asks the backend
+whether the browser's automatically supplied cookie represents a valid session:
+
+```text
+browser opens Penny Saved
+    ↓
+frontend calls GET /api/auth/me
+    ↓
+browser automatically sends the HttpOnly session cookie
+    ↓
+backend validates the session and returns the public user or 401
+```
+
+This answers one question before the application chooses what to show: “Has this
+browser already logged in, and is that session still valid?” The neutral pending state
+prevents authentication flicker:
+
+```text
+incorrect: refresh → login page flashes → session found → dashboard
+correct:   refresh → neutral loading state → session found → dashboard
+```
+
+Commit 2 does not decide route redirects; Commit 3 owns those rules. It provides one
+reliable, shared session result that every later route guard and authentication control
+can use.
 
 The state model is:
 
