@@ -27,7 +27,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | ---------------- | ------------------------------------------------------------------------ | ---------------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--define-authentication-contracts-and-security-primitives)  | Define auth contracts and primitives     | —           |
 | &#91;x&#93;      | [2](#commit-2--add-session-persistence-and-lifecycle-services)           | Add session lifecycle services           | Commit 1    |
-| &#91;&#160;&#93; | [3](#commit-3--implement-signup-and-concurrent-duplicate-protection)     | Implement signup                         | Commit 2    |
+| &#91;x&#93;      | [3](#commit-3--implement-signup-and-concurrent-duplicate-protection)     | Implement signup                         | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--implement-login-and-credential-verification)              | Implement login                          | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--add-session-resolution-current-user-and-logout)           | Add current-user resolution and logout   | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-browser-security-documentation-and-verification) | Complete auth security and documentation | Commits 1–5 |
@@ -282,9 +282,38 @@ git diff --check
 
 ## Commit 3 — Implement Signup and Concurrent Duplicate Protection
 
+**Status:** Complete.
+
 Commit 3 adds `POST /api/auth/signup`. A successful request creates the normalized user
 and first session in one transaction, sets the session cookie, and returns `201` with
 the public user response.
+
+In plain language, this commit builds the signup process that turns a new user's email
+and password into an account:
+
+```text
+receive email and password
+    ↓
+validate them using Commit 1's rules
+    ↓
+normalize the email and hash the password
+    ↓
+create the user and initial login session together
+    ↓
+set the session cookie
+    ↓
+return the safe user ID and normalized email
+```
+
+The user is logged in immediately after successful signup. The response never includes
+the plaintext password, password hash, raw session token, or stored token digest.
+
+This commit also handles duplicate emails safely. Email normalization means values such
+as `Person@Example.com` and `person@example.com` identify the same account. If two
+signup requests for that normalized email arrive at nearly the same time, the database
+unique-email constraint allows only one account to be created. The other request is
+rolled back and receives a safe `409 duplicate_email` response. The user and initial
+session are created in one transaction, so either both are saved or neither is saved.
 
 ```text
 valid new credentials
