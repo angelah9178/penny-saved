@@ -9,6 +9,7 @@ from app.core.security import (
     digest_session_token,
     generate_session_token,
     hash_password,
+    is_valid_session_token,
     verify_and_update_password,
     verify_password,
 )
@@ -93,3 +94,16 @@ def test_session_token_digest_is_deterministic_lowercase_sha256() -> None:
     assert len(digest) == 64
     assert digest == digest.lower()
     assert raw_token not in digest
+
+
+def test_generated_session_token_has_the_accepted_cookie_shape() -> None:
+    assert is_valid_session_token(generate_session_token())
+
+
+def test_missing_or_malformed_session_tokens_are_rejected() -> None:
+    assert not is_valid_session_token(None)
+    assert not is_valid_session_token("")
+    assert not is_valid_session_token("too-short")
+    assert not is_valid_session_token("x" * 42)
+    assert not is_valid_session_token("x" * 44)
+    assert not is_valid_session_token("x" * 42 + "!")

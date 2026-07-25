@@ -29,7 +29,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93;      | [2](#commit-2--add-session-persistence-and-lifecycle-services)           | Add session lifecycle services           | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--implement-signup-and-concurrent-duplicate-protection)     | Implement signup                         | Commit 2    |
 | &#91;x&#93;      | [4](#commit-4--implement-login-and-credential-verification)              | Implement login                          | Commit 3    |
-| &#91;&#160;&#93; | [5](#commit-5--add-session-resolution-current-user-and-logout)           | Add current-user resolution and logout   | Commit 4    |
+| &#91;x&#93;      | [5](#commit-5--add-session-resolution-current-user-and-logout)           | Add current-user resolution and logout   | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-browser-security-documentation-and-verification) | Complete auth security and documentation | Commits 1–5 |
 
 ## Objective
@@ -434,8 +434,29 @@ git diff --check
 
 ## Commit 5 — Add Session Resolution, Current User, and Logout
 
+**Status:** Complete.
+
 Commit 5 connects session resolution to FastAPI dependencies and completes the public
 auth lifecycle.
+
+In plain language, this commit lets the application answer “Who is currently logged
+in?” and lets that user log out.
+
+`GET /api/auth/me` reads the browser's session cookie, verifies the corresponding
+server-side session, and returns the current user's safe public ID and email. The
+frontend will use this endpoint after a page reload to restore the logged-in user
+without storing an authentication token in JavaScript, local storage, or session
+storage. A missing, malformed, unknown, or expired session always receives the same
+safe `401 unauthorized` response.
+
+`POST /api/auth/logout` deletes only the session represented by the current browser
+cookie and clears that cookie. Sessions on the user's other browsers or devices remain
+active. Logout is idempotent: calling it repeatedly, or calling it with a missing,
+invalid, unknown, or expired cookie, is safe and still returns success.
+
+This commit also creates the reusable `get_current_user` backend dependency. Future
+protected endpoints use it to identify the authenticated user and scope database
+operations to that user's records.
 
 `GET /api/auth/me` is protected. It reads the configured cookie, resolves the session,
 and returns the same public user envelope used by signup and login. Missing, malformed,
