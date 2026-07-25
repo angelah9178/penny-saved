@@ -28,7 +28,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 | &#91;x&#93;      | [1](#commit-1--define-authentication-contracts-and-security-primitives)  | Define auth contracts and primitives     | —           |
 | &#91;x&#93;      | [2](#commit-2--add-session-persistence-and-lifecycle-services)           | Add session lifecycle services           | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--implement-signup-and-concurrent-duplicate-protection)     | Implement signup                         | Commit 2    |
-| &#91;&#160;&#93; | [4](#commit-4--implement-login-and-credential-verification)              | Implement login                          | Commit 3    |
+| &#91;x&#93;      | [4](#commit-4--implement-login-and-credential-verification)              | Implement login                          | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--add-session-resolution-current-user-and-logout)           | Add current-user resolution and logout   | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-browser-security-documentation-and-verification) | Complete auth security and documentation | Commits 1–5 |
 
@@ -374,6 +374,8 @@ git diff --check
 ```
 
 ## Commit 4 — Implement Login and Credential Verification
+
+**Status:** Complete.
 
 Commit 4 adds `POST /api/auth/login`. Login uses the same email normalization, session
 creation, cookie, and public response paths as signup.
