@@ -4,7 +4,7 @@
 
 - [Commit Tracker](#commit-tracker)
 - [Objective](#objective)
-- [Commit 1 — Add Frontend Authentication Contracts and API Operations](#commit-1--add-frontend-authentication-contracts-and-api-operations)
+- [Commit 1 — Add Frontend Authentication Types and API Requests](#commit-1--add-frontend-authentication-types-and-api-requests)
 - [Commit 2 — Bootstrap and Cache the Current Session](#commit-2--bootstrap-and-cache-the-current-session)
 - [Commit 3 — Add Protected and Guest-Only Route Guards](#commit-3--add-protected-and-guest-only-route-guards)
 - [Commit 4 — Build Accessible Signup and Login Flows](#commit-4--build-accessible-signup-and-login-flows)
@@ -24,14 +24,14 @@
 Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 complete.
 
-|                  | Commit                                                                   | Title                                 | Depends on  |
-| ---------------- | ------------------------------------------------------------------------ | ------------------------------------- | ----------- |
-| &#91;&#160;&#93; | [1](#commit-1--add-frontend-authentication-contracts-and-api-operations) | Add auth contracts and API operations | —           |
-| &#91;&#160;&#93; | [2](#commit-2--bootstrap-and-cache-the-current-session)                  | Bootstrap the current session         | Commit 1    |
-| &#91;&#160;&#93; | [3](#commit-3--add-protected-and-guest-only-route-guards)                | Add route guards                      | Commit 2    |
-| &#91;&#160;&#93; | [4](#commit-4--build-accessible-signup-and-login-flows)                  | Build signup and login flows          | Commit 3    |
-| &#91;&#160;&#93; | [5](#commit-5--add-logout-and-session-expiry-recovery)                   | Add logout and expiry recovery        | Commit 4    |
-| &#91;&#160;&#93; | [6](#commit-6--complete-auth-ux-security-and-verification)               | Complete auth UX and verification     | Commits 1–5 |
+|                  | Commit                                                             | Title                             | Depends on  |
+| ---------------- | ------------------------------------------------------------------ | --------------------------------- | ----------- |
+| &#91;x&#93;      | [1](#commit-1--add-frontend-authentication-types-and-api-requests) | Add auth types and API requests   | —           |
+| &#91;&#160;&#93; | [2](#commit-2--bootstrap-and-cache-the-current-session)            | Bootstrap the current session     | Commit 1    |
+| &#91;&#160;&#93; | [3](#commit-3--add-protected-and-guest-only-route-guards)          | Add route guards                  | Commit 2    |
+| &#91;&#160;&#93; | [4](#commit-4--build-accessible-signup-and-login-flows)            | Build signup and login flows      | Commit 3    |
+| &#91;&#160;&#93; | [5](#commit-5--add-logout-and-session-expiry-recovery)             | Add logout and expiry recovery    | Commit 4    |
+| &#91;&#160;&#93; | [6](#commit-6--complete-auth-ux-security-and-verification)         | Complete auth UX and verification | Commits 1–5 |
 
 ## Objective
 
@@ -72,12 +72,25 @@ Complete and commit each section in order. Every commit must preserve `make chec
 Component and router tests must use MSW at the HTTP boundary and assert user-observable
 behavior rather than component implementation details.
 
-## Commit 1 — Add Frontend Authentication Contracts and API Operations
+## Commit 1 — Add Frontend Authentication Types and API Requests
+
+**Status:** Complete.
 
 Commit 1 establishes one typed frontend boundary for all four DEV-008 endpoints before
 pages or route guards depend on them. TanStack Query owns the authenticated user as
 server state; no parallel auth store, context copy, or browser-storage record is
 introduced.
+
+In plain language, the authentication types define the data exchanged with the
+backend. Signup and login send an email and password, while a successful authentication
+response contains only the public user ID and email. The API request functions perform
+the actual `signup`, `login`, `getCurrentUser`, and `logout` HTTP requests.
+
+These frontend types and functions do not decide whether a user is allowed to log in.
+The backend remains responsible for account lookup, password verification, session
+creation, and the final validation rules. The frontend checks only the basic input
+shape for helpful feedback, sends credentials securely, interprets the backend
+response, and updates the displayed authentication state.
 
 The operations are:
 
