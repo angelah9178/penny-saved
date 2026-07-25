@@ -4,6 +4,7 @@
 
 - [Commit Tracker](#commit-tracker)
 - [Objective](#objective)
+- [Frontend-to-Backend Login Flow](#frontend-to-backend-login-flow)
 - [Commit 1 — Add Frontend Authentication Types and API Requests](#commit-1--add-frontend-authentication-types-and-api-requests)
 - [Commit 2 — Bootstrap and Cache the Current Session](#commit-2--bootstrap-and-cache-the-current-session)
 - [Commit 3 — Add Protected and Guest-Only Route Guards](#commit-3--add-protected-and-guest-only-route-guards)
@@ -71,6 +72,163 @@ flow without implementing entries or statistics.
 Complete and commit each section in order. Every commit must preserve `make check`.
 Component and router tests must use MSW at the HTTP boundary and assert user-observable
 behavior rather than component implementation details.
+
+## Frontend-to-Backend Login Flow
+
+The login process begins in the frontend, but the backend performs the actual
+credential comparison. The frontend checks only whether the input has a usable shape;
+it cannot determine whether the email exists or whether the password is correct.
+
+The complete successful flow is:
+
+```text
+LoginPage renders AuthForm in login mode
+    ↓
+user enters email and password
+    ↓
+frontend validates basic email/password shape
+    ↓
+frontend sends POST /api/auth/login with credentials included
+    ↓
+backend validates and normalizes the request schema
+    ↓
+backend looks up the normalized email in PostgreSQL
+    ↓
+backend verifies the entered password against the stored Argon2id hash
+    ↓
+backend creates and commits a server-side session
+    ↓
+backend sets the raw session token in an HttpOnly cookie
+    ↓
+backend returns only the public user ID and normalized email
+    ↓
+frontend writes the public user into the in-memory auth query cache
+    ↓
+frontend safely navigates to the requested protected page or /dashboard
+```
+
+### 1. Render and collect the credentials
+
+[`frontend/src/pages/LoginPage.tsx`](../frontend/src/pages/LoginPage.tsx) renders:
+
+```tsx
+<AuthForm mode="login" />
+```
+
+[`frontend/src/features/auth/AuthForm.tsx`](../frontend/src/features/auth/AuthForm.tsx)
+owns the email and password inputs through React Hook Form. When submitted, it passes the values to
+`authFormSchema.safeParse(...)`.
+
+### 2. Perform frontend usability validation
+
+[`frontend/src/features/auth/validation.ts`](../frontend/src/features/auth/validation.ts)
+trims the email and checks its basic shape and 3–320 character boundary. It checks that
+the password contains 8–128 Unicode characters without trimming, lowercasing,
+truncating, or otherwise modifying it.
+
+These are usability checks only:
+
+```text
+frontend can answer: “Is this shaped like acceptable input?”
+frontend cannot answer: “Does this password belong to this account?”
+```
+
+If the basic checks fail, `AuthForm` displays associated field errors and does not send
+a request.
+
+### 3. Send the login API request
+
+For a valid form, the login-mode TanStack mutation calls `login(...)` from
+[`frontend/src/features/auth/api.ts`](../frontend/src/features/auth/api.ts):
+
+```tsx
+export function login(credentials: AuthRequest): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: credentials,
+  });
+}
+```
+
+[`frontend/src/api/client.ts`](../frontend/src/api/client.ts) turns that into
+`POST /api/auth/login`, serializes the credentials as JSON, and uses
+`credentials: "include"` so the browser can accept and later send the session cookie.
+
+### 4. Validate the backend request
+
+[`backend/app/api/routes/auth.py`](../backend/app/api/routes/auth.py) receives the
+request as the backend `AuthRequest` schema. The schema in
+[`backend/app/schemas/auth.py`](../backend/app/schemas/auth.py) normalizes the email
+consistently, enforces the backend email/password rules, rejects unknown properties,
+and keeps the password wrapped as a secret value.
+
+The route then calls the `login(...)` service. The route itself does not query the
+database or compare passwords.
+
+### 5. Look up the account and verify the password
+
+The actual credential check happens in
+[`backend/app/services/auth.py`](../backend/app/services/auth.py):
+
+```python
+user = await get_user_by_email(db, credentials.email)
+password = credentials.password.get_secret_value()
+password_hash = user.password_hash if user is not None else DUMMY_PASSWORD_HASH
+valid, replacement_hash = verify_and_update_password(password, password_hash)
+
+if user is None or not valid:
+    raise _invalid_credentials_error()
+```
+
+`get_user_by_email(...)` in
+[`backend/app/repositories/users.py`](../backend/app/repositories/users.py) queries
+PostgreSQL using the normalized email. The database stores an Argon2id password hash
+rather than the plaintext password.
+
+`verify_and_update_password(...)` in
+[`backend/app/core/security.py`](../backend/app/core/security.py) performs the
+cryptographic comparison:
+
+```python
+_PASSWORD_HASH.verify_and_update(password, password_hash)
+```
+
+A missing account is checked against a fixed dummy Argon2id hash so it follows the same
+expensive verification path as an incorrect password. Missing email and wrong password
+therefore return the same generic `invalid_credentials` response and do not disclose
+which value was incorrect.
+
+### 6. Create the session and return the public user
+
+After successful verification, the login service stages a new session and commits the
+transaction. PostgreSQL stores only the SHA-256 digest of the random session token.
+[`backend/app/api/routes/auth.py`](../backend/app/api/routes/auth.py) places the raw
+token in the configured `HttpOnly`, `SameSite=Lax` cookie and returns:
+
+```json
+{
+  "user": {
+    "id": "user-id",
+    "email": "person@example.com"
+  }
+}
+```
+
+The password, password hash, raw session token, and token digest are not included in
+the response.
+
+### 7. Update frontend authentication state
+
+Back in
+[`frontend/src/features/auth/AuthForm.tsx`](../frontend/src/features/auth/AuthForm.tsx),
+a successful response is written to `queryKeys.auth.me()` in TanStack Query's in-memory
+cache. The form clears its transient password state, resets any previous expiry event,
+and replace-navigates through the safe return-path validator.
+
+If the backend rejects the credentials,
+[`frontend/src/api/errors.ts`](../frontend/src/api/errors.ts) converts the standard
+error envelope into `ApiError`. The login form displays the generic “The email or
+password is incorrect” message and remains on `/login`.
 
 ## Commit 1 — Add Frontend Authentication Types and API Requests
 
