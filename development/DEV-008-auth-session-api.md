@@ -25,7 +25,7 @@ Change `[ ]` to `[x]` only after the commit's implementation and commit gate are
 
 |                  | Commit                                                                   | Title                                    | Depends on  |
 | ---------------- | ------------------------------------------------------------------------ | ---------------------------------------- | ----------- |
-| &#91;&#160;&#93; | [1](#commit-1--define-authentication-contracts-and-security-primitives)  | Define auth contracts and primitives     | —           |
+| &#91;x&#93;      | [1](#commit-1--define-authentication-contracts-and-security-primitives)  | Define auth contracts and primitives     | —           |
 | &#91;&#160;&#93; | [2](#commit-2--add-session-persistence-and-lifecycle-services)           | Add session lifecycle services           | Commit 1    |
 | &#91;&#160;&#93; | [3](#commit-3--implement-signup-and-concurrent-duplicate-protection)     | Implement signup                         | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--implement-login-and-credential-verification)              | Implement login                          | Commit 3    |
@@ -71,9 +71,61 @@ wall-clock time.
 
 ## Commit 1 — Define Authentication Contracts and Security Primitives
 
+**Status:** Complete.
+
 Commit 1 establishes the types and cryptographic helpers used by every later auth
 operation. Keeping these rules in one place prevents signup, login, and session
 resolution from developing subtly different normalization or token behavior.
+
+In plain language, this commit establishes the authentication rules before building
+the endpoints that use them. It defines what a user may enter, what the backend must
+reject, what an authenticated user response may contain, and how passwords and session
+tokens must be protected. This application uses an email address as the account
+identifier rather than a separate username.
+
+For example, these rules decide:
+
+- What counts as a valid email and how it is normalized.
+- The allowed password length and which invalid inputs are rejected.
+- Which fields signup and login accept.
+- Which user fields are safe to return to the frontend.
+- How passwords are securely hashed and verified.
+- How session tokens are securely generated and prepared for database storage.
+
+Commit 1 does not create signup or login behavior by itself. It creates one consistent
+set of validation contracts and security utilities that the later endpoint commits
+must follow.
+
+### Email Rules
+
+- Email is the account identifier; the application does not use a separate username.
+- Input must be a string between 3 and 320 characters.
+- Leading and trailing whitespace is removed.
+- Uppercase letters are converted to lowercase.
+- The normalized value must contain exactly one `@`.
+- Text is required before and after the `@`.
+- Whitespace is not allowed inside the normalized email.
+- The same normalized value must be used for both database storage and account lookup.
+
+For example:
+
+```text
+Input:      "  Person@Example.COM  "
+Normalized: "person@example.com"
+```
+
+### Password Rules
+
+- Input must be a string containing 8–128 Unicode characters.
+- Leading and trailing whitespace is preserved because it may intentionally be part of
+  the password.
+- Passwords are not trimmed, lowercased, otherwise normalized, or silently truncated.
+- Unknown request fields such as `username`, `role`, or `is_admin` are rejected.
+- Plaintext passwords must never appear in an API response, log, validation error, or
+  database column.
+- Passwords must be hashed with the shared Argon2id primitive before persistence.
+- Successful verification may replace an existing hash when its Argon2 parameters are
+  outdated.
 
 The public JSON contracts are:
 
