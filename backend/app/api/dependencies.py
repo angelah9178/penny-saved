@@ -15,6 +15,8 @@ from fastapi import Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 UNAUTHORIZED_MESSAGE = "Authentication is required."
+UNTRUSTED_ORIGIN_MESSAGE = "The request origin is not allowed."
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 def get_presented_session_token(request: Request) -> str | None:
@@ -22,6 +24,24 @@ def get_presented_session_token(request: Request) -> str | None:
     settings: Settings = request.app.state.settings
     raw_token = request.cookies.get(settings.session_cookie_name)
     return raw_token if is_valid_session_token(raw_token) else None
+
+
+def enforce_trusted_origin(request: Request) -> None:
+    """Reject browser mutations whose Origin is not the configured exact origin."""
+    if request.method in SAFE_METHODS:
+        return
+
+    origin = request.headers.get("origin")
+    if origin is None:
+        return
+
+    settings: Settings = request.app.state.settings
+    if settings.frontend_origin is None or origin != settings.frontend_origin:
+        raise ApplicationError(
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="forbidden",
+            message=UNTRUSTED_ORIGIN_MESSAGE,
+        )
 
 
 async def get_current_user(

@@ -69,6 +69,12 @@ class Settings(BaseSettings):
 
         if self.app_env == AppEnvironment.PRODUCTION and not self.session_cookie_secure:
             raise ValueError("SESSION_COOKIE_SECURE must be true in production")
+        if (
+            self.app_env == AppEnvironment.PRODUCTION
+            and self.frontend_origin is not None
+            and not self.frontend_origin.startswith("https://")
+        ):
+            raise ValueError("FRONTEND_ORIGIN must use HTTPS in production")
 
         return self
 

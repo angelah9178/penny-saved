@@ -189,6 +189,17 @@ def test_production_requires_secure_cookie() -> None:
         )
 
 
+def test_production_requires_https_frontend_origin() -> None:
+    with pytest.raises(ValidationError, match="HTTPS"):
+        Settings(
+            _env_file=None,
+            app_env=AppEnvironment.PRODUCTION,
+            database_url=DATABASE_URL,
+            frontend_origin="http://stopimpulsebuying.us",
+            session_cookie_secure=True,
+        )
+
+
 def test_valid_production_configuration() -> None:
     settings = Settings(
         _env_file=None,

@@ -23,14 +23,14 @@
 
 Change `[ ]` to `[x]` only after the commit's implementation and commit gate are complete.
 
-|                  | Commit                                                                   | Title                                    | Depends on  |
-| ---------------- | ------------------------------------------------------------------------ | ---------------------------------------- | ----------- |
-| &#91;x&#93;      | [1](#commit-1--define-authentication-contracts-and-security-primitives)  | Define auth contracts and primitives     | —           |
-| &#91;x&#93;      | [2](#commit-2--add-session-persistence-and-lifecycle-services)           | Add session lifecycle services           | Commit 1    |
-| &#91;x&#93;      | [3](#commit-3--implement-signup-and-concurrent-duplicate-protection)     | Implement signup                         | Commit 2    |
-| &#91;x&#93;      | [4](#commit-4--implement-login-and-credential-verification)              | Implement login                          | Commit 3    |
-| &#91;x&#93;      | [5](#commit-5--add-session-resolution-current-user-and-logout)           | Add current-user resolution and logout   | Commit 4    |
-| &#91;&#160;&#93; | [6](#commit-6--complete-browser-security-documentation-and-verification) | Complete auth security and documentation | Commits 1–5 |
+|             | Commit                                                                   | Title                                    | Depends on  |
+| ----------- | ------------------------------------------------------------------------ | ---------------------------------------- | ----------- |
+| &#91;x&#93; | [1](#commit-1--define-authentication-contracts-and-security-primitives)  | Define auth contracts and primitives     | —           |
+| &#91;x&#93; | [2](#commit-2--add-session-persistence-and-lifecycle-services)           | Add session lifecycle services           | Commit 1    |
+| &#91;x&#93; | [3](#commit-3--implement-signup-and-concurrent-duplicate-protection)     | Implement signup                         | Commit 2    |
+| &#91;x&#93; | [4](#commit-4--implement-login-and-credential-verification)              | Implement login                          | Commit 3    |
+| &#91;x&#93; | [5](#commit-5--add-session-resolution-current-user-and-logout)           | Add current-user resolution and logout   | Commit 4    |
+| &#91;x&#93; | [6](#commit-6--complete-browser-security-documentation-and-verification) | Complete auth security and documentation | Commits 1–5 |
 
 ## Objective
 
@@ -515,6 +515,8 @@ git diff --check
 
 ## Commit 6 — Complete Browser Security, Documentation, and Verification
 
+**Status:** Complete.
+
 Commit 6 verifies the auth boundary as a complete browser-facing feature and records
 the result. Authenticated cookie requests rely on `SameSite=Lax` and same-origin
 production deployment. State-changing authenticated requests must additionally reject
@@ -593,39 +595,101 @@ git status --short
 
 ## Implementation Record
 
-Complete this section as the commit series is implemented. Replace planned language
-with the actual result and include only verification that was run successfully.
-
 ### Overview
 
-DEV-008 will add the backend authentication schemas, repositories, services,
-dependencies, and routes for signup, login, logout, and current-session restoration.
-It will build on the users and sessions schema from DEV-005 and the shared Argon2id
-primitive introduced by DEV-007.
+DEV-008 added the backend authentication schemas, security helpers, repositories,
+services, dependencies, and routes for signup, login, logout, and current-session
+restoration. It builds on the users and sessions schema from DEV-005 and the shared
+Argon2id primitive introduced by DEV-007.
 
 ### What It Achieved
 
-Pending implementation.
+The backend now exposes the complete `POST /api/auth/signup`,
+`POST /api/auth/login`, `GET /api/auth/me`, and `POST /api/auth/logout` lifecycle.
+Signup creates the normalized account and initial session atomically. Login verifies
+credentials without revealing whether an email exists and upgrades outdated Argon2id
+hashes when necessary. `/me` restores the current user from the browser cookie, while
+idempotent logout revokes only the presented session and preserves other devices.
+
+The shared `get_current_user` dependency is ready for DEV-010 and later protected
+resource routes. Generated OpenAPI documents all four endpoints, their public schemas,
+success statuses, and standard error responses without exposing persistence-only
+password or session fields.
 
 ### API and Session Behavior
 
-Pending implementation. Record the final endpoint statuses, cookie configuration,
-expiry boundary, `last_used_at` throttle behavior, and logout idempotency here.
+Signup returns `201`; login, `/me`, and logout return `200`. Auth responses contain only
+the user UUID and normalized email. Missing, malformed, unknown, and expired sessions
+receive the same safe `unauthorized` `401`, while unknown-email and wrong-password
+login attempts receive the same `invalid_credentials` `401`.
+
+Sessions last 30 days by default and use absolute rather than sliding expiry.
+`expires_at <= now` is invalid and the expired row is deleted when resolved.
+`last_used_at` is updated at most once per hour without extending expiry. Each
+successful login creates an independent session. Logout always clears the cookie and
+returns `200`, including repeated calls and calls with missing, malformed, unknown, or
+expired cookies.
+
+The cookie uses the configured name and TTL with `HttpOnly`, `SameSite=Lax`, `Path=/`,
+and environment-appropriate `Secure` behavior. Production configuration requires both
+secure cookies and an exact HTTPS frontend origin.
 
 ### Security and Privacy
 
-Pending implementation. Record the final password hashing, token generation/digest,
-origin validation, error-equivalence, logging redaction, and secret-persistence checks
-here.
+Passwords accept 8–128 Unicode characters, are never normalized or truncated, and are
+stored only as Argon2id hashes. Missing-account login performs verification against a
+fixed valid dummy hash. Sessions use 32 random bytes encoded as an opaque 43-character
+token; only its lowercase SHA-256 digest is persisted.
+
+State-changing auth routes reject malformed or mismatched browser origins before
+mutation, accept the exact configured origin, and allow origin-less non-browser
+clients. The reusable origin dependency is available to later protected write routes.
+Structured request logs do not read bodies or headers, ignore unapproved sensitive
+extras, redact labeled passwords, cookies, authorization values, raw session tokens,
+and token digests in messages, and omit exception messages.
 
 ### Verification
 
-Pending implementation. Record the exact commands, test counts, PostgreSQL target,
-fixed clock values, migration result, and any environment limitations here.
+The completed verification ran:
+
+```text
+make clean
+make install
+make db-upgrade
+make seed-demo
+make check
+cd backend
+../.venv/bin/python -m alembic check
+cd ..
+git diff --check
+```
+
+`make install` completed from the pinned backend requirements and locked frontend
+installation. The development database upgraded successfully and the guarded demo seed
+reconciled one user, nine entries, and three opportunity-cost examples. The final
+quality gate passed 61 frontend tests and 232 backend tests, including real PostgreSQL
+coverage for concurrent duplicate signup, session expiry, lifecycle isolation, exact
+origin enforcement, and the complete signup → me → logout → unauthorized me → login →
+me flow. Formatting, linting, TypeScript checking, frontend production build, backend
+construction, and PostgreSQL migration-cycle coverage passed. Alembic reported no new
+upgrade operations.
+
+Deterministic auth tests used `2026-07-24T12:00:00+00:00` and explicit derived boundary
+times. Database-writing tests used only the configured disposable `_test` PostgreSQL
+target.
+
+The verification environment could not access the Docker daemon socket, so it could
+not repeat `make db-up`. The already-running PostgreSQL service was nevertheless
+verified through a successful development migration, real demo seed, all PostgreSQL
+integration tests, and the Alembic drift check. The initial pip upgrade check also
+reported restricted DNS retries, but all pinned requirements were already available
+and `make install` completed successfully.
 
 ### Limitations and Follow-up
 
 DEV-009 must connect the frontend to these endpoints and implement route guards and
 session restoration. DEV-010 and later backend tasks must use `get_current_user` and
 scope owned-resource queries by its user ID. DEV-021 must add production rate limiting
-and the remaining abuse protections.
+and the remaining abuse protections. Password reset, verification email, multi-factor
+authentication, account management, all-device logout, scheduled expired-session
+cleanup, and a cross-site CSRF-token design remain outside DEV-008.

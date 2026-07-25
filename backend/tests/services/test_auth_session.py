@@ -38,6 +38,7 @@ def _settings(test_database_url: URL, *, ttl_seconds: int = 2_592_000) -> Settin
         _env_file=None,
         app_env=AppEnvironment.TEST,
         database_url=test_database_url.render_as_string(hide_password=False),
+        frontend_origin="http://localhost:5173",
         session_cookie_name="current_session",
         session_ttl_seconds=ttl_seconds,
     )
@@ -263,3 +264,70 @@ async def test_logout_is_idempotent_for_repeated_missing_and_malformed_cookies(
         assert "Max-Age=0" in malformed.headers["set-cookie"]
         assert "Max-Age=0" in repeated.headers["set-cookie"]
         assert await db.scalar(select(func.count()).select_from(Session)) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("origin", "expected_status"),
+    [
+        ("http://localhost:5173", 200),
+        (None, 200),
+        ("https://untrusted.example", 403),
+        ("not-an-origin", 403),
+    ],
+    ids=["allowed", "missing", "mismatched", "malformed"],
+)
+async def test_logout_enforces_exact_browser_origin_before_mutation(
+    session_database: async_sessionmaker[AsyncSession],
+    test_database_url: URL,
+    origin: str | None,
+    expected_status: int,
+) -> None:
+    settings = _settings(test_database_url)
+    async with session_database() as db:
+        _, raw_token = await create_account_session(db, settings=settings)
+        app = session_app(settings=settings, db=db, current_time=NOW)
+        headers = {"Origin": origin} if origin is not None else {}
+
+        async with api_client(app) as client:
+            client.cookies.set(settings.session_cookie_name, raw_token)
+            response = await client.post("/api/auth/logout", headers=headers)
+
+        assert response.status_code == expected_status
+        expected_sessions = 0 if expected_status == 200 else 1
+        assert await db.scalar(select(func.count()).select_from(Session)) == expected_sessions
+        if expected_status == 403:
+            assert response.json()["error"]["code"] == "forbidden"
+
+
+@pytest.mark.asyncio
+async def test_complete_authentication_lifecycle(
+    session_database: async_sessionmaker[AsyncSession],
+    test_database_url: URL,
+) -> None:
+    settings = _settings(test_database_url)
+    async with session_database() as db:
+        app = session_app(settings=settings, db=db, current_time=NOW)
+
+        async with api_client(app) as client:
+            signup_response = await client.post(
+                "/api/auth/signup",
+                json={"email": " Lifecycle@Example.COM ", "password": PASSWORD},
+            )
+            signed_up_me = await client.get("/api/auth/me")
+            logout_response = await client.post("/api/auth/logout")
+            logged_out_me = await client.get("/api/auth/me")
+            login_response = await client.post(
+                "/api/auth/login",
+                json={"email": "lifecycle@example.com", "password": PASSWORD},
+            )
+            logged_in_me = await client.get("/api/auth/me")
+
+        assert signup_response.status_code == 201
+        assert signed_up_me.status_code == 200
+        assert logout_response.status_code == 200
+        assert logged_out_me.status_code == 401
+        assert logged_out_me.json() == UNAUTHORIZED_RESPONSE
+        assert login_response.status_code == 200
+        assert logged_in_me.status_code == 200
+        assert signed_up_me.json() == login_response.json() == logged_in_me.json()

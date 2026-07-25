@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from app.api.cookies import clear_session_cookie, set_session_cookie
-from app.api.dependencies import get_current_user, get_presented_session_token
+from app.api.dependencies import (
+    enforce_trusted_origin,
+    get_current_user,
+    get_presented_session_token,
+)
 from app.core.config import Settings
 from app.core.time import Clock, get_clock
 from app.db.session import get_db_session
@@ -36,8 +40,10 @@ async def signup_user(
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db_session)],
     clock: Annotated[Clock, Depends(get_clock)],
+    trusted_origin: Annotated[None, Depends(enforce_trusted_origin)],
 ) -> AuthResponse:
     """Create an account, issue its first session, and return the public user."""
+    del trusted_origin
     settings: Settings = request.app.state.settings
     result = await signup(
         db,
@@ -68,8 +74,10 @@ async def login_user(
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db_session)],
     clock: Annotated[Clock, Depends(get_clock)],
+    trusted_origin: Annotated[None, Depends(enforce_trusted_origin)],
 ) -> AuthResponse:
     """Verify credentials, issue a new session, and return the public user."""
+    del trusted_origin
     settings: Settings = request.app.state.settings
     result = await login(
         db,
@@ -106,8 +114,10 @@ async def get_current_session(
 async def logout_user(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db_session)],
+    trusted_origin: Annotated[None, Depends(enforce_trusted_origin)],
 ) -> Response:
     """Idempotently revoke the presented session and clear its browser cookie."""
+    del trusted_origin
     settings: Settings = request.app.state.settings
     raw_token = get_presented_session_token(request)
     if raw_token is not None:

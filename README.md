@@ -121,6 +121,48 @@ strings, cookies, authorization values, database credentials, and session materi
 - Run the Uvicorn command from `backend/`; running it from another directory without the
   correct application path can produce an import error.
 
+## Authentication API
+
+The backend provides four cookie-session endpoints:
+
+| Method | Endpoint           | Purpose                                             |
+| ------ | ------------------ | --------------------------------------------------- |
+| `POST` | `/api/auth/signup` | Create an account and its first login session.      |
+| `POST` | `/api/auth/login`  | Verify credentials and create another session.      |
+| `GET`  | `/api/auth/me`     | Restore the user represented by the current cookie. |
+| `POST` | `/api/auth/logout` | Revoke the current session and clear its cookie.    |
+
+Signup and login accept `email` and `password`. Email is trimmed and lowercased;
+passwords must contain 8–128 Unicode characters and are never trimmed. Successful
+responses contain only the user's ID and normalized email.
+
+The raw session token exists only in an `HttpOnly`, `SameSite=Lax`, path `/` browser
+cookie. PostgreSQL stores only its SHA-256 digest. Frontend code must not copy the token
+into local storage, session storage, JavaScript state, logs, or URLs. Sessions expire
+after 30 days by default; activity does not extend that absolute deadline.
+
+The following local-only curl flow uses a temporary cookie jar so curl behaves like a
+browser. Run it from a shell where the backend is available on port `8000`:
+
+```bash
+curl -i -c /tmp/penny-saved-cookies.txt \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@penny-saved.local","password":"PennySavedDemo!2026"}' \
+  http://127.0.0.1:8000/api/auth/login
+
+curl -i -b /tmp/penny-saved-cookies.txt \
+  http://127.0.0.1:8000/api/auth/me
+
+curl -i -b /tmp/penny-saved-cookies.txt -c /tmp/penny-saved-cookies.txt \
+  -X POST http://127.0.0.1:8000/api/auth/logout
+```
+
+The demo credentials are intentionally local-only. Delete the temporary cookie jar
+when finished. Browser state-changing requests must have an `Origin` header that
+exactly matches `FRONTEND_ORIGIN`; authenticated non-browser requests without an
+`Origin` remain supported. Production requires an HTTPS frontend origin and secure
+cookies.
+
 ## Frontend development server
 
 Install the locked frontend dependencies during first-time setup or whenever
@@ -232,8 +274,8 @@ Password: PennySavedDemo!2026
 ```
 
 Never reuse these credentials in staging, production, a shared environment, or a real
-account. Authentication is added in DEV-008, so the credentials cannot be used to sign
-in until that work exists.
+account. After DEV-008, they can be used with the local authentication API and the
+frontend authentication screens added by DEV-009.
 
 `make seed-demo` creates or restores one known demo user, nine representative
 impulse-purchase entries, and three opportunity-cost examples. It is safe to repeat:
