@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { ApiError } from "../../api/errors";
 import type { User } from "../../types/api";
 import { currentUserQueryOptions } from "./queries";
 
@@ -18,10 +17,6 @@ export function useAuthSession(): AuthSessionState {
   }
 
   if (query.isError) {
-    if (query.error instanceof ApiError && query.error.status === 401) {
-      return { status: "guest" };
-    }
-
     return {
       status: "error",
       error: query.error,
@@ -29,6 +24,10 @@ export function useAuthSession(): AuthSessionState {
         void query.refetch();
       },
     };
+  }
+
+  if (query.data === null) {
+    return { status: "guest" };
   }
 
   return { status: "authenticated", user: query.data.user };

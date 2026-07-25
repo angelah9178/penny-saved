@@ -28,7 +28,7 @@ complete.
 | ---------------- | ------------------------------------------------------------------ | --------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--add-frontend-authentication-types-and-api-requests) | Add auth types and API requests   | —           |
 | &#91;x&#93;      | [2](#commit-2--bootstrap-and-cache-the-current-session)            | Bootstrap the current session     | Commit 1    |
-| &#91;&#160;&#93; | [3](#commit-3--add-protected-and-guest-only-route-guards)          | Add route guards                  | Commit 2    |
+| &#91;x&#93;      | [3](#commit-3--add-protected-and-guest-only-route-guards)          | Add route guards                  | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--build-accessible-signup-and-login-flows)            | Build signup and login flows      | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--add-logout-and-session-expiry-recovery)             | Add logout and expiry recovery    | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-auth-ux-security-and-verification)         | Complete auth UX and verification | Commits 1–5 |
@@ -156,6 +156,13 @@ authentication state when the application first opens or refreshes. JavaScript c
 read the secure `HttpOnly` session cookie directly, so the frontend asks the backend
 whether the browser's automatically supplied cookie represents a valid session:
 
+Commit 2 therefore determines whether the browser already has a valid login session
+when the application first loads. If the session is still valid, the user does not
+have to go through login every time they open or refresh the application. This does not
+bypass authentication: the backend validates the existing session before the frontend
+treats the user as logged in. If the session is missing, invalid, or expired, the user
+must log in again.
+
 ```text
 browser opens Penny Saved
     ↓
@@ -231,8 +238,27 @@ git diff --check
 
 ## Commit 3 — Add Protected and Guest-Only Route Guards
 
-Commit 3 connects the resolved session state to React Router. Guard decisions happen
-only after bootstrap settles. Redirects use replacement navigation so the browser Back
+**Status:** Complete.
+
+Commit 3 decides which pages a user may see based on the authentication result from
+Commit 2. It adds two kinds of navigation gates:
+
+- **Protected routes** require the user to be logged in, such as `/dashboard`.
+- **Guest-only routes** are intended for logged-out users, such as `/login` and
+  `/signup`.
+
+In plain language, the behavior is:
+
+```text
+logged-in user opens /dashboard  → show the dashboard
+logged-out user opens /dashboard → send them to /login
+logged-out user opens /login     → show the login page
+logged-in user opens /login      → send them to /dashboard
+```
+
+The guards wait until the session check from Commit 2 finishes. This prevents the
+application from redirecting someone while it is still determining whether their
+existing session is valid. Redirects use replacement navigation so the browser Back
 button does not bounce between a route and the guard that rejected it.
 
 Route outcomes are:
@@ -244,10 +270,31 @@ Route outcomes are:
 | Guest           | Render child route                | Redirect to `/login`           |
 | Bootstrap error | Retryable error view              | Retryable error view           |
 
-When a guest is redirected from a protected route, preserve only an internal path as
-the intended return destination. The value may come from router state or a validated
-query parameter, but it must never permit an absolute URL, protocol-relative URL,
-foreign origin, executable scheme, or login/signup redirect loop.
+When a logged-out user asks for a protected page, Commit 3 remembers where they
+originally wanted to go:
+
+```text
+user opens /entries/new
+    ↓
+no valid session, so redirect to /login
+    ↓
+user logs in
+    ↓
+return safely to /entries/new
+```
+
+That return location must be a safe internal Penny Saved path. It must never permit an
+absolute URL, protocol-relative URL, foreign origin, executable scheme, malformed
+value, or login/signup redirect loop.
+
+This commit also makes `/` choose `/dashboard` or `/login`, adds the guest-only login
+and signup routes, adds a small protected dashboard placeholder for DEV-011 to replace,
+and preserves the not-found page.
+
+Most importantly, route guards are a frontend navigation convenience rather than the
+security boundary. They prevent inappropriate screens from being displayed
+accidentally, but the backend must still validate the session and authorize every
+protected API request.
 
 Suggested commit message:
 
