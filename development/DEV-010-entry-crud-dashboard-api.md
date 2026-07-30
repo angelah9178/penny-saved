@@ -23,7 +23,7 @@ complete.
 | ----------- | -------------------------------------------------------------------------- | -------------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--define-entry-contracts-and-lifecycle-mapping)               | Define entry contracts and mapping     | —           |
 | &#91;x&#93; | [2](#commit-2--add-owned-entry-repository-operations)                      | Add owned repository operations        | Commit 1    |
-| &#91; &#93; | [3](#commit-3--implement-entry-creation-and-dashboard-listing)             | Implement create and dashboard listing | Commit 2    |
+| &#91;x&#93; | [3](#commit-3--implement-entry-creation-and-dashboard-listing)             | Implement create and dashboard listing | Commit 2    |
 | &#91; &#93; | [4](#commit-4--add-entry-detail-and-waiting-entry-updates)                 | Add detail and waiting-entry updates   | Commit 3    |
 | &#91; &#93; | [5](#commit-5--add-waiting-entry-deletion)                                 | Add waiting-entry deletion             | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-entry-api-security-documentation-and-verification) | Complete security and verification     | Commits 1–5 |
@@ -292,10 +292,21 @@ TEST_DATABASE_URL=postgresql+asyncpg://... make backend-test
 
 ## Commit 3 — Implement Entry Creation and Dashboard Listing
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 3 introduces the first entry services and routes: authenticated creation and
 the dashboard-oriented list response.
+
+Commit 3 implements exactly two **backend actions**:
+
+1. **Create an entry:** `POST /api/entries` accepts the authenticated user's item
+   name, integer price in cents, and reason wanted, then stores a new waiting entry.
+2. **List entries for the dashboard:** `GET /api/entries` retrieves only the
+   authenticated user's entries and returns them in the `needs_check_in`, `waiting`,
+   `saved`, and `purchased` arrays.
+
+These are backend API and database actions. Commit 3 does not build or render the
+visual dashboard; DEV-011 will use the list response to build the frontend dashboard.
 
 In plain language, creation records a new purchase temptation for the logged-in user.
 The backend always starts it in `waiting`; clients cannot pretend it is already saved
