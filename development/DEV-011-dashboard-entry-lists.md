@@ -6,7 +6,7 @@
 - [Objective](#objective)
 - [What the Dashboard Must Show](#what-the-dashboard-must-show)
 - [Frontend Data Rules](#frontend-data-rules)
-- [Commit 1 — Add the Dashboard Query Boundary](#commit-1--add-the-dashboard-query-boundary)
+- [Commit 1 — Connect the Frontend to the Dashboard API](#commit-1--connect-the-frontend-to-the-dashboard-api)
 - [Commit 2 — Add Safe Display Formatting](#commit-2--add-safe-display-formatting)
 - [Commit 3 — Build Reusable Entry Cards and Sections](#commit-3--build-reusable-entry-cards-and-sections)
 - [Commit 4 — Compose the Complete Dashboard](#commit-4--compose-the-complete-dashboard)
@@ -22,7 +22,7 @@ complete.
 
 |             | Commit                                                                     | Title                                       | Depends on  |
 | ----------- | -------------------------------------------------------------------------- | ------------------------------------------- | ----------- |
-| &#91; &#93; | [1](#commit-1--add-the-dashboard-query-boundary)                           | Add the dashboard query boundary            | DEV-010     |
+| &#91;x&#93; | [1](#commit-1--connect-the-frontend-to-the-dashboard-api)                  | Connect frontend to the dashboard API       | DEV-010     |
 | &#91; &#93; | [2](#commit-2--add-safe-display-formatting)                                | Add safe display formatting                 | Commit 1    |
 | &#91; &#93; | [3](#commit-3--build-reusable-entry-cards-and-sections)                    | Build reusable entry cards and sections     | Commit 2    |
 | &#91; &#93; | [4](#commit-4--compose-the-complete-dashboard)                             | Compose the complete dashboard              | Commit 3    |
@@ -30,6 +30,16 @@ complete.
 | &#91; &#93; | [6](#commit-6--complete-accessibility-responsive-styling-and-verification) | Complete dashboard quality and verification | Commits 1–5 |
 
 ## Objective
+
+DEV-011 creates the read-only frontend dashboard that lets the user see the entry data
+provided by the backend APIs built in DEV-010. It connects the dashboard to
+`GET /api/entries` and displays the four backend-provided groups: Needs check-in,
+Waiting, Saved, and Purchased.
+
+DEV-011 does not create the complete frontend for every DEV-010 API. DEV-012 adds the
+interactive create, detail, edit, and delete screens that use `POST`, single-entry
+`GET`, `PATCH`, and `DELETE`. In short, DEV-011 displays the entry lists, and DEV-012
+adds the entry-management actions.
 
 Replace the temporary signed-in page with the first useful Penny Saved dashboard.
 The page reads the authenticated user's entries from the DEV-010 API and shows the
@@ -144,20 +154,35 @@ in the query cache instead of copying it into component state.
 Protected requests must use the existing session-expiry path so a `401` clears stale
 authenticated state and returns the user to login with a safe dashboard return path.
 
-## Commit 1 — Add the Dashboard Query Boundary
+## Commit 1 — Connect the Frontend to the Dashboard API
 
-**Status:** Planned.
+**Status:** Complete.
 
-Commit 1 adds the small frontend data layer that reads DEV-010 without rendering the
-full dashboard yet.
+Commit 1 establishes the connection between the frontend dashboard and the DEV-010
+backend. Specifically, it connects the frontend to the `GET /api/entries` API. It adds
+the small frontend data layer that requests that API without rendering the full
+dashboard yet.
 
 In plain language, this commit gives the page one trusted way to ask for dashboard
-entries. Components should not build URLs or call `fetch` themselves.
+entries. It is not a button that the user clicks, and it does not show entry cards on
+the screen yet. It creates the internal API function and TanStack Query hook that the
+visible dashboard components use in later commits. Components should not build URLs
+or call `fetch` themselves.
+
+```text
+Dashboard page
+    ↓ uses
+useDashboardEntries()
+    ↓ requests
+GET /api/entries
+    ↓ returns
+Needs check-in, Waiting, Saved, and Purchased
+```
 
 Suggested commit message:
 
 ```text
-Commit 1: Add the dashboard entry query
+Commit 1: Connect the frontend to the dashboard API
 ```
 
 Implement:
