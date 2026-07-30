@@ -24,7 +24,7 @@ complete.
 | ----------- | -------------------------------------------------------------------------- | ------------------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--connect-the-frontend-to-the-dashboard-api)                  | Connect frontend to the dashboard API       | DEV-010     |
 | &#91;x&#93; | [2](#commit-2--add-safe-display-formatting)                                | Add safe display formatting                 | Commit 1    |
-| &#91; &#93; | [3](#commit-3--build-reusable-entry-cards-and-sections)                    | Build reusable entry cards and sections     | Commit 2    |
+| &#91;x&#93; | [3](#commit-3--build-reusable-entry-cards-and-sections)                    | Build reusable entry cards and sections     | Commit 2    |
 | &#91; &#93; | [4](#commit-4--compose-the-complete-dashboard)                             | Compose the complete dashboard              | Commit 3    |
 | &#91; &#93; | [5](#commit-5--handle-loading-errors-and-expired-sessions)                 | Handle requests and expired sessions        | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-accessibility-responsive-styling-and-verification) | Complete dashboard quality and verification | Commits 1–5 |
@@ -264,13 +264,41 @@ make frontend-test
 
 ## Commit 3 — Build Reusable Entry Cards and Sections
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 3 builds the reusable presentation pieces used by all four lists.
 
 In plain language, one card explains one temptation and one section explains one part
 of the lifecycle. The components receive data and render it; they do not know how to
 load the dashboard.
+
+This is the first commit that builds the frontend pieces the user will actually see.
+It turns entry data into visible cards showing the item name, price, reason, timing or
+status, comments when relevant, and the legal action for that section. It also builds
+the section layout and the message shown when a section has no entries.
+
+For example, a Needs check-in card can look like this:
+
+```text
+Needs check-in
+
+Wireless headphones
+$89.99
+Reason: Useful while commuting
+The waiting period is complete.
+[Check in]
+```
+
+The first three commits build on each other:
+
+```text
+Commit 1: Get entries from GET /api/entries.
+Commit 2: Make prices and dates readable.
+Commit 3: Display that information as visible cards and sections.
+```
+
+Commit 3 does not assemble the complete live Dashboard page. Commit 4 connects these
+components to the query result and places all four sections on `DashboardPage`.
 
 Suggested commit message:
 
