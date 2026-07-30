@@ -7,6 +7,14 @@ export const handlers = [
   http.get(`${TEST_API_BASE_URL}/health`, () => {
     return HttpResponse.json({ status: "ok" });
   }),
+  http.get("/api/entries", () => {
+    return HttpResponse.json({
+      needs_check_in: [],
+      waiting: [],
+      saved: [],
+      purchased: [],
+    });
+  }),
   http.get("/api/auth/me", () => {
     return HttpResponse.json(
       {
