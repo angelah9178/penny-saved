@@ -25,7 +25,7 @@ complete.
 | &#91;x&#93; | [1](#commit-1--connect-the-frontend-to-the-dashboard-api)                  | Connect frontend to the dashboard API       | DEV-010     |
 | &#91;x&#93; | [2](#commit-2--add-safe-display-formatting)                                | Add safe display formatting                 | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--build-reusable-entry-cards-and-sections)                    | Build reusable entry cards and sections     | Commit 2    |
-| &#91; &#93; | [4](#commit-4--compose-the-complete-dashboard)                             | Compose the complete dashboard              | Commit 3    |
+| &#91;x&#93; | [4](#commit-4--compose-the-complete-dashboard)                             | Compose the complete dashboard              | Commit 3    |
 | &#91; &#93; | [5](#commit-5--handle-loading-errors-and-expired-sessions)                 | Handle requests and expired sessions        | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-accessibility-responsive-styling-and-verification) | Complete dashboard quality and verification | Commits 1–5 |
 
@@ -336,12 +336,31 @@ make frontend-test
 
 ## Commit 4 — Compose the Complete Dashboard
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 4 replaces the DEV-009 placeholder with the complete list layout.
 
 In plain language, this commit connects the query to the page and places every entry
 in exactly the section chosen by the backend.
+
+This is the commit that creates the complete frontend for listing all entries on the
+actual dashboard. When the user visits `/dashboard`, the page loads entries with
+`useDashboardEntries()`, shows Needs check-in, Waiting, and Saved, and places Purchased
+inside a collapsed section. It preserves the backend's list order and gives each empty
+section its own explanation.
+
+The first four commits work together like this:
+
+```text
+Commit 1: Retrieve entries from GET /api/entries.
+Commit 2: Format prices and dates for people to read.
+Commit 3: Build visible entry cards and reusable sections.
+Commit 4: Connect everything on the real Dashboard page.
+```
+
+Commit 4 provides the complete successful-response and empty-response layout. Commit
+5 completes the more detailed loading, failure, retry, background-refresh, and expired
+session behavior.
 
 Suggested commit message:
 

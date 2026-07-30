@@ -56,7 +56,7 @@ describe("authentication routes", () => {
 
     expect(
       await screen.findByText(
-        "You are signed in. The complete dashboard will be added in DEV-011.",
+        "Review your waiting decisions and the purchases you have resolved.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("person@example.com")).toBeInTheDocument();
@@ -161,6 +161,14 @@ describe("authentication routes", () => {
 function useAuthenticatedSession() {
   server.use(
     http.get("/api/auth/me", () => HttpResponse.json(authenticatedResponse)),
+    http.get("/api/entries", () =>
+      HttpResponse.json({
+        needs_check_in: [],
+        waiting: [],
+        saved: [],
+        purchased: [],
+      }),
+    ),
   );
 }
 
