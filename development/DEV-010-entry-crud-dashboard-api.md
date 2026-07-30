@@ -4,6 +4,7 @@
 
 - [Commit Tracker](#commit-tracker)
 - [Objective](#objective)
+- [Backend APIs](#backend-apis)
 - [Entry Lifecycle in Plain English](#entry-lifecycle-in-plain-english)
 - [Commit 1 — Define Entry Contracts and Lifecycle Mapping](#commit-1--define-entry-contracts-and-lifecycle-mapping)
 - [Commit 2 — Add Owned Entry Repository Operations](#commit-2--add-owned-entry-repository-operations)
@@ -24,7 +25,7 @@ complete.
 | &#91;x&#93; | [1](#commit-1--define-entry-contracts-and-lifecycle-mapping)               | Define entry contracts and mapping     | —           |
 | &#91;x&#93; | [2](#commit-2--add-owned-entry-repository-operations)                      | Add owned repository operations        | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--implement-entry-creation-and-dashboard-listing)             | Implement create and dashboard listing | Commit 2    |
-| &#91; &#93; | [4](#commit-4--add-entry-detail-and-waiting-entry-updates)                 | Add detail and waiting-entry updates   | Commit 3    |
+| &#91;x&#93; | [4](#commit-4--add-entry-detail-and-waiting-entry-updates)                 | Add detail and waiting-entry updates   | Commit 3    |
 | &#91; &#93; | [5](#commit-5--add-waiting-entry-deletion)                                 | Add waiting-entry deletion             | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-entry-api-security-documentation-and-verification) | Complete security and verification     | Commits 1–5 |
 
@@ -77,6 +78,63 @@ Complete and commit each section in order. Every commit must preserve `make chec
 Database integration tests must use only the explicit disposable `TEST_DATABASE_URL`,
 and every time-sensitive test must use an injected UTC clock rather than sleeping or
 depending on wall-clock time.
+
+## Backend APIs
+
+DEV-010 adds the following authenticated **backend APIs** under `/api/entries`:
+
+| Method   | Backend API               | Action                                            | Implemented in |
+| -------- | ------------------------- | ------------------------------------------------- | -------------- |
+| `POST`   | `/api/entries`            | Create a waiting entry for the authenticated user | Commit 3       |
+| `GET`    | `/api/entries`            | List the user's entries in four dashboard buckets | Commit 3       |
+| `GET`    | `/api/entries/{entry_id}` | View one entry owned by the authenticated user    | Commit 4       |
+| `PATCH`  | `/api/entries/{entry_id}` | Edit one owned entry whose status is `waiting`    | Commit 4       |
+| `DELETE` | `/api/entries/{entry_id}` | Delete one owned entry whose status is `waiting`  | Commit 5       |
+
+The first four APIs are implemented through Commit 4. The `DELETE` API is planned for
+Commit 5 and is not implemented yet.
+
+All five APIs use the authenticated session to determine the user. The browser does
+not submit a trusted `user_id`, and knowing another entry's UUID does not grant access
+to that entry.
+
+### Single-Entry Backend APIs Added in Commit 4
+
+#### View one entry
+
+```http
+GET /api/entries/{entry_id}
+```
+
+This backend API returns the complete entry only when it belongs to the authenticated
+user. It returns `403 Forbidden` when the UUID belongs to another user, `404 Not
+Found` when the UUID does not exist, and `422 Unprocessable Content` when the path is
+not a valid UUID.
+
+#### Edit one entry
+
+```http
+PATCH /api/entries/{entry_id}
+```
+
+The request body contains all three editable core fields:
+
+```json
+{
+  "item_name": "Updated headphones",
+  "price_cents": 9000,
+  "reason_wanted": "Updated reason"
+}
+```
+
+This backend API edits the entry only when it belongs to the authenticated user and
+its stored status is `waiting`. An entry displayed in `needs_check_in` remains
+editable because its stored status is still `waiting`. Saved and purchased entries
+return `409 Conflict` with the `invalid_entry_status` error code.
+
+The update may change only `item_name`, `price_cents`, `reason_wanted`, and
+`updated_at`. It preserves the entry ID, owner, status, comment, creation time, and
+check-in time.
 
 ## Entry Lifecycle in Plain English
 
@@ -350,10 +408,21 @@ TEST_DATABASE_URL=postgresql+asyncpg://... make backend-test
 
 ## Commit 4 — Add Entry Detail and Waiting-Entry Updates
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 4 adds retrieval of one owned entry and editing of its core fields while its
 stored status remains `waiting`.
+
+Commit 4 implements two **single-entry backend APIs**:
+
+1. **View one entry:** `GET /api/entries/{entry_id}` returns the complete entry when
+   it belongs to the authenticated user.
+2. **Edit one entry:** `PATCH /api/entries/{entry_id}` changes the item name, integer
+   price in cents, and reason wanted when the authenticated user owns the entry and
+   its stored status is still `waiting`.
+
+These endpoints implement backend retrieval, authorization, validation, locking, and
+database updates. The frontend detail page and edit form remain part of DEV-012.
 
 In plain language, the detail endpoint supplies the current server representation of
 one entry. The update endpoint lets its owner correct the item name, price, or reason

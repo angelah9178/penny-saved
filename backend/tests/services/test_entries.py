@@ -19,7 +19,7 @@ from app.models.entry import EntryStatus, ImpulsePurchaseEntry
 from app.models.session import Session
 from app.models.user import User
 from app.schemas.entry import EntryCreateRequest
-from app.services.entries import create_entry, list_dashboard_entries
+from app.services.entries import create_entry, get_entry_detail, list_dashboard_entries
 from fastapi import FastAPI
 from sqlalchemy import func, select
 from sqlalchemy.engine import URL
@@ -103,6 +103,7 @@ async def api_client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
 
 
 def entry_app(*, db: AsyncSession, user: User, frontend_origin: str | None = None) -> FastAPI:
+    user_id = user.id
     settings = Settings(
         _env_file=None,
         app_env=AppEnvironment.TEST,
@@ -114,8 +115,13 @@ def entry_app(*, db: AsyncSession, user: User, frontend_origin: str | None = Non
     async def override_db_session() -> AsyncIterator[AsyncSession]:
         yield db
 
+    async def override_current_user() -> User:
+        current_user = await db.get(User, user_id)
+        assert current_user is not None
+        return current_user
+
     app.dependency_overrides[get_db_session] = override_db_session
-    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_current_user] = override_current_user
     app.dependency_overrides[get_clock] = lambda: FixedClock(NOW)
     return app
 
@@ -335,7 +341,7 @@ async def test_entry_api_rejects_invalid_payload_without_persistence(
 
 
 @pytest.mark.asyncio
-async def test_entry_api_requires_authentication_for_create_and_list(
+async def test_entry_api_requires_authentication_for_every_entry_action(
     entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
 ) -> None:
     _, factory = entry_database
@@ -352,6 +358,7 @@ async def test_entry_api_requires_authentication_for_create_and_list(
 
         app.dependency_overrides[get_db_session] = override_db_session
         app.dependency_overrides[get_clock] = lambda: FixedClock(NOW)
+        entry_id = UUID("70000000-0000-4000-8000-000000000099")
         async with api_client(app) as client:
             created = await client.post(
                 "/api/entries",
@@ -362,11 +369,19 @@ async def test_entry_api_requires_authentication_for_create_and_list(
                 },
             )
             listed = await client.get("/api/entries")
+            detail = await client.get(f"/api/entries/{entry_id}")
+            updated = await client.patch(
+                f"/api/entries/{entry_id}",
+                json={
+                    "item_name": "Headphones",
+                    "price_cents": 9_000,
+                    "reason_wanted": "Updated reason",
+                },
+            )
 
-        assert created.status_code == 401
-        assert listed.status_code == 401
-        assert created.json()["error"]["code"] == "unauthorized"
-        assert listed.json()["error"]["code"] == "unauthorized"
+        for response in (created, listed, detail, updated):
+            assert response.status_code == 401
+            assert response.json()["error"]["code"] == "unauthorized"
 
 
 @pytest.mark.asyncio
@@ -394,3 +409,245 @@ async def test_entry_create_rejects_untrusted_browser_origin(
         assert response.status_code == 403
         assert response.json()["error"]["code"] == "forbidden"
         assert await db.scalar(select(func.count()).select_from(ImpulsePurchaseEntry)) == 0
+
+
+@pytest.mark.asyncio
+async def test_entry_detail_api_returns_complete_owned_entry(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("70000000-0000-4000-8000-000000000001")
+    async with factory() as db:
+        user = make_user()
+        db.add_all([user, make_entry(entry_id=entry_id, created_at=NOW)])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            response = await client.get(f"/api/entries/{entry_id}")
+
+        assert response.status_code == 200
+        assert response.json()["entry"]["id"] == str(entry_id)
+        assert response.json()["entry"]["status"] == "waiting"
+        assert "updated_at" in response.json()["entry"]
+        assert "user_id" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_entry_detail_service_uses_current_clock_for_eligible_waiting_entry(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("70000000-0000-4000-8000-000000000002")
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(
+                    entry_id=entry_id,
+                    created_at=NOW - timedelta(hours=48),
+                ),
+            ]
+        )
+        await db.commit()
+
+        response = await get_entry_detail(
+            db,
+            user=user,
+            entry_id=entry_id,
+            clock=FixedClock(NOW),
+        )
+
+        assert response.status is EntryStatus.WAITING
+        assert response.dashboard_bucket == "needs_check_in"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("age", [timedelta(hours=1), timedelta(hours=48)])
+async def test_entry_update_api_edits_waiting_and_eligible_waiting_entries(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    age: timedelta,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("70000000-0000-4000-8000-000000000003")
+    async with factory() as db:
+        user = make_user()
+        original = make_entry(entry_id=entry_id, created_at=NOW - age)
+        original_created_at = original.created_at
+        db.add_all([user, original])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            response = await client.patch(
+                f"/api/entries/{entry_id}",
+                json={
+                    "item_name": " Updated headphones ",
+                    "price_cents": 9_000,
+                    "reason_wanted": " Updated reason ",
+                },
+            )
+
+        assert response.status_code == 200
+        body = response.json()["entry"]
+        assert body["item_name"] == "Updated headphones"
+        assert body["price_cents"] == 9_000
+        assert body["reason_wanted"] == "Updated reason"
+        assert body["status"] == "waiting"
+        assert body["created_at"] == original_created_at.isoformat().replace("+00:00", "Z")
+        assert body["updated_at"] == NOW.isoformat().replace("+00:00", "Z")
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.user_id == USER_ID
+        assert persisted.comment is None
+        assert persisted.checked_in_at is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stored_status", [EntryStatus.SAVED, EntryStatus.PURCHASED])
+async def test_entry_update_rejects_resolved_status_without_changes(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    stored_status: EntryStatus,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("70000000-0000-4000-8000-000000000004")
+    async with factory() as db:
+        user = make_user()
+        resolved = make_entry(
+            entry_id=entry_id,
+            status=stored_status,
+            created_at=NOW - timedelta(days=3),
+            checked_in_at=NOW - timedelta(hours=1),
+        )
+        original_name = resolved.item_name
+        db.add_all([user, resolved])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            response = await client.patch(
+                f"/api/entries/{entry_id}",
+                json={
+                    "item_name": "Forbidden update",
+                    "price_cents": 9_000,
+                    "reason_wanted": "Must not change",
+                },
+            )
+
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "invalid_entry_status"
+        await db.refresh(resolved)
+        assert resolved.item_name == original_name
+
+
+@pytest.mark.asyncio
+async def test_entry_detail_and_update_distinguish_forbidden_from_not_found_safely(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    other_entry_id = UUID("70000000-0000-4000-8000-000000000005")
+    unknown_entry_id = UUID("70000000-0000-4000-8000-000000000099")
+    async with factory() as db:
+        user = make_user()
+        other_user = make_user(user_id=OTHER_USER_ID, email="other-detail@example.com")
+        other_entry = make_entry(
+            entry_id=other_entry_id,
+            user_id=OTHER_USER_ID,
+            created_at=NOW,
+        )
+        db.add_all([user, other_user, other_entry])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+        payload = {
+            "item_name": "Forbidden update",
+            "price_cents": 9_000,
+            "reason_wanted": "Must not change",
+        }
+
+        async with api_client(app) as client:
+            forbidden_detail = await client.get(f"/api/entries/{other_entry_id}")
+            missing_detail = await client.get(f"/api/entries/{unknown_entry_id}")
+            forbidden_update = await client.patch(f"/api/entries/{other_entry_id}", json=payload)
+            missing_update = await client.patch(f"/api/entries/{unknown_entry_id}", json=payload)
+
+        for response in (forbidden_detail, forbidden_update):
+            assert response.status_code == 403
+            assert response.json()["error"]["code"] == "forbidden"
+            assert "other-detail@example.com" not in response.text
+            assert str(OTHER_USER_ID) not in response.text
+        for response in (missing_detail, missing_update):
+            assert response.status_code == 404
+            assert response.json()["error"]["code"] == "not_found"
+        await db.refresh(other_entry)
+        assert other_entry.item_name != "Forbidden update"
+
+
+@pytest.mark.asyncio
+async def test_entry_detail_and_update_reject_malformed_uuid(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    async with factory() as db:
+        user = make_user()
+        db.add(user)
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            detail = await client.get("/api/entries/not-a-uuid")
+            update = await client.patch(
+                "/api/entries/not-a-uuid",
+                json={
+                    "item_name": "Headphones",
+                    "price_cents": 9_000,
+                    "reason_wanted": "Updated reason",
+                },
+            )
+
+        assert detail.status_code == 422
+        assert update.status_code == 422
+        assert detail.json()["error"]["code"] == "validation_error"
+        assert update.json()["error"]["code"] == "validation_error"
+
+
+@pytest.mark.asyncio
+async def test_entry_update_rejects_invalid_fields_and_untrusted_origin(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("70000000-0000-4000-8000-000000000006")
+    async with factory() as db:
+        user = make_user()
+        entry = make_entry(entry_id=entry_id, created_at=NOW)
+        original_name = entry.item_name
+        db.add_all([user, entry])
+        await db.commit()
+        app = entry_app(db=db, user=user, frontend_origin="https://penny-saved.example")
+
+        async with api_client(app) as client:
+            invalid = await client.patch(
+                f"/api/entries/{entry_id}",
+                json={
+                    "item_name": " ",
+                    "price_cents": 19.99,
+                    "reason_wanted": "Reason",
+                    "status": "saved",
+                },
+            )
+            untrusted = await client.patch(
+                f"/api/entries/{entry_id}",
+                headers={"Origin": "https://evil.example"},
+                json={
+                    "item_name": "Forbidden update",
+                    "price_cents": 9_000,
+                    "reason_wanted": "Must not change",
+                },
+            )
+
+        assert invalid.status_code == 422
+        assert invalid.json()["error"]["code"] == "validation_error"
+        assert untrusted.status_code == 403
+        assert untrusted.json()["error"]["code"] == "forbidden"
+        await db.refresh(entry)
+        assert entry.item_name == original_name
