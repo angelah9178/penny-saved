@@ -27,7 +27,7 @@ complete.
 | &#91;x&#93; | [3](#commit-3--build-reusable-entry-cards-and-sections)                    | Build reusable entry cards and sections     | Commit 2    |
 | &#91;x&#93; | [4](#commit-4--compose-the-complete-dashboard)                             | Compose the complete dashboard              | Commit 3    |
 | &#91;x&#93; | [5](#commit-5--handle-dashboard-loading-errors-and-session-expiry)         | Handle dashboard request states             | Commit 4    |
-| &#91; &#93; | [6](#commit-6--complete-accessibility-responsive-styling-and-verification) | Complete dashboard quality and verification | Commits 1–5 |
+| &#91;x&#93; | [6](#commit-6--complete-accessibility-responsive-styling-and-verification) | Complete dashboard quality and verification | Commits 1–5 |
 
 ## Objective
 
@@ -454,7 +454,7 @@ make frontend-test
 
 ## Commit 6 — Complete Accessibility, Responsive Styling, and Verification
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 6 reviews the dashboard as one feature, fixes remaining presentation and test
 gaps, and records what was actually delivered. It is not a place to postpone core
@@ -520,43 +520,95 @@ make check
 
 ## Implementation Record
 
-Complete this section during Commit 6. Until then, it describes the expected record,
-not completed behavior.
-
 ### Overview
 
-Record how DEV-011 replaced the authenticated placeholder with the four server-owned
-dashboard entry lists.
+DEV-011 replaced the authenticated placeholder with a working, read-only dashboard
+for the four entry arrays returned by `GET /api/entries`. The frontend uses the shared
+credentialed API client and TanStack Query, preserves server-provided grouping and
+ordering, and formats money and timestamps only when rendering them.
+
+The completed page shows Needs check-in, Waiting, Saved, and Purchased entries. Needs
+check-in receives a visible “Action needed” treatment, Purchased starts collapsed,
+and each successful empty array has its own explanation. Temporary failures retry
+automatically, recoverable failures offer a keyboard-accessible retry, background
+refresh keeps current entries visible, and an expired session returns the user to
+login with `/dashboard` preserved.
 
 ### Files and Responsibilities
 
-List the final files that own:
-
-- Dashboard API access and the TanStack Query hook.
-- Currency and timestamp display formatting.
-- Entry card and section presentation.
-- Dashboard page composition and request states.
-- Dashboard styles and tests.
+- `frontend/src/features/entries/api.ts` owns the typed `GET /api/entries`
+  operation.
+- `frontend/src/features/entries/queries.ts` owns the dashboard query key, 30-second
+  freshness window, cancellation signal, retry policy, and protected-request session
+  handling.
+- `frontend/src/lib/currency.ts`, `frontend/src/lib/dateTime.ts`, and
+  `frontend/src/components/DateTime.tsx` own display-only USD and semantic timestamp
+  formatting.
+- `frontend/src/features/entries/EntryCard.tsx`, `EntrySection.tsx`, and
+  `WaitingAvailability.tsx` own the visible cards, section lists, state-appropriate
+  messages, and Needs check-in navigation.
+- `frontend/src/pages/DashboardPage.tsx` owns page composition, loading, error, retry,
+  refresh, empty, and Purchased disclosure behavior.
+- `frontend/src/styles.css` owns mobile-first cards, priority treatment, focusable
+  controls, readable widths, long-content wrapping, and the two-column wider layout.
+- Co-located unit/component tests and `DashboardPage.test.tsx` cover the feature;
+  router and authentication integration tests cover its protected route behavior.
 
 ### Verified Behavior
 
-Record evidence that:
+Automated tests verify that all four arrays render, each empty array has an independent
+message, and entries remain in the exact order supplied by the backend. The page does
+not filter, sort, regroup, or locally promote waiting entries. Only cards passed to
+the Needs check-in section receive check-in navigation, even if a Waiting timestamp is
+already in the past according to the browser.
 
-- All four arrays render, including independent empty states.
-- Backend list membership and order remain unchanged.
-- Only Needs check-in entries receive check-in navigation.
-- Purchased starts collapsed.
-- Loading, retryable errors, retry, cancellation, and expired authentication behave as
-  designed.
-- Money remains integer cents in data and becomes USD only for display.
-- The layout works with keyboard input and narrow screens.
+Tests also verify USD output from unchanged integer cents, valid and invalid timestamp
+display, comments, long user text, semantic lists and headings, the initially closed
+Purchased disclosure, and keyboard access to Add, Check in, Purchased, and retry
+controls. Loading, successful zero data, background refresh, network failure, `5xx`
+retry exhaustion, manual recovery, request cancellation, and `401` session expiry all
+have explicit coverage.
+
+The mobile-first layout uses a single min-width-constrained card column, wraps long
+content, and introduces a two-column card grid only at 48rem. Interactive dashboard
+controls retain the shared 44-pixel minimum target and visible focus outline. Needs
+check-in priority uses border, shadow, and explicit “Action needed” text rather than
+color alone. The existing reduced-motion rule applies to the dashboard.
 
 ### Verification
 
-Record the final `make check` date, frontend and backend test totals, production build
-result, and any focused dashboard commands used during development.
+The final verification command was:
+
+```bash
+make check
+```
+
+It completed successfully on July 30, 2026, after starting the repository's local
+PostgreSQL test container. Results included:
+
+- Prettier and Ruff formatting checks passed.
+- ESLint and Ruff lint checks passed.
+- Strict frontend TypeScript checking passed.
+- 175 frontend tests passed across 28 files.
+- 297 backend tests passed against the explicit PostgreSQL test database.
+- Alembic reported no model/migration upgrade drift.
+- The Vite production build completed successfully.
+- Backend application construction completed successfully.
+- `git diff --check` completed without whitespace errors.
 
 ### Limitations and Follow-up
 
-Record remaining work accurately. At minimum, DEV-012 must add entry management,
-DEV-014 must complete check-in navigation, and DEV-018 must add dashboard statistics.
+DEV-011 is intentionally a read-only dashboard. The Add and Check in links point to
+planned protected routes whose screens are not part of this task:
+
+- DEV-012 must add create, detail, edit, and delete entry management.
+- DEV-013 and DEV-014 must implement the atomic check-in API and its frontend screen.
+- DEV-015 must add resolved-comment editing.
+- DEV-016 and DEV-018 must add dashboard statistics and equivalents.
+- DEV-020 remains responsible for the final cross-feature WCAG 2.2 AA and responsive
+  application review.
+
+The V1 dashboard remains unpaginated and renders the four arrays returned by DEV-010.
+Add pagination or virtualization before entry volume can grow without practical
+bounds. A display-only waiting timestamp never moves an entry between sections; only
+a new backend response may change server-owned grouping.

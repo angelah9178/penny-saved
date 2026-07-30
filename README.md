@@ -286,9 +286,10 @@ passwords, session values, database URLs, API secrets, or other credentials in a
   FastAPI server is not running at `http://127.0.0.1:8000`.
 - Run frontend commands from `frontend/`; running them from the repository root will not
   find the frontend `package.json`.
-- The login and signup screens are implemented. The current dashboard remains a
-  protected placeholder until DEV-011; entry and statistics screens arrive in later
-  development tasks.
+- The login, signup, and protected entry-list dashboard are implemented. The dashboard
+  reads the four server-owned entry buckets, keeps Purchased collapsed initially, and
+  handles loading, retry, and expired-session states. Entry management and statistics
+  screens arrive in later development tasks.
 
 ## Database migrations
 

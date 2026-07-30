@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
+import type { KeyboardEvent } from "react";
 
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -9,33 +11,40 @@ export function DashboardPage() {
   const dashboard = useDashboardEntries();
 
   if (dashboard.isPending) {
-    return <Loading message="Loading your entries…" />;
+    return (
+      <DashboardFrame>
+        <Loading message="Loading your entries…" />
+      </DashboardFrame>
+    );
   }
 
   if (dashboard.isError) {
     return (
-      <ErrorAlert
-        message="We could not load your dashboard. Please try again."
-        onRetry={() => {
-          void dashboard.refetch();
-        }}
-      />
+      <DashboardFrame>
+        <ErrorAlert
+          message="We could not load your dashboard. Please try again."
+          onRetry={() => {
+            void dashboard.refetch();
+          }}
+        />
+      </DashboardFrame>
     );
   }
 
   const entries = dashboard.data;
 
   return (
-    <>
-      <h1>Dashboard</h1>
+    <DashboardFrame>
       <p>Review your waiting decisions and the purchases you have resolved.</p>
       {dashboard.isFetching ? (
         <p className="dashboard-updating" role="status" aria-live="polite">
           Updating dashboard…
         </p>
       ) : null}
-      <p>
-        <Link to="/entries/new">Add new impulse purchase</Link>
+      <p className="dashboard-actions">
+        <Link className="dashboard-add-link" to="/entries/new">
+          Add new impulse purchase
+        </Link>
       </p>
 
       <EntrySection
@@ -58,7 +67,9 @@ export function DashboardPage() {
       />
 
       <details className="purchased-disclosure">
-        <summary>Purchased ({entries.purchased.length})</summary>
+        <summary tabIndex={0} onKeyDown={toggleDisclosureFromKeyboard}>
+          Purchased ({entries.purchased.length})
+        </summary>
         <EntrySection
           title="Purchased entries"
           emptyMessage="Entries you decide to buy will appear here."
@@ -66,6 +77,30 @@ export function DashboardPage() {
           section="purchased"
         />
       </details>
-    </>
+    </DashboardFrame>
   );
+}
+
+function DashboardFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="dashboard">
+      <h1>Dashboard</h1>
+      {children}
+    </div>
+  );
+}
+
+function toggleDisclosureFromKeyboard(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+
+  const disclosure = event.currentTarget.parentElement;
+
+  if (!(disclosure instanceof HTMLDetailsElement)) {
+    return;
+  }
+
+  event.preventDefault();
+  disclosure.open = !disclosure.open;
 }

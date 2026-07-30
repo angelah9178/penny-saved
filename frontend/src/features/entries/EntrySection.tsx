@@ -15,11 +15,18 @@ export function EntrySection({
   section,
 }: EntrySectionProps) {
   return (
-    <section className="entry-section">
+    <section className={`entry-section entry-section--${section}`}>
       <h2>
         {title}{" "}
         <span aria-label={`${entries.length} entries`}>({entries.length})</span>
       </h2>
+
+      {section === "needs_check_in" && entries.length > 0 ? (
+        <p className="entry-section__priority">
+          <strong>Action needed:</strong> Review entries whose waiting period is
+          complete.
+        </p>
+      ) : null}
 
       {entries.length === 0 ? (
         <p className="entry-section__empty">{emptyMessage}</p>

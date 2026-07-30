@@ -31,7 +31,7 @@ describe("DashboardPage", () => {
       await screen.findByRole("heading", { level: 1, name: "Dashboard" }),
     ).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Add new impulse purchase" }),
+      await screen.findByRole("link", { name: "Add new impulse purchase" }),
     ).toHaveAttribute("href", "/entries/new");
     expect(screen.getByText("Headphones")).toBeInTheDocument();
     expect(screen.getByText("Desk lamp")).toBeInTheDocument();
@@ -188,13 +188,14 @@ describe("DashboardPage", () => {
 
     renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
 
-    await user.click(
-      await screen.findByRole(
-        "button",
-        { name: "Try again" },
-        { timeout: 4_000 },
-      ),
+    const retryButton = await screen.findByRole(
+      "button",
+      { name: "Try again" },
+      { timeout: 4_000 },
     );
+    await user.tab();
+    expect(retryButton).toHaveFocus();
+    await user.keyboard("{Enter}");
 
     expect(await screen.findByText("Loaded after retry")).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -250,6 +251,24 @@ describe("DashboardPage", () => {
     );
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("opens the Purchased disclosure from the keyboard", async () => {
+    const user = userEvent.setup();
+    useDashboardResponse(emptyDashboard());
+    renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
+    await screen.findByRole("heading", { level: 1, name: "Dashboard" });
+
+    await user.tab();
+    expect(
+      screen.getByRole("link", { name: "Add new impulse purchase" }),
+    ).toHaveFocus();
+    await user.tab();
+    const summary = screen.getByText("Purchased (0)");
+    expect(summary).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    expect(summary.closest("details")).toHaveAttribute("open");
   });
 });
 

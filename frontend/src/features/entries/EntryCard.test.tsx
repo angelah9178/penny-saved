@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
@@ -37,6 +38,15 @@ describe("EntryCard", () => {
     expect(
       screen.queryByRole("link", { name: "Check in" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("makes the check-in action keyboard reachable", async () => {
+    const user = userEvent.setup();
+    renderCard("needs_check_in");
+
+    await user.tab();
+
+    expect(screen.getByRole("link", { name: "Check in" })).toHaveFocus();
   });
 
   it("does not create a check-in action from a past browser timestamp", () => {
