@@ -23,7 +23,7 @@ complete.
 |             | Commit                                                                     | Title                                       | Depends on  |
 | ----------- | -------------------------------------------------------------------------- | ------------------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--connect-the-frontend-to-the-dashboard-api)                  | Connect frontend to the dashboard API       | DEV-010     |
-| &#91; &#93; | [2](#commit-2--add-safe-display-formatting)                                | Add safe display formatting                 | Commit 1    |
+| &#91;x&#93; | [2](#commit-2--add-safe-display-formatting)                                | Add safe display formatting                 | Commit 1    |
 | &#91; &#93; | [3](#commit-3--build-reusable-entry-cards-and-sections)                    | Build reusable entry cards and sections     | Commit 2    |
 | &#91; &#93; | [4](#commit-4--compose-the-complete-dashboard)                             | Compose the complete dashboard              | Commit 3    |
 | &#91; &#93; | [5](#commit-5--handle-loading-errors-and-expired-sessions)                 | Handle requests and expired sessions        | Commit 4    |
@@ -211,7 +211,7 @@ make frontend-test
 
 ## Commit 2 — Add Safe Display Formatting
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 2 adds small formatting helpers for values that people should not have to read
 in raw API form.
@@ -220,10 +220,23 @@ In plain language, the API says `1299`; the dashboard says `$12.99`. The API giv
 UTC timestamp; the dashboard gives a readable date and time while preserving the
 original timestamp for browsers and assistive technology.
 
+Examples covered by this commit:
+
+```text
+1299 cents                     → $12.99
+2026-07-30T14:30:00Z           → Jul 30, 2026, 10:30 AM
+eligible_for_check_in_at time  → Check-in available Jul 30, 2026, 10:30 AM
+```
+
+This formatting is display-only. It does not change the API response, convert stored
+integer cents into application data, send formatted values back to the backend, or
+decide which dashboard list contains an entry. Commit 3 uses these helpers when it
+builds the visible entry cards.
+
 Suggested commit message:
 
 ```text
-Commit 2: Add dashboard display formatting
+Commit 2: Format money and dates for display
 ```
 
 Implement:
