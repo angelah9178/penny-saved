@@ -22,7 +22,7 @@ complete.
 |             | Commit                                                                     | Title                                  | Depends on  |
 | ----------- | -------------------------------------------------------------------------- | -------------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--define-entry-contracts-and-lifecycle-mapping)               | Define entry contracts and mapping     | —           |
-| &#91; &#93; | [2](#commit-2--add-owned-entry-repository-operations)                      | Add owned repository operations        | Commit 1    |
+| &#91;x&#93; | [2](#commit-2--add-owned-entry-repository-operations)                      | Add owned repository operations        | Commit 1    |
 | &#91; &#93; | [3](#commit-3--implement-entry-creation-and-dashboard-listing)             | Implement create and dashboard listing | Commit 2    |
 | &#91; &#93; | [4](#commit-4--add-entry-detail-and-waiting-entry-updates)                 | Add detail and waiting-entry updates   | Commit 3    |
 | &#91; &#93; | [5](#commit-5--add-waiting-entry-deletion)                                 | Add waiting-entry deletion             | Commit 4    |
@@ -208,7 +208,7 @@ make backend-test
 
 ## Commit 2 — Add Owned Entry Repository Operations
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 2 adds the database access required by the entry services. Every primary read
 and mutation accepts `user_id`; there is no unscoped repository helper that returns a
@@ -217,6 +217,42 @@ complete entry for an arbitrary ID.
 In plain language, this commit builds the storage layer while keeping each user's data
 separate. Even if a caller knows another entry's UUID, the normal query includes both
 the UUID and current user's ID, so it cannot return or change the other user's entry.
+
+**Users can access and modify only their own entries.** This is the main purpose of
+Commit 2. Every entry operation uses the identity from the authenticated session; it
+does not trust a user ID supplied by the browser. The repository looks for an entry
+using both values:
+
+```text
+requested entry ID + authenticated user ID → owned entry or no result
+```
+
+### What Is a UUID?
+
+**UUID** stands for **Universally Unique Identifier**. It is a long identifier used to
+distinguish one database record from another. An entry UUID looks similar to:
+
+```text
+22222222-2222-4222-8222-222222222222
+```
+
+The application assigns each entry its own UUID so routes such as
+`/api/entries/{entry_id}` can identify the requested entry. UUIDs are designed to be
+extremely unlikely to collide and are harder to guess sequentially than IDs such as
+`1`, `2`, and `3`.
+
+A UUID identifies an entry, but it does **not** prove that the requesting user owns
+that entry. Knowing or guessing another entry's UUID must never grant access. Commit 2
+therefore combines the entry UUID with the authenticated user's ID in every primary
+read or mutation query.
+
+For example:
+
+```text
+User A requests Entry 123 owned by User A → return the entry
+User A requests Entry 456 owned by User B → do not return entry data
+User A requests an unknown entry UUID      → no entry exists
+```
 
 When a scoped lookup finds nothing, a minimal existence query may check only whether
 the UUID exists. That is enough for a service to distinguish the required `403` from
