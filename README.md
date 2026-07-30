@@ -203,6 +203,39 @@ Email:    demo@penny-saved.local
 Password: PennySavedDemo!2026
 ```
 
+## Entry CRUD and Dashboard API
+
+The backend provides five authenticated entry endpoints:
+
+| Method   | Endpoint                  | Purpose                                                 |
+| -------- | ------------------------- | ------------------------------------------------------- |
+| `POST`   | `/api/entries`            | Create a new waiting entry for the current user.        |
+| `GET`    | `/api/entries`            | Return the current user's four dashboard buckets.       |
+| `GET`    | `/api/entries/{entry_id}` | Return one entry owned by the current user.             |
+| `PATCH`  | `/api/entries/{entry_id}` | Edit an owned entry whose stored status is `waiting`.   |
+| `DELETE` | `/api/entries/{entry_id}` | Delete an owned entry whose stored status is `waiting`. |
+
+Create and update bodies use `item_name`, `price_cents`, and `reason_wanted`.
+`price_cents` must be a positive integer from 1 through 999,999,999,999; decimal
+currency values, numeric strings, and booleans are rejected. The backend trims outer
+whitespace from the two text fields and rejects blank, oversized, and unknown fields.
+
+The list response always includes `needs_check_in`, `waiting`, `saved`, and
+`purchased` arrays. `needs_check_in` is a derived dashboard bucket, not a stored
+status. A waiting entry enters that bucket exactly 48 hours after creation. One
+request-scoped UTC clock is used to classify the complete response.
+
+All entry operations derive ownership from the authenticated session. A client cannot
+select a trusted `user_id`, and knowing another entry's UUID does not grant access.
+The API returns `403` for a known entry owned by another user and `404` for an unknown
+UUID without revealing owner identity or entry fields.
+
+Only entries whose stored status is `waiting` may be edited or deleted, including
+entries displayed in `needs_check_in`. Saved and purchased entries are retained as
+history and return `409 invalid_entry_status`. Successful deletion returns `204 No
+Content` with an empty body. Browser POST, PATCH, and DELETE requests must also pass
+the configured exact-origin check.
+
 ## Frontend development server
 
 Install the locked frontend dependencies during first-time setup or whenever
