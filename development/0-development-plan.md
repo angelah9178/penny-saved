@@ -38,9 +38,9 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 | &#91;x&#93;      | [DEV-005](#dev-005--add-initial-database-models-and-migration)                  | Add initial database models and migration                  | Foundation     | DEV-002, DEV-003                   |
 | &#91;x&#93;      | [DEV-006](#dev-006--add-quality-commands-and-continuous-integration)            | Add quality commands and continuous integration            | Foundation     | DEV-001, DEV-003, DEV-004, DEV-005 |
 | &#91;x&#93;      | [DEV-007](#dev-007--add-deterministic-development-demo-data)                    | Add deterministic development demo data                    | Foundation     | DEV-005                            |
-| &#91;&#160;&#93; | [DEV-008](#dev-008--implement-authentication-and-session-api)                   | Implement authentication and session API                   | Authentication | DEV-005                            |
-| &#91;&#160;&#93; | [DEV-009](#dev-009--implement-authentication-ui-and-route-guards)               | Implement authentication UI and route guards               | Authentication | DEV-004, DEV-008                   |
-| &#91;&#160;&#93; | [DEV-010](#dev-010--implement-entry-crud-and-dashboard-api)                     | Implement entry CRUD and dashboard API                     | Entries        | DEV-005, DEV-008                   |
+| &#91;x&#93;      | [DEV-008](#dev-008--implement-authentication-and-session-api)                   | Implement authentication and session API                   | Authentication | DEV-005                            |
+| &#91;x&#93;      | [DEV-009](#dev-009--implement-authentication-ui-and-route-guards)               | Implement authentication UI and route guards               | Authentication | DEV-004, DEV-008                   |
+| &#91;x&#93;      | [DEV-010](#dev-010--implement-entry-crud-and-dashboard-api)                     | Implement entry CRUD and dashboard API                     | Entries        | DEV-005, DEV-008                   |
 | &#91;&#160;&#93; | [DEV-011](#dev-011--build-dashboard-entry-lists)                                | Build dashboard entry lists                                | Entries        | DEV-009, DEV-010                   |
 | &#91;&#160;&#93; | [DEV-012](#dev-012--build-entry-create-edit-and-delete-flows)                   | Build entry create, edit, and delete flows                 | Entries        | DEV-010, DEV-011                   |
 | &#91;&#160;&#93; | [DEV-013](#dev-013--implement-atomic-entry-check-in-api)                        | Implement atomic entry check-in API                        | Check-in       | DEV-010                            |
@@ -60,8 +60,8 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 
 | Milestone              | Included PRs    | Exit gate                                                                            | Status      |
 | ---------------------- | --------------- | ------------------------------------------------------------------------------------ | ----------- |
-| M1 — Foundation        | DEV-001–DEV-007 | Clean install, healthy app, reproducible migration, seed data, and green baseline CI | Not started |
-| M2 — Accounts          | DEV-008–DEV-009 | Signup/login/logout/session restoration pass API and UI tests                        | Not started |
+| M1 — Foundation        | DEV-001–DEV-007 | Clean install, healthy app, reproducible migration, seed data, and green baseline CI | Complete    |
+| M2 — Accounts          | DEV-008–DEV-009 | Signup/login/logout/session restoration pass API and UI tests                        | Complete    |
 | M3 — Entry management  | DEV-010–DEV-012 | Owned CRUD and all dashboard buckets work without full-page reloads                  | Not started |
 | M4 — Check-in          | DEV-013–DEV-015 | Exact 48-hour and concurrent-transition tests pass; resolved comments are editable   | Not started |
 | M5 — Insights          | DEV-016–DEV-019 | Date-boundary aggregates, equivalents, and example management pass                   | Not started |
