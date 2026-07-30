@@ -21,7 +21,7 @@ complete.
 
 |             | Commit                                                                     | Title                                  | Depends on  |
 | ----------- | -------------------------------------------------------------------------- | -------------------------------------- | ----------- |
-| &#91; &#93; | [1](#commit-1--define-entry-contracts-and-lifecycle-mapping)               | Define entry contracts and mapping     | —           |
+| &#91;x&#93; | [1](#commit-1--define-entry-contracts-and-lifecycle-mapping)               | Define entry contracts and mapping     | —           |
 | &#91; &#93; | [2](#commit-2--add-owned-entry-repository-operations)                      | Add owned repository operations        | Commit 1    |
 | &#91; &#93; | [3](#commit-3--implement-entry-creation-and-dashboard-listing)             | Implement create and dashboard listing | Commit 2    |
 | &#91; &#93; | [4](#commit-4--add-entry-detail-and-waiting-entry-updates)                 | Add detail and waiting-entry updates   | Commit 3    |
@@ -34,6 +34,17 @@ Implement the authenticated backend API for creating, reading, updating, deletin
 and grouping impulse-purchase entries. DEV-010 turns the entry table introduced by
 DEV-005 into the server-owned data boundary used by the dashboard and later check-in
 features:
+
+**CRUD** stands for **Create, Read, Update, and Delete**. These are the four basic
+operations used to manage stored information:
+
+- **Create:** Add a new impulse-purchase entry.
+- **Read:** List the user's entries or retrieve one entry.
+- **Update:** Change the item name, price, or reason while the entry is unresolved.
+- **Delete:** Remove an unresolved entry.
+
+In DEV-010, “dashboard API” means the read operation also organizes entries into the
+four dashboard sections expected by the frontend.
 
 ```text
 POST   /api/entries            → create a waiting entry
@@ -99,15 +110,37 @@ entry contents.
 
 ## Commit 1 — Define Entry Contracts and Lifecycle Mapping
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 1 defines the accepted input, public output, normalization rules, and derived
 dashboard behavior before database operations or routes depend on them.
 
-In plain language, this commit creates the rulebook for an entry. It decides which
-fields a user may send, how text is cleaned up, how money is represented, which fields
-the backend returns, and how a stored entry is assigned to a dashboard section. It
-does not create an endpoint or save anything yet.
+In plain language, Commit 1 only establishes the rules and lifecycle of an entry. It
+defines what information an entry contains, what input is valid, what the backend may
+return, and how the entry's dashboard classification changes as it ages or reaches a
+resolved status.
+
+This commit creates the entry rulebook that later CRUD commits follow. It decides
+which fields a user may send, how text is cleaned up, how money is represented, and
+how a stored entry is assigned to a dashboard section. It does not query the database,
+save an entry, or expose an API endpoint yet.
+
+The lifecycle established here is:
+
+```text
+new entry
+    ↓
+stored as waiting and displayed in Waiting
+    ↓ after exactly 48 hours
+still stored as waiting but displayed in Needs check-in
+    ↓ after a later check-in
+stored and displayed as Saved or Purchased
+```
+
+DEV-010 uses the waiting portion of this lifecycle for CRUD behavior. DEV-013 will
+implement the actual transition from `waiting` to `saved` or `purchased`; Commit 1
+defines how those statuses are represented so every later endpoint uses the same
+rules.
 
 Money must cross every boundary as an integer number of cents. Floating-point values,
 numeric strings, booleans, zero, negative values, and values above the database limit
