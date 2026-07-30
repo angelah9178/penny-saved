@@ -18,11 +18,12 @@ from app.schemas.entry import (
 )
 from app.services.entries import (
     create_entry,
+    delete_entry,
     get_entry_detail,
     list_dashboard_entries,
     update_entry,
 )
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/entries", tags=["entries"])
@@ -119,3 +120,28 @@ async def update_user_entry(
         clock=clock,
     )
     return EntryEnvelope(entry=entry)
+
+
+@router.delete(
+    "/{entry_id}",
+    operation_id="delete_entry",
+    response_class=Response,
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse},
+        status.HTTP_403_FORBIDDEN: {"model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+        status.HTTP_409_CONFLICT: {"model": ErrorResponse},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorResponse},
+    },
+)
+async def delete_user_entry(
+    entry_id: UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    trusted_origin: Annotated[None, Depends(enforce_trusted_origin)],
+) -> Response:
+    """Delete one owned entry whose stored status remains waiting."""
+    del trusted_origin
+    await delete_entry(db, user=user, entry_id=entry_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

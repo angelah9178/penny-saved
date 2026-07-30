@@ -10,6 +10,7 @@ from app.models.entry import EntryStatus
 from app.models.user import User
 from app.repositories.entries import (
     add_entry,
+    delete_owned_entry,
     entry_id_exists,
     get_entry_by_id,
     get_entry_for_update,
@@ -30,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 ENTRY_NOT_FOUND_MESSAGE = "Entry not found."
 ENTRY_FORBIDDEN_MESSAGE = "You do not have access to this entry."
 INVALID_ENTRY_STATUS_MESSAGE = "Only waiting entries can be edited."
+INVALID_DELETE_STATUS_MESSAGE = "Only waiting entries can be deleted."
 
 
 async def create_entry(
@@ -125,6 +127,27 @@ async def update_entry(
         raise
 
 
+async def delete_entry(
+    db: AsyncSession,
+    *,
+    user: User,
+    entry_id: UUID,
+) -> None:
+    """Lock and delete one owned entry whose stored status remains waiting."""
+    try:
+        entry = await get_entry_for_update(db, user_id=user.id, entry_id=entry_id)
+        if entry is None:
+            await _raise_entry_access_error(db, entry_id=entry_id)
+        if entry.status is not EntryStatus.WAITING:
+            raise _invalid_delete_status_error()
+
+        await delete_owned_entry(db, entry=entry, user_id=user.id)
+        await db.commit()
+    except BaseException:
+        await db.rollback()
+        raise
+
+
 async def _raise_entry_access_error(db: AsyncSession, *, entry_id: UUID) -> None:
     if await entry_id_exists(db, entry_id=entry_id):
         raise ApplicationError(
@@ -144,4 +167,12 @@ def _invalid_entry_status_error() -> ApplicationError:
         status_code=status.HTTP_409_CONFLICT,
         code="invalid_entry_status",
         message=INVALID_ENTRY_STATUS_MESSAGE,
+    )
+
+
+def _invalid_delete_status_error() -> ApplicationError:
+    return ApplicationError(
+        status_code=status.HTTP_409_CONFLICT,
+        code="invalid_entry_status",
+        message=INVALID_DELETE_STATUS_MESSAGE,
     )

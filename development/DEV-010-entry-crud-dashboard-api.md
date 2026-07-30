@@ -26,7 +26,7 @@ complete.
 | &#91;x&#93; | [2](#commit-2--add-owned-entry-repository-operations)                      | Add owned repository operations        | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--implement-entry-creation-and-dashboard-listing)             | Implement create and dashboard listing | Commit 2    |
 | &#91;x&#93; | [4](#commit-4--add-entry-detail-and-waiting-entry-updates)                 | Add detail and waiting-entry updates   | Commit 3    |
-| &#91; &#93; | [5](#commit-5--add-waiting-entry-deletion)                                 | Add waiting-entry deletion             | Commit 4    |
+| &#91;x&#93; | [5](#commit-5--add-waiting-entry-deletion)                                 | Add waiting-entry deletion             | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-entry-api-security-documentation-and-verification) | Complete security and verification     | Commits 1–5 |
 
 ## Objective
@@ -91,8 +91,7 @@ DEV-010 adds the following authenticated **backend APIs** under `/api/entries`:
 | `PATCH`  | `/api/entries/{entry_id}` | Edit one owned entry whose status is `waiting`    | Commit 4       |
 | `DELETE` | `/api/entries/{entry_id}` | Delete one owned entry whose status is `waiting`  | Commit 5       |
 
-The first four APIs are implemented through Commit 4. The `DELETE` API is planned for
-Commit 5 and is not implemented yet.
+All five CRUD APIs are implemented through Commit 5.
 
 All five APIs use the authenticated session to determine the user. The browser does
 not submit a trusted `user_id`, and knowing another entry's UUID does not grant access
@@ -135,6 +134,24 @@ return `409 Conflict` with the `invalid_entry_status` error code.
 The update may change only `item_name`, `price_cents`, `reason_wanted`, and
 `updated_at`. It preserves the entry ID, owner, status, comment, creation time, and
 check-in time.
+
+### Single-Entry Backend API Added in Commit 5
+
+#### Delete one entry
+
+```http
+DELETE /api/entries/{entry_id}
+```
+
+This backend API permanently deletes the entry only when it belongs to the
+authenticated user and its stored status is `waiting`. It accepts no request body. An
+entry displayed in `needs_check_in` remains deletable because its stored status is
+still `waiting`.
+
+A successful deletion returns exactly `204 No Content` with an empty response body.
+Saved and purchased entries remain as historical records and return `409 Conflict`
+with the `invalid_entry_status` error code. Another user's UUID returns a safe `403`,
+an unknown UUID returns `404`, and a malformed UUID returns `422`.
 
 ## Entry Lifecycle in Plain English
 
@@ -466,7 +483,7 @@ TEST_DATABASE_URL=postgresql+asyncpg://... make backend-test
 
 ## Commit 5 — Add Waiting-Entry Deletion
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 5 completes CRUD with deletion of owned entries whose stored status remains
 `waiting`.

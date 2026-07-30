@@ -378,8 +378,9 @@ async def test_entry_api_requires_authentication_for_every_entry_action(
                     "reason_wanted": "Updated reason",
                 },
             )
+            deleted = await client.delete(f"/api/entries/{entry_id}")
 
-        for response in (created, listed, detail, updated):
+        for response in (created, listed, detail, updated, deleted):
             assert response.status_code == 401
             assert response.json()["error"]["code"] == "unauthorized"
 
@@ -651,3 +652,138 @@ async def test_entry_update_rejects_invalid_fields_and_untrusted_origin(
         assert untrusted.json()["error"]["code"] == "forbidden"
         await db.refresh(entry)
         assert entry.item_name == original_name
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("age", [timedelta(hours=1), timedelta(hours=48)])
+async def test_entry_delete_removes_waiting_and_eligible_waiting_entries(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    age: timedelta,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("80000000-0000-4000-8000-000000000001")
+    async with factory() as db:
+        user = make_user()
+        db.add_all([user, make_entry(entry_id=entry_id, created_at=NOW - age)])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            response = await client.delete(f"/api/entries/{entry_id}")
+
+        assert response.status_code == 204
+        assert response.content == b""
+        assert "content-type" not in response.headers
+        assert await db.get(ImpulsePurchaseEntry, entry_id) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stored_status", [EntryStatus.SAVED, EntryStatus.PURCHASED])
+async def test_entry_delete_rejects_resolved_entries_and_preserves_history(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    stored_status: EntryStatus,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("80000000-0000-4000-8000-000000000002")
+    async with factory() as db:
+        user = make_user()
+        resolved = make_entry(
+            entry_id=entry_id,
+            status=stored_status,
+            created_at=NOW - timedelta(days=3),
+            checked_in_at=NOW - timedelta(hours=1),
+        )
+        db.add_all([user, resolved])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            response = await client.delete(f"/api/entries/{entry_id}")
+
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "invalid_entry_status"
+        assert await db.get(ImpulsePurchaseEntry, entry_id) is not None
+
+
+@pytest.mark.asyncio
+async def test_entry_delete_distinguishes_forbidden_from_not_found_safely(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    other_entry_id = UUID("80000000-0000-4000-8000-000000000003")
+    unknown_entry_id = UUID("80000000-0000-4000-8000-000000000099")
+    async with factory() as db:
+        user = make_user()
+        other_user = make_user(user_id=OTHER_USER_ID, email="other-delete@example.com")
+        other_entry = make_entry(
+            entry_id=other_entry_id,
+            user_id=OTHER_USER_ID,
+            created_at=NOW,
+        )
+        db.add_all([user, other_user, other_entry])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            forbidden = await client.delete(f"/api/entries/{other_entry_id}")
+            missing = await client.delete(f"/api/entries/{unknown_entry_id}")
+
+        assert forbidden.status_code == 403
+        assert forbidden.json()["error"]["code"] == "forbidden"
+        assert "other-delete@example.com" not in forbidden.text
+        assert str(OTHER_USER_ID) not in forbidden.text
+        assert missing.status_code == 404
+        assert missing.json()["error"]["code"] == "not_found"
+        assert await db.get(ImpulsePurchaseEntry, other_entry_id) is not None
+
+
+@pytest.mark.asyncio
+async def test_entry_delete_rejects_malformed_uuid_and_untrusted_origin(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("80000000-0000-4000-8000-000000000004")
+    async with factory() as db:
+        user = make_user()
+        db.add_all([user, make_entry(entry_id=entry_id, created_at=NOW)])
+        await db.commit()
+        app = entry_app(db=db, user=user, frontend_origin="https://penny-saved.example")
+
+        async with api_client(app) as client:
+            malformed = await client.delete("/api/entries/not-a-uuid")
+            untrusted = await client.delete(
+                f"/api/entries/{entry_id}",
+                headers={"Origin": "https://evil.example"},
+            )
+
+        assert malformed.status_code == 422
+        assert malformed.json()["error"]["code"] == "validation_error"
+        assert untrusted.status_code == 403
+        assert untrusted.json()["error"]["code"] == "forbidden"
+        assert await db.get(ImpulsePurchaseEntry, entry_id) is not None
+
+
+@pytest.mark.asyncio
+async def test_entry_delete_rolls_back_when_repository_delete_fails(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("80000000-0000-4000-8000-000000000005")
+    async with factory() as db:
+        user = make_user()
+        entry = make_entry(entry_id=entry_id, created_at=NOW)
+        db.add_all([user, entry])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async def fail_delete(*args: object, **kwargs: object) -> None:
+            del args, kwargs
+            raise RuntimeError("injected delete failure")
+
+        monkeypatch.setattr("app.services.entries.delete_owned_entry", fail_delete)
+        with pytest.raises(RuntimeError, match="injected delete failure"):
+            async with api_client(app) as client:
+                await client.delete(f"/api/entries/{entry_id}")
+
+        assert await db.get(ImpulsePurchaseEntry, entry_id) is not None
