@@ -13,7 +13,14 @@ export function DashboardPage() {
   }
 
   if (dashboard.isError) {
-    return <ErrorAlert message="We could not load your dashboard." />;
+    return (
+      <ErrorAlert
+        message="We could not load your dashboard. Please try again."
+        onRetry={() => {
+          void dashboard.refetch();
+        }}
+      />
+    );
   }
 
   const entries = dashboard.data;
@@ -22,6 +29,11 @@ export function DashboardPage() {
     <>
       <h1>Dashboard</h1>
       <p>Review your waiting decisions and the purchases you have resolved.</p>
+      {dashboard.isFetching ? (
+        <p className="dashboard-updating" role="status" aria-live="polite">
+          Updating dashboard…
+        </p>
+      ) : null}
       <p>
         <Link to="/entries/new">Add new impulse purchase</Link>
       </p>

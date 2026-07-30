@@ -1,13 +1,21 @@
-import { screen, within } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { delay, http, HttpResponse } from "msw";
+import { afterEach, describe, expect, it } from "vitest";
 
+import { SessionExpiryCoordinator } from "../features/auth/SessionExpiryCoordinator";
+import { resetSessionExpiry } from "../features/auth/sessionExpiry";
+import { queryKeys } from "../lib/queryKeys";
 import { renderWithApp } from "../test/render";
 import { server } from "../test/server";
 import type { DashboardBucket, DashboardEntries, Entry } from "../types/api";
 import { DashboardPage } from "./DashboardPage";
 
 describe("DashboardPage", () => {
+  afterEach(() => {
+    resetSessionExpiry();
+  });
+
   it("lists every backend bucket on the real dashboard", async () => {
     const response: DashboardEntries = {
       needs_check_in: [makeEntry("needs-1", "Headphones", "needs_check_in")],
@@ -85,10 +93,177 @@ describe("DashboardPage", () => {
     expect(cards[0]).toHaveTextContent("Backend first");
     expect(cards[1]).toHaveTextContent("Backend second");
   });
+
+  it("shows an honest loading state before the first response", async () => {
+    server.use(
+      http.get("/api/entries", async () => {
+        await delay(50);
+        return HttpResponse.json(emptyDashboard());
+      }),
+    );
+
+    renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading your entries…",
+    );
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Dashboard" }),
+    ).toBeVisible();
+  });
+
+  it("keeps dashboard content visible during a background refresh", async () => {
+    useDashboardResponse({
+      ...emptyDashboard(),
+      waiting: [makeEntry("waiting-1", "Visible while updating", "waiting")],
+    });
+    const { queryClient } = renderWithApp(<DashboardPage />, {
+      initialEntry: "/dashboard",
+    });
+    expect(await screen.findByText("Visible while updating")).toBeVisible();
+
+    server.use(
+      http.get("/api/entries", async () => {
+        await delay("infinite");
+        return HttpResponse.json(emptyDashboard());
+      }),
+    );
+    act(() => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.entries.dashboard(),
+      });
+    });
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Updating dashboard…",
+    );
+    expect(screen.getByText("Visible while updating")).toBeVisible();
+  });
+
+  it("shows an error after automatic network retries are exhausted", async () => {
+    let requestCount = 0;
+    server.use(
+      http.get("/api/entries", () => {
+        requestCount += 1;
+        return HttpResponse.error();
+      }),
+    );
+
+    renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
+
+    expect(
+      await screen.findByRole("alert", {}, { timeout: 4_000 }),
+    ).toHaveTextContent("We could not load your dashboard. Please try again.");
+    expect(requestCount).toBe(3);
+    expect(
+      screen.queryByText("Nothing needs your attention right now."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("lets the user retry a temporary server failure", async () => {
+    const user = userEvent.setup();
+    let requestCount = 0;
+    server.use(
+      http.get("/api/entries", () => {
+        requestCount += 1;
+
+        if (requestCount <= 3) {
+          return HttpResponse.json(
+            {
+              error: {
+                code: "unavailable",
+                message: "Dashboard temporarily unavailable.",
+              },
+            },
+            { status: 503 },
+          );
+        }
+
+        return HttpResponse.json({
+          ...emptyDashboard(),
+          saved: [makeEntry("saved-1", "Loaded after retry", "saved")],
+        });
+      }),
+    );
+
+    renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
+
+    await user.click(
+      await screen.findByRole(
+        "button",
+        { name: "Try again" },
+        { timeout: 4_000 },
+      ),
+    );
+
+    expect(await screen.findByText("Loaded after retry")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(requestCount).toBe(4);
+  });
+
+  it("sends an expired session to login with the dashboard return path", async () => {
+    server.use(
+      http.get("/api/entries", () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "unauthorized",
+              message: "Authentication is required.",
+            },
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    const { router } = renderWithApp(
+      <>
+        <SessionExpiryCoordinator />
+        <DashboardPage />
+      </>,
+      { initialEntry: "/dashboard" },
+    );
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(router.state.location.state).toEqual({
+      returnTo: "/dashboard",
+      sessionExpired: true,
+    });
+  });
+
+  it("does not turn a cancelled request into an error state", async () => {
+    server.use(
+      http.get("/api/entries", async () => {
+        await delay("infinite");
+        return HttpResponse.json(emptyDashboard());
+      }),
+    );
+    const { queryClient } = renderWithApp(<DashboardPage />, {
+      initialEntry: "/dashboard",
+    });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading your entries…",
+    );
+
+    await act(() =>
+      queryClient.cancelQueries({ queryKey: queryKeys.entries.dashboard() }),
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 function useDashboardResponse(response: DashboardEntries) {
   server.use(http.get("/api/entries", () => HttpResponse.json(response)));
+}
+
+function emptyDashboard(): DashboardEntries {
+  return {
+    needs_check_in: [],
+    waiting: [],
+    saved: [],
+    purchased: [],
+  };
 }
 
 function makeEntry(

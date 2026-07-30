@@ -10,7 +10,7 @@
 - [Commit 2 — Add Safe Display Formatting](#commit-2--add-safe-display-formatting)
 - [Commit 3 — Build Reusable Entry Cards and Sections](#commit-3--build-reusable-entry-cards-and-sections)
 - [Commit 4 — Compose the Complete Dashboard](#commit-4--compose-the-complete-dashboard)
-- [Commit 5 — Handle Loading, Errors, and Expired Sessions](#commit-5--handle-loading-errors-and-expired-sessions)
+- [Commit 5 — Handle Dashboard Loading, Errors, and Session Expiry](#commit-5--handle-dashboard-loading-errors-and-session-expiry)
 - [Commit 6 — Complete Accessibility, Responsive Styling, and Verification](#commit-6--complete-accessibility-responsive-styling-and-verification)
 - [Out of Scope](#out-of-scope)
 - [Implementation Record](#implementation-record)
@@ -26,7 +26,7 @@ complete.
 | &#91;x&#93; | [2](#commit-2--add-safe-display-formatting)                                | Add safe display formatting                 | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--build-reusable-entry-cards-and-sections)                    | Build reusable entry cards and sections     | Commit 2    |
 | &#91;x&#93; | [4](#commit-4--compose-the-complete-dashboard)                             | Compose the complete dashboard              | Commit 3    |
-| &#91; &#93; | [5](#commit-5--handle-loading-errors-and-expired-sessions)                 | Handle requests and expired sessions        | Commit 4    |
+| &#91;x&#93; | [5](#commit-5--handle-dashboard-loading-errors-and-session-expiry)         | Handle dashboard request states             | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-accessibility-responsive-styling-and-verification) | Complete dashboard quality and verification | Commits 1–5 |
 
 ## Objective
@@ -394,9 +394,9 @@ make frontend-typecheck
 make frontend-test
 ```
 
-## Commit 5 — Handle Loading, Errors, and Expired Sessions
+## Commit 5 — Handle Dashboard Loading, Errors, and Session Expiry
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 5 makes the page honest about request state. A failed request must never look
 like an empty dashboard.
@@ -405,10 +405,27 @@ In plain language, the user should always know whether the app is still loading,
 there are genuinely no entries, the server could not respond, or their sign-in has
 expired.
 
+Commit 5 handles all states of the dashboard request, not only errors:
+
+```text
+Initial loading       → Show “Loading your entries…”
+Successful response   → Show the dashboard entry lists
+Successful empty data → Show four honest empty messages
+Background refresh    → Keep the lists visible and show “Updating dashboard…”
+Network or 5xx failure → Retry temporary failures, then show an error
+Manual retry          → Let the user choose “Try again”
+Expired session (401) → Return to login and preserve /dashboard
+Cancelled request     → Do not show a false failure message
+```
+
+Commit 4 built the dashboard's successful listing view. Commit 5 makes that dashboard
+behave correctly while its data is loading, refreshing, failing, retrying, or losing
+authentication.
+
 Suggested commit message:
 
 ```text
-Commit 5: Handle dashboard request states
+Commit 5: Handle dashboard loading, errors, and session expiry
 ```
 
 Implement:
