@@ -787,3 +787,59 @@ async def test_entry_delete_rolls_back_when_repository_delete_fails(
                 await client.delete(f"/api/entries/{entry_id}")
 
         assert await db.get(ImpulsePurchaseEntry, entry_id) is not None
+
+
+@pytest.mark.asyncio
+async def test_entry_endpoints_share_one_complete_public_representation(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    async with factory() as db:
+        user = make_user()
+        db.add(user)
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            created = await client.post(
+                "/api/entries",
+                json={
+                    "item_name": "Headphones",
+                    "price_cents": 8_500,
+                    "reason_wanted": "Better noise cancellation",
+                },
+            )
+            entry_id = created.json()["entry"]["id"]
+            listed = await client.get("/api/entries")
+            detailed = await client.get(f"/api/entries/{entry_id}")
+            updated = await client.patch(
+                f"/api/entries/{entry_id}",
+                json={
+                    "item_name": "Updated headphones",
+                    "price_cents": 9_000,
+                    "reason_wanted": "Updated reason",
+                },
+            )
+
+        representations = [
+            created.json()["entry"],
+            listed.json()["waiting"][0],
+            detailed.json()["entry"],
+            updated.json()["entry"],
+        ]
+        expected_fields = {
+            "id",
+            "item_name",
+            "price_cents",
+            "reason_wanted",
+            "status",
+            "dashboard_bucket",
+            "comment",
+            "created_at",
+            "eligible_for_check_in_at",
+            "checked_in_at",
+            "updated_at",
+        }
+        assert all(set(representation) == expected_fields for representation in representations)
+        assert representations[0] == representations[1] == representations[2]
+        assert all("user_id" not in representation for representation in representations)

@@ -27,7 +27,7 @@ complete.
 | &#91;x&#93; | [3](#commit-3--implement-entry-creation-and-dashboard-listing)             | Implement create and dashboard listing | Commit 2    |
 | &#91;x&#93; | [4](#commit-4--add-entry-detail-and-waiting-entry-updates)                 | Add detail and waiting-entry updates   | Commit 3    |
 | &#91;x&#93; | [5](#commit-5--add-waiting-entry-deletion)                                 | Add waiting-entry deletion             | Commit 4    |
-| &#91; &#93; | [6](#commit-6--complete-entry-api-security-documentation-and-verification) | Complete security and verification     | Commits 1–5 |
+| &#91;x&#93; | [6](#commit-6--complete-entry-api-security-documentation-and-verification) | Complete security and verification     | Commits 1–5 |
 
 ## Objective
 
@@ -526,7 +526,7 @@ TEST_DATABASE_URL=postgresql+asyncpg://... make backend-test
 
 ## Commit 6 — Complete Entry API Security, Documentation, and Verification
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 6 reviews the entire DEV-010 boundary as one feature, fills remaining negative
 coverage, and records the verified implementation. It should not become a container
@@ -591,34 +591,112 @@ database from `DATABASE_URL`.
 
 ## Implementation Record
 
-Complete this section as Commit 6 after the feature has been implemented and verified.
-
 ### Overview
 
-DEV-010 is planned to add authenticated entry CRUD and the dashboard list API on top
-of the DEV-005 entry model and DEV-008 session boundary.
+DEV-010 added authenticated entry CRUD and the dashboard list API on top of the DEV-005
+entry model and DEV-008 session boundary. The implementation separates HTTP
+translation, service-owned use cases and transactions, repository-owned SQL, and
+deliberate Pydantic request/response contracts.
 
 ### What It Achieved
 
-Not implemented yet. Replace this statement with the completed user-visible and
-backend outcomes after Commits 1–5 pass their gates.
+Authenticated users can now create waiting entries, retrieve their complete dashboard
+data, view one owned entry, update the core details of an owned waiting entry, and
+delete an owned waiting entry. The backend—not the browser—assigns ownership, stored
+status, UUIDs, timestamps, and derived dashboard buckets.
+
+The implementation added:
+
+- Strict create and update schemas with trimmed bounded text and integer-cent rules.
+- One complete public entry representation shared by create, list, detail, and update.
+- Owned repository queries, minimal existence checking, stable ordering, and row
+  locking for mutations.
+- Service-owned commits and rollbacks for create, update, and delete.
+- Five authenticated routes mounted once under `/api/entries`.
+- PostgreSQL integration, API, OpenAPI, lifecycle-boundary, ownership, error, and
+  rollback coverage.
+- Developer-facing endpoint and safety documentation in the root README and this DEV
+  record.
 
 ### API and Lifecycle Behavior
 
-Record the final routes, status codes, normalization behavior, dashboard ordering,
-and exact 48-hour boundary behavior demonstrated by the implementation.
+The final backend API is:
+
+```text
+POST   /api/entries            → 201 with a new waiting entry
+GET    /api/entries            → 200 with all four dashboard arrays
+GET    /api/entries/{entry_id} → 200 with one owned entry
+PATCH  /api/entries/{entry_id} → 200 with updated waiting-entry details
+DELETE /api/entries/{entry_id} → 204 with an empty body
+```
+
+Create and update accept only `item_name`, `price_cents`, and `reason_wanted`. Outer
+text whitespace is removed; blank or oversized text is rejected. Money remains a
+strict integer number of cents from 1 through 999,999,999,999. Floats, numeric strings,
+booleans, unknown fields, and server-owned fields are rejected.
+
+New entries are stored as `waiting` with null comment and check-in time. At exactly
+`created_at + 48 hours`, a waiting entry moves from the derived `waiting` bucket to
+`needs_check_in` without changing stored status. Consequently, both buckets remain
+editable and deletable. Saved and purchased entries return the
+`invalid_entry_status` error with HTTP `409` for core updates or deletion.
+
+Dashboard ordering is deterministic: waiting entries are ordered by creation time and
+UUID ascending, while resolved entries are ordered by check-in time and UUID
+descending. One UTC clock read classifies every entry in one list response. All four
+arrays are present even when empty.
 
 ### Ownership and Security
 
-Record how authenticated ownership is scoped, how `403` and `404` are distinguished
-without data leakage, and which negative tests verify the boundary.
+Every route resolves the user from the DEV-008 server-side session. Primary repository
+queries combine `entry_id` with the authenticated `user_id`; request payloads cannot
+select ownership. Mutations lock the owned row before checking stored status.
+
+After an owned lookup misses, a minimal boolean existence query distinguishes the
+contract-required responses: an existing other-user UUID returns `403 forbidden`, and
+an unknown UUID returns `404 not_found`. Neither response includes the owner ID,
+email, entry fields, or ORM details. A UUID identifies a record but never authorizes
+access to it.
+
+POST, PATCH, and DELETE use the shared exact-origin protection. All endpoints require
+authentication. Validation, ownership, lifecycle, database-availability, and
+unexpected failures use the standard safe error envelope. Response schemas and
+OpenAPI regression tests prove `user_id` and persistence internals are not public.
 
 ### Verification
 
-Record the exact commands run, PostgreSQL-backed suites completed, and final
-`make check` result.
+The final verification command was:
+
+```bash
+make check
+```
+
+It completed successfully on July 30, 2026, including:
+
+- Prettier and Ruff formatting checks.
+- ESLint and Ruff lint checks.
+- Strict frontend TypeScript checking.
+- 135 passing frontend tests across 19 files.
+- 297 passing backend tests against the explicit PostgreSQL test database.
+- Frontend production build and backend application construction.
+- Alembic model/migration drift verification within the backend suite.
+
+Focused Commit 6 verification also passed 36 OpenAPI and cross-endpoint contract
+tests. `git diff --check` completed without whitespace errors.
 
 ### Limitations and Follow-up
 
-Record any remaining limitations and link them to DEV-011 through DEV-021 as
-appropriate.
+DEV-010 provides backend CRUD data and behavior only. Remaining planned work is:
+
+- DEV-011: Render the four dashboard entry lists in the frontend.
+- DEV-012: Add frontend create, detail, edit, and delete flows.
+- DEV-013: Add the atomic saved/purchased check-in transition.
+- DEV-015: Add resolved-entry comment editing.
+- DEV-016: Calculate saved and purchased statistics.
+- DEV-020: Complete shared responsive and accessibility hardening.
+- DEV-021: Add broader security and abuse protections.
+
+Dashboard listing is intentionally unpaginated for expected V1 volume. Add pagination
+before per-user entry counts can grow without practical bounds. DEV-010 does not
+change waiting entries to saved or purchased; `needs_check_in` remains a derived
+display bucket rather than a fourth stored status.

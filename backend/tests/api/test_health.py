@@ -230,6 +230,68 @@ async def test_openapi_documents_complete_authentication_contract(
 
 
 @pytest.mark.asyncio
+async def test_openapi_documents_complete_entry_crud_contract(settings: Settings) -> None:
+    app = create_app(settings, lifespan=no_database_lifespan)
+
+    async with api_client(app) as client:
+        document = (await client.get("/openapi.json")).json()
+
+    paths = document["paths"]
+    collection = paths["/api/entries"]
+    detail = paths["/api/entries/{entry_id}"]
+    assert collection["post"]["operationId"] == "create_entry"
+    assert collection["get"]["operationId"] == "list_dashboard_entries"
+    assert detail["get"]["operationId"] == "get_entry_detail"
+    assert detail["patch"]["operationId"] == "update_entry"
+    assert detail["delete"]["operationId"] == "delete_entry"
+    assert set(collection["post"]["responses"]) >= {"201", "401", "403", "422"}
+    assert set(collection["get"]["responses"]) >= {"200", "401"}
+    assert set(detail["get"]["responses"]) >= {"200", "401", "403", "404", "422"}
+    assert set(detail["patch"]["responses"]) >= {
+        "200",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+    }
+    assert set(detail["delete"]["responses"]) >= {
+        "204",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+    }
+    schemas = document["components"]["schemas"]
+    assert set(schemas["EntryCreateRequest"]["properties"]) == {
+        "item_name",
+        "price_cents",
+        "reason_wanted",
+    }
+    assert set(schemas["EntryUpdateRequest"]["properties"]) == {
+        "item_name",
+        "price_cents",
+        "reason_wanted",
+    }
+    assert set(schemas["EntryResponse"]["properties"]) == {
+        "id",
+        "item_name",
+        "price_cents",
+        "reason_wanted",
+        "status",
+        "dashboard_bucket",
+        "comment",
+        "created_at",
+        "eligible_for_check_in_at",
+        "checked_in_at",
+        "updated_at",
+    }
+    serialized = str(document)
+    assert "user_id" not in serialized
+
+
+@pytest.mark.asyncio
 async def test_production_hides_interactive_api_documentation() -> None:
     settings = Settings(
         _env_file=None,
