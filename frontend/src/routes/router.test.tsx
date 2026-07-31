@@ -175,6 +175,104 @@ describe("authentication routes", () => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
+  it("protects the edit route and preserves the selected entry as the return path", async () => {
+    const entryId = "70000000-0000-4000-8000-000000000001";
+    const { router } = renderRoute(`/entries/${entryId}/edit`);
+
+    expect(
+      await screen.findByRole("heading", { name: "Log in" }),
+    ).toBeInTheDocument();
+    expect(router.state.location).toMatchObject({
+      pathname: "/login",
+      state: { returnTo: `/entries/${entryId}/edit` },
+    });
+  });
+
+  it("completes create, edit, and delete without a full-page reload", async () => {
+    const user = userEvent.setup();
+    const entryId = "70000000-0000-4000-8000-000000000001";
+    let storedEntry: Record<string, unknown> | undefined;
+    let dashboardRequests = 0;
+    useAuthenticatedSession();
+    server.use(
+      http.get("/api/entries", () => {
+        dashboardRequests += 1;
+        return HttpResponse.json({
+          needs_check_in: [],
+          waiting: storedEntry === undefined ? [] : [storedEntry],
+          saved: [],
+          purchased: [],
+        });
+      }),
+      http.post("/api/entries", async ({ request }) => {
+        const payload = (await request.json()) as Record<string, unknown>;
+        storedEntry = makeWaitingEntry(entryId, payload);
+        return HttpResponse.json({ entry: storedEntry }, { status: 201 });
+      }),
+      http.get(`/api/entries/${entryId}`, () =>
+        storedEntry === undefined
+          ? HttpResponse.json(
+              { error: { code: "not_found", message: "Not found." } },
+              { status: 404 },
+            )
+          : HttpResponse.json({ entry: storedEntry }),
+      ),
+      http.patch(`/api/entries/${entryId}`, async ({ request }) => {
+        const payload = (await request.json()) as Record<string, unknown>;
+        storedEntry = { ...storedEntry, ...payload };
+        return HttpResponse.json({ entry: storedEntry });
+      }),
+      http.delete(`/api/entries/${entryId}`, () => {
+        storedEntry = undefined;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { router } = renderRoute("/dashboard");
+
+    await user.click(
+      await screen.findByRole("link", { name: "Add new impulse purchase" }),
+    );
+    await user.type(screen.getByLabelText("Item name"), "Coffee grinder");
+    await user.type(screen.getByLabelText("Price"), "89.99");
+    await user.type(
+      screen.getByLabelText("Reason wanted"),
+      "Better coffee at home",
+    );
+    await user.click(screen.getByRole("button", { name: "Add entry" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Coffee grinder" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("link", { name: "Edit" }));
+    expect(router.state.location.pathname).toBe(`/entries/${entryId}/edit`);
+    await screen.findByRole("heading", { name: "Edit Coffee grinder" });
+    await user.clear(screen.getByLabelText("Item name"));
+    await user.type(screen.getByLabelText("Item name"), "Burr grinder");
+    await user.clear(screen.getByLabelText("Price"));
+    await user.type(screen.getByLabelText("Price"), "99.99");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Burr grinder" }),
+    ).toBeVisible();
+    expect(screen.getByText("$99.99")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(
+      screen.getByRole("alertdialog", { name: "Delete Burr grinder?" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete entry" }));
+
+    expect(
+      await screen.findByText("You have no purchases in the waiting period."),
+    ).toBeVisible();
+    expect(screen.getByText("Burr grinder was deleted.")).toHaveAttribute(
+      "role",
+      "status",
+    );
+    expect(storedEntry).toBeUndefined();
+    expect(dashboardRequests).toBeGreaterThanOrEqual(4);
+  });
+
   it("redirects a guest from protected content and preserves the intended path", async () => {
     const { router } = renderRoute("/dashboard?view=recent#top");
 
@@ -294,5 +392,22 @@ function renderRoute(initialEntry: InitialEntry) {
     ...render(<AppProviders queryClient={queryClient} router={router} />),
     queryClient,
     router,
+  };
+}
+
+function makeWaitingEntry(
+  id: string,
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    id,
+    ...payload,
+    status: "waiting",
+    dashboard_bucket: "waiting",
+    comment: null,
+    created_at: "2026-07-31T14:00:00Z",
+    eligible_for_check_in_at: "2026-08-02T14:00:00Z",
+    checked_in_at: null,
+    updated_at: "2026-07-31T14:00:00Z",
   };
 }

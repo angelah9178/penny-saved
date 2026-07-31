@@ -23,11 +23,11 @@ complete.
 |             | Commit                                                                      | Title                                      | Depends on  |
 | ----------- | --------------------------------------------------------------------------- | ------------------------------------------ | ----------- |
 | &#91;x&#93; | [1](#commit-1--connect-entry-management-to-the-backend)                     | Connect entry management to the backend    | DEV-010     |
-| &#91;x&#93; | [2](#commit-2--build-the-create-and-edit-form)                             | Build the Create and Edit form             | Commit 1    |
-| &#91;x&#93; | [3](#commit-3--add-the-new-entry-process)                                 | Add the new entry process                  | Commit 2    |
-| &#91;x&#93; | [4](#commit-4--add-entry-editing-from-the-dashboard)                     | Add editing from the dashboard             | Commit 3    |
+| &#91;x&#93; | [2](#commit-2--build-the-create-and-edit-form)                              | Build the Create and Edit form             | Commit 1    |
+| &#91;x&#93; | [3](#commit-3--add-the-new-entry-process)                                  | Add the new entry process                  | Commit 2    |
+| &#91;x&#93; | [4](#commit-4--add-entry-editing-from-the-dashboard)                       | Add editing from the dashboard             | Commit 3    |
 | &#91;x&#93; | [5](#commit-5--add-safe-entry-deletion)                                     | Add safe entry deletion                    | Commit 4    |
-| &#91; &#93; | [6](#commit-6--complete-entry-management-states-and-verification)           | Complete states and verification           | Commits 1–5 |
+| &#91;x&#93; | [6](#commit-6--complete-entry-management-states-and-verification)           | Complete states and verification           | Commits 1–5 |
 
 ## Objective
 
@@ -445,7 +445,7 @@ make frontend-test
 
 ## Commit 6 — Complete Entry Management States and Verification
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 6 reviews the create, edit, and delete experience as one complete
 feature and closes gaps that focused implementation tests may miss.
@@ -499,47 +499,71 @@ DEV-012 does not include:
 
 ## Implementation Record
 
-DEV-012 is in progress. Commit 1 added the typed frontend operations and TanStack
-Query integration for entry detail, creation, editing, and deletion. Successful
-mutations now invalidate the dashboard; edits also update and invalidate entry detail,
-while deletion removes the deleted detail from the cache. Protected requests report
-session expiry with the route the user was using, detail requests support
-cancellation, and mutations explicitly do not retry.
+DEV-012 is complete. Commit 1 (`87acbc7`) added the typed frontend operations and
+TanStack Query integration for entry detail, creation, editing, and deletion.
+Successful mutations now invalidate the dashboard; edits also update and invalidate
+entry detail, while deletion removes the deleted detail from the cache. Protected
+requests report session expiry with the route the user was using, detail requests
+support cancellation, and mutations explicitly do not retry.
 
-Commit 2 added one shared Create/Edit form with accessible labels and field errors,
-trimmed text validation, backend-aligned length limits, exact string-based dollar
-parsing, and exact cents-to-edit-value formatting. The form preserves user input after
-failures, maps backend `price_cents` errors to the visible Price field, and prevents
-duplicate submission while a save is pending.
+Commit 2 (`f456f3b`) added one shared Create/Edit form with accessible labels and
+field errors, trimmed text validation, backend-aligned length limits, exact
+string-based dollar parsing, and exact cents-to-edit-value formatting. The form
+preserves user input after failures, maps backend `price_cents` errors to the visible
+Price field, and prevents duplicate submission while a save is pending.
 
-Commit 3 added the protected `/entries/new` page and connected the shared form to the
-create mutation. Successful creation returns to the dashboard with a status
-announcement and refreshed Waiting data. Failed requests preserve input, pending
-requests cannot be submitted twice, guests and expired sessions return safely to
-login, and changed forms warn before in-app navigation or browser unload discards
+Commit 3 (`5581c1a`) added the protected `/entries/new` page and connected the shared
+form to the create mutation. Successful creation returns to the dashboard with a
+status announcement and refreshed Waiting data. Failed requests preserve input,
+pending requests cannot be submitted twice, guests and expired sessions return safely
+to login, and changed forms warn before in-app navigation or browser unload discards
 their contents.
 
-Commit 4 added Edit actions directly to Waiting and Needs check-in dashboard cards
-without adding a separate read-only detail page. The reusable protected Edit screen
-loads current server data, formats exact cents for the shared form, updates only the
-three allowed fields, refreshes cached entry and dashboard data, handles safe access
-errors, and replaces stale edit conflicts with current server truth. Saved and
-Purchased cards do not expose Edit.
+Commit 4 (`5ddf806`) added Edit actions directly to Waiting and Needs check-in
+dashboard cards without adding a separate read-only detail page. The reusable
+protected Edit screen loads current server data, formats exact cents for the shared
+form, updates only the three allowed fields, refreshes cached entry and dashboard
+data, handles safe access errors, and replaces stale edit conflicts with current
+server truth. Saved and Purchased cards do not expose Edit.
 
-Commit 5 added Delete actions directly to Waiting and Needs check-in cards. The
-accessible confirmation names the item, explains that deletion is permanent, traps
-keyboard focus, supports Escape and Cancel, restores trigger focus, and disables
-repeat submission. Only a confirmed `204` removes cached detail and refreshes the
-dashboard. Failures preserve the card and confirmation, while stale `409` conflicts
-refresh server truth and announce that the entry was not deleted. Saved and Purchased
-cards do not expose Delete.
+Commit 5 (`ff73610`) added Delete actions directly to Waiting and Needs check-in
+cards. The accessible confirmation names the item, explains that deletion is
+permanent, traps keyboard focus, supports Escape and Cancel, restores trigger focus,
+and disables repeat submission. Only a confirmed `204` removes cached detail and
+refreshes the dashboard. Failures preserve the card and confirmation, while stale
+`409` conflicts refresh server truth and announce that the entry was not deleted.
+Saved and Purchased cards do not expose Delete.
 
-Commit 6 is not started. Continue filling in this section as it is completed
-rather than recording planned work as implemented work.
+Commit 6 added a protected-route integration test that performs the complete Create,
+Edit, and Delete journey without a full-page reload. It also verifies that the Edit
+route preserves the selected entry as the safe login return path.
 
-The final record should include:
+### Verification
 
-- The commit hash and final title for each completed section.
-- Any deliberate differences from this plan.
-- The final `make check` date and test totals.
-- Known limitations and the DEV task responsible for each follow-up.
+The final verification command was:
+
+```bash
+make check
+```
+
+It completed successfully on July 31, 2026, after starting the repository's local
+PostgreSQL test container. Results included:
+
+- Prettier and Ruff formatting checks passed.
+- ESLint and Ruff lint checks passed.
+- Strict frontend TypeScript checking passed.
+- 249 frontend tests passed across 32 files.
+- 297 backend tests passed against the explicit PostgreSQL test database.
+- Alembic reported no new upgrade operations or model/migration drift.
+- The Vite production build completed successfully.
+- Backend application construction completed successfully.
+
+### Deliberate Design Change and Follow-up
+
+DEV-012 does not create a separate read-only page for every entry. The dashboard card
+already contains the useful entry information, so Waiting and Needs check-in cards
+link directly to the one reusable Edit screen. This does not duplicate database data.
+
+Check-in submission remains owned by DEV-013 and DEV-014, saved or purchased comment
+editing remains owned by DEV-015, and the final cross-feature accessibility and
+responsive review remains owned by DEV-020.
