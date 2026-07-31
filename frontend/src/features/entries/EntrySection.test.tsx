@@ -1,7 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
+import { createQueryClient } from "../../app/queryClient";
 import type { Entry } from "../../types/api";
 import { EntrySection } from "./EntrySection";
 
@@ -47,14 +49,16 @@ describe("EntrySection", () => {
 
 function renderSection(entries: Entry[]) {
   return render(
-    <MemoryRouter>
-      <EntrySection
-        title="Waiting"
-        emptyMessage="Nothing is currently waiting."
-        entries={entries}
-        section="waiting"
-      />
-    </MemoryRouter>,
+    <QueryClientProvider client={createQueryClient()}>
+      <MemoryRouter>
+        <EntrySection
+          title="Waiting"
+          emptyMessage="Nothing is currently waiting."
+          entries={entries}
+          section="waiting"
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

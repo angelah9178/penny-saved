@@ -239,11 +239,13 @@ async def test_openapi_documents_complete_entry_crud_contract(settings: Settings
     paths = document["paths"]
     collection = paths["/api/entries"]
     detail = paths["/api/entries/{entry_id}"]
+    check_in = paths["/api/entries/{entry_id}/check-in"]["post"]
     assert collection["post"]["operationId"] == "create_entry"
     assert collection["get"]["operationId"] == "list_dashboard_entries"
     assert detail["get"]["operationId"] == "get_entry_detail"
     assert detail["patch"]["operationId"] == "update_entry"
     assert detail["delete"]["operationId"] == "delete_entry"
+    assert check_in["operationId"] == "check_in_entry"
     assert set(collection["post"]["responses"]) >= {"201", "401", "403", "422"}
     assert set(collection["get"]["responses"]) >= {"200", "401"}
     assert set(detail["get"]["responses"]) >= {"200", "401", "403", "404", "422"}
@@ -263,6 +265,7 @@ async def test_openapi_documents_complete_entry_crud_contract(settings: Settings
         "409",
         "422",
     }
+    assert set(check_in["responses"]) >= {"200", "401", "403", "404", "409", "422"}
     schemas = document["components"]["schemas"]
     assert set(schemas["EntryCreateRequest"]["properties"]) == {
         "item_name",
@@ -273,6 +276,11 @@ async def test_openapi_documents_complete_entry_crud_contract(settings: Settings
         "item_name",
         "price_cents",
         "reason_wanted",
+    }
+    assert set(schemas["EntryCheckInRequest"]["properties"]) == {"result", "comment"}
+    assert schemas["EntryCheckInResult"]["enum"] == ["saved", "purchased"]
+    assert check_in["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/EntryEnvelope"
     }
     assert set(schemas["EntryResponse"]["properties"]) == {
         "id",

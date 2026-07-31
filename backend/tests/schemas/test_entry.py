@@ -6,10 +6,17 @@ from datetime import UTC, datetime, timedelta, timezone
 from uuid import UUID
 
 import pytest
-from app.models.entry import MAX_PRICE_CENTS, EntryStatus, ImpulsePurchaseEntry
+from app.models.entry import (
+    MAX_COMMENT_LENGTH,
+    MAX_PRICE_CENTS,
+    EntryStatus,
+    ImpulsePurchaseEntry,
+)
 from app.schemas.entry import (
     DashboardBucket,
     DashboardEntriesResponse,
+    EntryCheckInRequest,
+    EntryCheckInResult,
     EntryCreateRequest,
     EntryEnvelope,
     EntryUpdateRequest,
@@ -128,6 +135,64 @@ def test_entry_write_requests_reject_server_owned_fields(unknown_field: str) -> 
         EntryCreateRequest.model_validate(payload)
     with pytest.raises(ValidationError):
         EntryUpdateRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("result", "expected"),
+    [
+        ("saved", EntryCheckInResult.SAVED),
+        ("purchased", EntryCheckInResult.PURCHASED),
+    ],
+)
+def test_entry_check_in_accepts_only_documented_results(
+    result: str,
+    expected: EntryCheckInResult,
+) -> None:
+    request = EntryCheckInRequest(result=result)
+
+    assert request.result is expected
+    assert request.comment is None
+
+
+@pytest.mark.parametrize("comment", [None, "", "   ", "\t\n"])
+def test_entry_check_in_normalizes_empty_comment_to_none(comment: str | None) -> None:
+    request = EntryCheckInRequest(result="saved", comment=comment)
+
+    assert request.comment is None
+
+
+def test_entry_check_in_trims_optional_comment() -> None:
+    request = EntryCheckInRequest(
+        result="purchased",
+        comment="  I still needed it for work.\n",
+    )
+
+    assert request.comment == "I still needed it for work."
+
+
+def test_entry_check_in_accepts_comment_at_database_limit_after_trimming() -> None:
+    comment = "x" * MAX_COMMENT_LENGTH
+
+    request = EntryCheckInRequest(result="saved", comment=f" {comment} ")
+
+    assert request.comment == comment
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"result": "waiting"},
+        {"result": "other"},
+        {"result": 1},
+        {"result": "saved", "comment": 123},
+        {"result": "saved", "comment": "x" * (MAX_COMMENT_LENGTH + 1)},
+        {"result": "saved", "status": "purchased"},
+        {"comment": "No answer"},
+    ],
+)
+def test_entry_check_in_rejects_invalid_contract_values(payload: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        EntryCheckInRequest.model_validate(payload)
 
 
 def test_waiting_entry_remains_waiting_one_microsecond_before_eligibility() -> None:

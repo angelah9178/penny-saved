@@ -10,6 +10,7 @@ from app.models.entry import EntryStatus
 from app.models.user import User
 from app.repositories.entries import (
     add_entry,
+    check_in_owned_entry,
     delete_owned_entry,
     entry_id_exists,
     get_entry_by_id,
@@ -18,8 +19,10 @@ from app.repositories.entries import (
     update_owned_entry_details,
 )
 from app.schemas.entry import (
+    ENTRY_WAIT_PERIOD,
     DashboardBucket,
     DashboardEntriesResponse,
+    EntryCheckInRequest,
     EntryCreateRequest,
     EntryResponse,
     EntryUpdateRequest,
@@ -32,6 +35,8 @@ ENTRY_NOT_FOUND_MESSAGE = "Entry not found."
 ENTRY_FORBIDDEN_MESSAGE = "You do not have access to this entry."
 INVALID_ENTRY_STATUS_MESSAGE = "Only waiting entries can be edited."
 INVALID_DELETE_STATUS_MESSAGE = "Only waiting entries can be deleted."
+INVALID_CHECK_IN_STATUS_MESSAGE = "Only waiting entries can be checked in."
+EARLY_CHECK_IN_MESSAGE = "This entry is not eligible for check-in yet."
 
 
 async def create_entry(
@@ -148,6 +153,40 @@ async def delete_entry(
         raise
 
 
+async def check_in_entry(
+    db: AsyncSession,
+    *,
+    user: User,
+    entry_id: UUID,
+    payload: EntryCheckInRequest,
+    clock: Clock,
+) -> EntryResponse:
+    """Atomically resolve one owned waiting entry after its 48-hour wait."""
+    try:
+        entry = await get_entry_for_update(db, user_id=user.id, entry_id=entry_id)
+        if entry is None:
+            await _raise_entry_access_error(db, entry_id=entry_id)
+        if entry.status is not EntryStatus.WAITING:
+            raise _invalid_check_in_status_error()
+
+        now = normalize_utc(clock.now())
+        if now < entry.created_at + ENTRY_WAIT_PERIOD:
+            raise _early_check_in_error()
+
+        check_in_owned_entry(
+            entry=entry,
+            user_id=user.id,
+            result=EntryStatus(payload.result.value),
+            comment=payload.comment,
+            checked_in_at=now,
+        )
+        await db.commit()
+        return to_entry_response(entry, now)
+    except BaseException:
+        await db.rollback()
+        raise
+
+
 async def _raise_entry_access_error(db: AsyncSession, *, entry_id: UUID) -> None:
     if await entry_id_exists(db, entry_id=entry_id):
         raise ApplicationError(
@@ -175,4 +214,20 @@ def _invalid_delete_status_error() -> ApplicationError:
         status_code=status.HTTP_409_CONFLICT,
         code="invalid_entry_status",
         message=INVALID_DELETE_STATUS_MESSAGE,
+    )
+
+
+def _invalid_check_in_status_error() -> ApplicationError:
+    return ApplicationError(
+        status_code=status.HTTP_409_CONFLICT,
+        code="invalid_entry_status",
+        message=INVALID_CHECK_IN_STATUS_MESSAGE,
+    )
+
+
+def _early_check_in_error() -> ApplicationError:
+    return ApplicationError(
+        status_code=status.HTTP_409_CONFLICT,
+        code="early_check_in",
+        message=EARLY_CHECK_IN_MESSAGE,
     )

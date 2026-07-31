@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 MAX_PRICE_CENTS = 999_999_999_999
+MAX_COMMENT_LENGTH = 4_000
 
 
 class EntryStatus(StrEnum):
@@ -69,7 +70,7 @@ class ImpulsePurchaseEntry(Base):
         ),
         nullable=False,
     )
-    comment: Mapped[str | None] = mapped_column(String(4000), nullable=True)
+    comment: Mapped[str | None] = mapped_column(String(MAX_COMMENT_LENGTH), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     checked_in_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

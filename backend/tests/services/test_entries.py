@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from uuid import UUID
 import httpx
 import pytest
 from app.api.dependencies import get_current_user
+from app.api.errors import ApplicationError
 from app.core.config import AppEnvironment, Settings
 from app.core.time import FixedClock, get_clock
 from app.db.session import get_db_session
@@ -18,8 +20,14 @@ from app.main import create_app
 from app.models.entry import EntryStatus, ImpulsePurchaseEntry
 from app.models.session import Session
 from app.models.user import User
-from app.schemas.entry import EntryCreateRequest
-from app.services.entries import create_entry, get_entry_detail, list_dashboard_entries
+from app.repositories.entries import get_entry_for_update as repository_get_entry_for_update
+from app.schemas.entry import EntryCheckInRequest, EntryCreateRequest
+from app.services.entries import (
+    check_in_entry,
+    create_entry,
+    get_entry_detail,
+    list_dashboard_entries,
+)
 from fastapi import FastAPI
 from sqlalchemy import func, select
 from sqlalchemy.engine import URL
@@ -379,8 +387,12 @@ async def test_entry_api_requires_authentication_for_every_entry_action(
                 },
             )
             deleted = await client.delete(f"/api/entries/{entry_id}")
+            checked_in = await client.post(
+                f"/api/entries/{entry_id}/check-in",
+                json={"result": "saved"},
+            )
 
-        for response in (created, listed, detail, updated, deleted):
+        for response in (created, listed, detail, updated, deleted, checked_in):
             assert response.status_code == 401
             assert response.json()["error"]["code"] == "unauthorized"
 
@@ -843,3 +855,569 @@ async def test_entry_endpoints_share_one_complete_public_representation(
         assert all(set(representation) == expected_fields for representation in representations)
         assert representations[0] == representations[1] == representations[2]
         assert all("user_id" not in representation for representation in representations)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("result", [EntryStatus.SAVED, EntryStatus.PURCHASED])
+async def test_check_in_service_resolves_at_exact_boundary_with_one_clock_read(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    result: EntryStatus,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("90000000-0000-4000-8000-000000000001")
+    async with factory() as db:
+        user = make_user()
+        entry = make_entry(
+            entry_id=entry_id,
+            created_at=NOW - timedelta(hours=48),
+        )
+        original_core_fields = (
+            entry.user_id,
+            entry.item_name,
+            entry.price_cents,
+            entry.reason_wanted,
+            entry.created_at,
+        )
+        db.add_all([user, entry])
+        await db.commit()
+        clock = CountingClock()
+
+        response = await check_in_entry(
+            db,
+            user=user,
+            entry_id=entry_id,
+            payload=EntryCheckInRequest(
+                result=result.value,
+                comment="  I made a decision.  ",
+            ),
+            clock=clock,
+        )
+
+        assert clock.calls == 1
+        assert response.status is result
+        assert response.dashboard_bucket == result.value
+        assert response.comment == "I made a decision."
+        assert response.checked_in_at == response.updated_at == NOW
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is result
+        assert persisted.comment == "I made a decision."
+        assert persisted.checked_in_at == persisted.updated_at == NOW
+        assert (
+            persisted.user_id,
+            persisted.item_name,
+            persisted.price_cents,
+            persisted.reason_wanted,
+            persisted.created_at,
+        ) == original_core_fields
+
+
+@pytest.mark.asyncio
+async def test_check_in_service_rejects_one_microsecond_early_without_mutation(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("90000000-0000-4000-8000-000000000002")
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(
+                    entry_id=entry_id,
+                    created_at=NOW - timedelta(hours=48) + timedelta(microseconds=1),
+                ),
+            ]
+        )
+        await db.commit()
+
+        with pytest.raises(ApplicationError) as raised:
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=entry_id,
+                payload=EntryCheckInRequest(result="saved", comment="Too early"),
+                clock=FixedClock(NOW),
+            )
+
+        assert raised.value.status_code == 409
+        assert raised.value.code == "early_check_in"
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is EntryStatus.WAITING
+        assert persisted.comment is None
+        assert persisted.checked_in_at is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stored_status", [EntryStatus.SAVED, EntryStatus.PURCHASED])
+async def test_check_in_service_rejects_an_already_resolved_entry(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    stored_status: EntryStatus,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("90000000-0000-4000-8000-000000000003")
+    original_checked_in_at = NOW - timedelta(hours=1)
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(
+                    entry_id=entry_id,
+                    status=stored_status,
+                    created_at=NOW - timedelta(days=3),
+                    checked_in_at=original_checked_in_at,
+                ),
+            ]
+        )
+        await db.commit()
+
+        with pytest.raises(ApplicationError) as raised:
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=entry_id,
+                payload=EntryCheckInRequest(result="saved", comment="Second decision"),
+                clock=FixedClock(NOW),
+            )
+
+        assert raised.value.status_code == 409
+        assert raised.value.code == "invalid_entry_status"
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is stored_status
+        assert persisted.comment is None
+        assert persisted.checked_in_at == original_checked_in_at
+
+
+@pytest.mark.asyncio
+async def test_check_in_service_distinguishes_forbidden_from_not_found(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    other_entry_id = UUID("90000000-0000-4000-8000-000000000004")
+    unknown_entry_id = UUID("90000000-0000-4000-8000-000000000099")
+    async with factory() as db:
+        user = make_user()
+        other_user = make_user(user_id=OTHER_USER_ID, email="other-check-in@example.com")
+        db.add_all(
+            [
+                user,
+                other_user,
+                make_entry(
+                    entry_id=other_entry_id,
+                    user_id=OTHER_USER_ID,
+                    created_at=NOW - timedelta(days=3),
+                ),
+            ]
+        )
+        await db.commit()
+        payload = EntryCheckInRequest(result="saved")
+
+        with pytest.raises(ApplicationError) as forbidden:
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=other_entry_id,
+                payload=payload,
+                clock=FixedClock(NOW),
+            )
+        await db.refresh(user)
+        with pytest.raises(ApplicationError) as missing:
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=unknown_entry_id,
+                payload=payload,
+                clock=FixedClock(NOW),
+            )
+
+        assert (forbidden.value.status_code, forbidden.value.code) == (403, "forbidden")
+        assert (missing.value.status_code, missing.value.code) == (404, "not_found")
+        other_entry = await db.get(ImpulsePurchaseEntry, other_entry_id)
+        assert other_entry is not None
+        assert other_entry.status is EntryStatus.WAITING
+
+
+@pytest.mark.asyncio
+async def test_check_in_service_rolls_back_a_failed_repository_update(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("90000000-0000-4000-8000-000000000005")
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(entry_id=entry_id, created_at=NOW - timedelta(days=3)),
+            ]
+        )
+        await db.commit()
+
+        def fail_after_partial_update(**kwargs: object) -> None:
+            entry = kwargs["entry"]
+            assert isinstance(entry, ImpulsePurchaseEntry)
+            entry.status = EntryStatus.SAVED
+            entry.comment = "Partial change"
+            entry.checked_in_at = NOW
+            entry.updated_at = NOW
+            raise RuntimeError("injected check-in failure")
+
+        monkeypatch.setattr(
+            "app.services.entries.check_in_owned_entry",
+            fail_after_partial_update,
+        )
+        with pytest.raises(RuntimeError, match="injected check-in failure"):
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=entry_id,
+                payload=EntryCheckInRequest(result="saved"),
+                clock=FixedClock(NOW),
+            )
+
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is EntryStatus.WAITING
+        assert persisted.comment is None
+        assert persisted.checked_in_at is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("result", "submitted_comment", "expected_comment"),
+    [
+        ("saved", "  I no longer wanted it.  ", "I no longer wanted it."),
+        ("purchased", None, None),
+    ],
+)
+async def test_check_in_api_returns_the_resolved_entry(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    result: str,
+    submitted_comment: str | None,
+    expected_comment: str | None,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("91000000-0000-4000-8000-000000000001")
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(entry_id=entry_id, created_at=NOW - timedelta(hours=48)),
+            ]
+        )
+        await db.commit()
+        app = entry_app(db=db, user=user)
+        payload: dict[str, str | None] = {"result": result}
+        if submitted_comment is not None:
+            payload["comment"] = submitted_comment
+
+        async with api_client(app) as client:
+            response = await client.post(
+                f"/api/entries/{entry_id}/check-in",
+                json=payload,
+            )
+
+        assert response.status_code == 200
+        body = response.json()["entry"]
+        assert body["id"] == str(entry_id)
+        assert body["status"] == result
+        assert body["dashboard_bucket"] == result
+        assert body["comment"] == expected_comment
+        assert body["checked_in_at"] == body["updated_at"] == "2026-07-30T12:00:00Z"
+        assert "user_id" not in body
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("age", "stored_status", "expected_code"),
+    [
+        (timedelta(hours=47), EntryStatus.WAITING, "early_check_in"),
+        (timedelta(days=3), EntryStatus.SAVED, "invalid_entry_status"),
+        (timedelta(days=3), EntryStatus.PURCHASED, "invalid_entry_status"),
+    ],
+)
+async def test_check_in_api_returns_lifecycle_conflicts_without_mutation(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    age: timedelta,
+    stored_status: EntryStatus,
+    expected_code: str,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("91000000-0000-4000-8000-000000000002")
+    original_checked_in_at = (
+        None if stored_status is EntryStatus.WAITING else NOW - timedelta(hours=1)
+    )
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(
+                    entry_id=entry_id,
+                    status=stored_status,
+                    created_at=NOW - age,
+                    checked_in_at=original_checked_in_at,
+                ),
+            ]
+        )
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            response = await client.post(
+                f"/api/entries/{entry_id}/check-in",
+                json={"result": "saved", "comment": "Must not persist"},
+            )
+
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == expected_code
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is stored_status
+        assert persisted.comment is None
+        assert persisted.checked_in_at == original_checked_in_at
+
+
+@pytest.mark.asyncio
+async def test_check_in_api_distinguishes_forbidden_from_not_found_safely(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    other_entry_id = UUID("91000000-0000-4000-8000-000000000003")
+    unknown_entry_id = UUID("91000000-0000-4000-8000-000000000099")
+    async with factory() as db:
+        user = make_user()
+        other_user = make_user(user_id=OTHER_USER_ID, email="private-owner@example.com")
+        db.add_all(
+            [
+                user,
+                other_user,
+                make_entry(
+                    entry_id=other_entry_id,
+                    user_id=OTHER_USER_ID,
+                    created_at=NOW - timedelta(days=3),
+                ),
+            ]
+        )
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            forbidden = await client.post(
+                f"/api/entries/{other_entry_id}/check-in",
+                json={"result": "saved"},
+            )
+            missing = await client.post(
+                f"/api/entries/{unknown_entry_id}/check-in",
+                json={"result": "saved"},
+            )
+
+        assert (forbidden.status_code, forbidden.json()["error"]["code"]) == (
+            403,
+            "forbidden",
+        )
+        assert (missing.status_code, missing.json()["error"]["code"]) == (404, "not_found")
+        assert "private-owner@example.com" not in forbidden.text
+        assert str(OTHER_USER_ID) not in forbidden.text
+
+
+@pytest.mark.asyncio
+async def test_check_in_api_rejects_invalid_input_and_untrusted_origin(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("91000000-0000-4000-8000-000000000004")
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(entry_id=entry_id, created_at=NOW - timedelta(days=3)),
+            ]
+        )
+        await db.commit()
+        app = entry_app(
+            db=db,
+            user=user,
+            frontend_origin="https://penny-saved.example",
+        )
+
+        async with api_client(app) as client:
+            malformed_uuid = await client.post(
+                "/api/entries/not-a-uuid/check-in",
+                json={"result": "saved"},
+            )
+            invalid_body = await client.post(
+                f"/api/entries/{entry_id}/check-in",
+                json={"result": "waiting", "status": "saved"},
+            )
+            untrusted = await client.post(
+                f"/api/entries/{entry_id}/check-in",
+                headers={"Origin": "https://evil.example"},
+                json={"result": "saved"},
+            )
+
+        for response in (malformed_uuid, invalid_body):
+            assert response.status_code == 422
+            assert response.json()["error"]["code"] == "validation_error"
+        assert untrusted.status_code == 403
+        assert untrusted.json()["error"]["code"] == "forbidden"
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is EntryStatus.WAITING
+
+
+@pytest.mark.asyncio
+async def test_concurrent_check_in_requests_produce_one_complete_outcome(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("92000000-0000-4000-8000-000000000001")
+    async with factory() as setup_db:
+        setup_db.add_all(
+            [
+                make_user(),
+                make_entry(entry_id=entry_id, created_at=NOW - timedelta(days=3)),
+            ]
+        )
+        await setup_db.commit()
+
+    both_requests_ready = asyncio.Event()
+    arrived = 0
+
+    async def synchronize_before_row_lock(
+        db: AsyncSession,
+        *,
+        user_id: UUID,
+        entry_id: UUID,
+    ) -> ImpulsePurchaseEntry | None:
+        nonlocal arrived
+        arrived += 1
+        if arrived == 2:
+            both_requests_ready.set()
+        await asyncio.wait_for(both_requests_ready.wait(), timeout=2)
+        return await repository_get_entry_for_update(
+            db,
+            user_id=user_id,
+            entry_id=entry_id,
+        )
+
+    monkeypatch.setattr(
+        "app.services.entries.get_entry_for_update",
+        synchronize_before_row_lock,
+    )
+
+    async with factory() as saved_db, factory() as purchased_db:
+        saved_app = entry_app(db=saved_db, user=make_user())
+        purchased_app = entry_app(db=purchased_db, user=make_user())
+        async with (
+            api_client(saved_app) as saved_client,
+            api_client(purchased_app) as purchased_client,
+        ):
+            saved_response, purchased_response = await asyncio.gather(
+                saved_client.post(
+                    f"/api/entries/{entry_id}/check-in",
+                    json={"result": "saved", "comment": "Saved request won."},
+                ),
+                purchased_client.post(
+                    f"/api/entries/{entry_id}/check-in",
+                    json={"result": "purchased", "comment": "Purchased request won."},
+                ),
+            )
+
+    responses = [saved_response, purchased_response]
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    winner = next(response for response in responses if response.status_code == 200)
+    loser = next(response for response in responses if response.status_code == 409)
+    assert loser.json()["error"]["code"] == "invalid_entry_status"
+
+    winner_entry = winner.json()["entry"]
+    expected_comments = {
+        "saved": "Saved request won.",
+        "purchased": "Purchased request won.",
+    }
+    assert winner_entry["comment"] == expected_comments[winner_entry["status"]]
+    assert winner_entry["checked_in_at"] == winner_entry["updated_at"]
+
+    async with factory() as verification_db:
+        persisted = await verification_db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status.value == winner_entry["status"]
+        assert persisted.comment == winner_entry["comment"]
+        assert persisted.checked_in_at == persisted.updated_at == NOW
+        assert persisted.checked_in_at > persisted.created_at
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("result", ["saved", "purchased"])
+async def test_resolved_check_in_is_consistent_across_entry_endpoints(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    result: str,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("93000000-0000-4000-8000-000000000001")
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(entry_id=entry_id, created_at=NOW - timedelta(days=3)),
+            ]
+        )
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            checked_in = await client.post(
+                f"/api/entries/{entry_id}/check-in",
+                json={"result": result, "comment": "Final decision"},
+            )
+            dashboard = await client.get("/api/entries")
+            detail = await client.get(f"/api/entries/{entry_id}")
+            rejected_update = await client.patch(
+                f"/api/entries/{entry_id}",
+                json={
+                    "item_name": "Must not change",
+                    "price_cents": 2_000,
+                    "reason_wanted": "Resolved history is immutable",
+                },
+            )
+            rejected_delete = await client.delete(f"/api/entries/{entry_id}")
+            detail_after_rollbacks = await client.get(f"/api/entries/{entry_id}")
+
+        assert checked_in.status_code == 200
+        expected_entry = checked_in.json()["entry"]
+        assert set(expected_entry) == {
+            "id",
+            "item_name",
+            "price_cents",
+            "reason_wanted",
+            "status",
+            "dashboard_bucket",
+            "comment",
+            "created_at",
+            "eligible_for_check_in_at",
+            "checked_in_at",
+            "updated_at",
+        }
+        assert "user_id" not in checked_in.text
+        assert dashboard.status_code == detail.status_code == 200
+        assert dashboard.json()[result] == [expected_entry]
+        other_buckets = {"needs_check_in", "waiting", "saved", "purchased"} - {result}
+        assert all(dashboard.json()[bucket] == [] for bucket in other_buckets)
+        assert detail.json()["entry"] == expected_entry
+
+        for response in (rejected_update, rejected_delete):
+            assert response.status_code == 409
+            assert set(response.json()) == {"error"}
+            assert set(response.json()["error"]) == {"code", "message"}
+            assert response.json()["error"]["code"] == "invalid_entry_status"
+
+        assert detail_after_rollbacks.status_code == 200
+        assert detail_after_rollbacks.json()["entry"] == expected_entry

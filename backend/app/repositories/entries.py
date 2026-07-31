@@ -129,6 +129,25 @@ def update_owned_entry_details(
     entry.updated_at = updated_at
 
 
+def check_in_owned_entry(
+    *,
+    entry: ImpulsePurchaseEntry,
+    user_id: UUID,
+    result: EntryStatus,
+    comment: str | None,
+    checked_in_at: datetime,
+) -> None:
+    """Stage an owned entry's already-validated saved or purchased transition."""
+    _require_entry_owner(entry, user_id)
+    if result not in (EntryStatus.SAVED, EntryStatus.PURCHASED):
+        raise ValueError("check-in result must be saved or purchased")
+
+    entry.status = result
+    entry.comment = comment
+    entry.checked_in_at = checked_in_at
+    entry.updated_at = checked_in_at
+
+
 async def delete_owned_entry(
     db: AsyncSession,
     *,

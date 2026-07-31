@@ -46,6 +46,20 @@ export const appRoutes = [
               return { Component: DashboardPage };
             },
           },
+          {
+            path: "entries/new",
+            lazy: async () => {
+              const { NewEntryPage } = await import("../pages/NewEntryPage");
+              return { Component: NewEntryPage };
+            },
+          },
+          {
+            path: "entries/:entryId/edit",
+            lazy: async () => {
+              const { EditEntryPage } = await import("../pages/EditEntryPage");
+              return { Component: EditEntryPage };
+            },
+          },
         ],
       },
       {

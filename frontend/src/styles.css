@@ -35,6 +35,10 @@ button {
   font-weight: 600;
 }
 
+.button--danger {
+  background: #b91c1c;
+}
+
 :focus-visible {
   outline: 0.1875rem solid #2563eb;
   outline-offset: 0.1875rem;
@@ -110,13 +114,20 @@ button {
   background: #fef2f2;
 }
 
+.request-state--success {
+  border: 1px solid #15803d;
+  color: #14532d;
+  background: #f0fdf4;
+}
+
 .request-state--empty {
   border: 1px solid #d1d5db;
   text-align: center;
   background: #ffffff;
 }
 
-.auth-form {
+.auth-form,
+.entry-form {
   display: grid;
   gap: 1rem;
   max-width: 30rem;
@@ -132,7 +143,8 @@ button {
   font-weight: 600;
 }
 
-.form-field input {
+.form-field input,
+.form-field textarea {
   width: 100%;
   min-width: 0;
   min-height: 2.75rem;
@@ -142,13 +154,80 @@ button {
   font: inherit;
 }
 
-.form-field input[aria-invalid="true"] {
+.form-field textarea {
+  resize: vertical;
+}
+
+.form-field input[aria-invalid="true"],
+.form-field textarea[aria-invalid="true"] {
   border-color: #b91c1c;
 }
 
 .field-error {
   margin: 0;
   color: #991b1b;
+}
+
+.entry-management-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.entry-management-page > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.unsaved-changes {
+  position: fixed;
+  z-index: 20;
+  inset: 50% auto auto 50%;
+  width: min(calc(100% - 2rem), 30rem);
+  border: 2px solid #92400e;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 1rem 3rem rgb(15 23 42 / 25%);
+  transform: translate(-50%, -50%);
+}
+
+.unsaved-changes > :first-child {
+  margin-top: 0;
+}
+
+.unsaved-changes__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 55%);
+}
+
+.delete-dialog {
+  width: min(100%, 32rem);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  background: #ffffff;
+  box-shadow: 0 1rem 3rem rgb(15 23 42 / 35%);
+}
+
+.delete-dialog > :first-child {
+  margin-top: 0;
+}
+
+.delete-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .account-control {

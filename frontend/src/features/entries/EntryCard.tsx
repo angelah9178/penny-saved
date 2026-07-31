@@ -3,14 +3,16 @@ import { Link } from "react-router-dom";
 import { DateTime } from "../../components/DateTime";
 import { formatUsd } from "../../lib/currency";
 import type { DashboardBucket, Entry } from "../../types/api";
+import { DeleteEntryButton } from "./DeleteEntryButton";
 import { WaitingAvailability } from "./WaitingAvailability";
 
 export type EntryCardProps = {
   entry: Entry;
   section: DashboardBucket;
+  onNotice?: ((message: string) => void) | undefined;
 };
 
-export function EntryCard({ entry, section }: EntryCardProps) {
+export function EntryCard({ entry, section, onNotice }: EntryCardProps) {
   const showComment =
     (section === "saved" || section === "purchased") &&
     entry.comment !== null &&
@@ -42,9 +44,13 @@ export function EntryCard({ entry, section }: EntryCardProps) {
         ) : null}
       </div>
 
-      {section === "needs_check_in" ? (
+      {section === "needs_check_in" || section === "waiting" ? (
         <footer className="entry-card__actions">
-          <Link to={`/entries/${entry.id}/check-in`}>Check in</Link>
+          {section === "needs_check_in" ? (
+            <Link to={`/entries/${entry.id}/check-in`}>Check in</Link>
+          ) : null}
+          <Link to={`/entries/${entry.id}/edit`}>Edit</Link>
+          <DeleteEntryButton entry={entry} onNotice={onNotice} />
         </footer>
       ) : null}
     </article>
