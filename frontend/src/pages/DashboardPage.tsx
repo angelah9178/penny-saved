@@ -11,6 +11,7 @@ export function DashboardPage() {
   const dashboard = useDashboardEntries();
   const location = useLocation();
   const entryCreated = hasEntryCreatedState(location.state);
+  const entryUpdated = hasEntryUpdatedState(location.state);
 
   if (dashboard.isPending) {
     return (
@@ -40,6 +41,11 @@ export function DashboardPage() {
       {entryCreated ? (
         <p className="request-state request-state--success" role="status">
           Entry added to Waiting.
+        </p>
+      ) : null}
+      {entryUpdated ? (
+        <p className="request-state request-state--success" role="status">
+          Entry changes saved.
         </p>
       ) : null}
       <p>Review your waiting decisions and the purchases you have resolved.</p>
@@ -94,6 +100,15 @@ function hasEntryCreatedState(state: unknown): boolean {
     state !== null &&
     "entryCreated" in state &&
     state.entryCreated === true
+  );
+}
+
+function hasEntryUpdatedState(state: unknown): boolean {
+  return (
+    typeof state === "object" &&
+    state !== null &&
+    "entryUpdated" in state &&
+    state.entryUpdated === true
   );
 }
 

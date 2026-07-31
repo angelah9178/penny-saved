@@ -9,7 +9,7 @@
 - [Commit 1 — Connect Entry Management to the Backend](#commit-1--connect-entry-management-to-the-backend)
 - [Commit 2 — Build the Create and Edit Form](#commit-2--build-the-create-and-edit-form)
 - [Commit 3 — Add the New Entry Process](#commit-3--add-the-new-entry-process)
-- [Commit 4 — Build Entry Detail and Edit Flows](#commit-4--build-entry-detail-and-edit-flows)
+- [Commit 4 — Add Entry Editing from the Dashboard](#commit-4--add-entry-editing-from-the-dashboard)
 - [Commit 5 — Add Safe Entry Deletion](#commit-5--add-safe-entry-deletion)
 - [Commit 6 — Complete Entry Management States and Verification](#commit-6--complete-entry-management-states-and-verification)
 - [Out of Scope](#out-of-scope)
@@ -25,15 +25,15 @@ complete.
 | &#91;x&#93; | [1](#commit-1--connect-entry-management-to-the-backend)                     | Connect entry management to the backend    | DEV-010     |
 | &#91;x&#93; | [2](#commit-2--build-the-create-and-edit-form)                             | Build the Create and Edit form             | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--add-the-new-entry-process)                                 | Add the new entry process                  | Commit 2    |
-| &#91; &#93; | [4](#commit-4--build-entry-detail-and-edit-flows)                           | Build detail and edit flows                | Commit 3    |
+| &#91;x&#93; | [4](#commit-4--add-entry-editing-from-the-dashboard)                     | Add editing from the dashboard             | Commit 3    |
 | &#91; &#93; | [5](#commit-5--add-safe-entry-deletion)                                     | Add safe entry deletion                    | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-entry-management-states-and-verification)           | Complete states and verification           | Commits 1–5 |
 
 ## Objective
 
 DEV-012 turns the read-only dashboard from DEV-011 into an entry-management
-experience. A signed-in user can record a possible impulse purchase, open an entry,
-edit it while it is still waiting, and delete it after confirming the choice.
+experience. A signed-in user can record a possible impulse purchase, edit it while it
+is still waiting, and delete it after confirming the choice.
 
 This work uses the authenticated backend APIs completed in DEV-010:
 
@@ -80,8 +80,8 @@ or reason. An entry shown in Needs check-in is still stored as `waiting`, so it 
 remains editable and deletable until a later check-in changes its stored status.
 
 Saved and purchased entries are historical records. Their core fields cannot be
-edited or deleted. The detail screen therefore does not offer those actions, and the
-backend rejects any stale or manually constructed request with `409 Conflict`.
+edited or deleted. Their dashboard cards therefore do not offer those actions, and
+the backend rejects any stale or manually constructed request with `409 Conflict`.
 
 Deleting is permanent. The user must first see a confirmation that names the entry
 and then choose the explicit destructive action. Cancelling the confirmation changes
@@ -89,12 +89,11 @@ nothing.
 
 ## Frontend Routes and APIs
 
-| Route                        | Purpose                              | Backend API                     |
-| ---------------------------- | ------------------------------------ | ------------------------------- |
-| `/entries/new`               | Create a waiting entry               | `POST /api/entries`             |
-| `/entries/{entry_id}`        | View an owned entry                  | `GET /api/entries/{entry_id}`   |
-| `/entries/{entry_id}/edit`   | Edit an owned waiting entry          | `PATCH /api/entries/{entry_id}` |
-| Detail-page delete action    | Delete an owned waiting entry        | `DELETE /api/entries/{entry_id}`|
+| Route                        | Purpose                              | Backend API                                  |
+| ---------------------------- | ------------------------------------ | -------------------------------------------- |
+| `/entries/new`               | Create a waiting entry               | `POST /api/entries`                          |
+| `/entries/{entry_id}/edit`   | Load and edit an owned waiting entry | `GET`, then `PATCH /api/entries/{entry_id}` |
+| Dashboard-card delete action | Delete an owned waiting entry        | `DELETE /api/entries/{entry_id}`             |
 
 All routes are protected by the existing authentication guard. Requests use the
 shared credentialed `apiFetch` client and the established query keys:
@@ -311,22 +310,27 @@ make frontend-typecheck
 make frontend-test
 ```
 
-## Commit 4 — Build Entry Detail and Edit Flows
+## Commit 4 — Add Entry Editing from the Dashboard
 
-**Status:** Not started.
+**Status:** Complete.
 
-Commit 4 adds the single-entry detail page, dashboard navigation to that page, and the
-edit screen for entries whose stored status is `waiting`.
+Commit 4 adds Edit actions directly to Waiting and Needs check-in cards and a reusable
+edit screen for the selected entry. It deliberately does not add a separate read-only
+detail page because the dashboard card already displays the useful entry information.
 
-In plain language, the detail page is the user's stable place to inspect one entry.
-It loads the server's current version rather than trusting an old dashboard card. If
-the entry is editable, the user can open a form already filled with its core fields.
-Saving sends only those allowed fields and refreshes both the detail and dashboard.
+In plain language, each database entry does not receive its own generated page or
+duplicate record. The reusable Edit screen reads the selected entry ID from the URL,
+loads the current server version, and fills the shared form from Commit 2. Saving
+sends only the allowed fields and refreshes the dashboard.
 
 ```text
-Dashboard card → Entry detail → Edit form → PATCH /api/entries/{id}
-                                                    ↓ success
-                                         refresh detail + dashboard
+Waiting or Needs check-in card → Edit → GET /api/entries/{id}
+                                            ↓
+                                    pre-filled Edit form
+                                            ↓ save
+                                  PATCH /api/entries/{id}
+                                            ↓ success
+                                      refresh dashboard
 ```
 
 The interface only shows Edit when the returned stored status is `waiting`. This is
@@ -337,14 +341,14 @@ the entry is no longer editable.
 Suggested commit message:
 
 ```text
-Commit 4: Add entry detail and editing
+Commit 4: Add entry editing from the dashboard
 ```
 
 Implement:
 
-- Register protected detail and edit routes.
-- Add useful detail navigation to waiting and Needs check-in dashboard cards.
-- Load detail through the established detail query key.
+- Register the protected edit route; do not add a separate read-only detail route.
+- Add Edit navigation directly to Waiting and Needs check-in dashboard cards.
+- Load the selected entry through the established detail query key.
 - Show loading, not-found, forbidden, retryable-error, and expired-session states.
 - Pre-fill the shared form from the server response, including exact cents-to-dollar
   conversion.
@@ -355,8 +359,8 @@ Implement:
 - Handle `409 Conflict` by refreshing server truth and explaining the lifecycle
   change.
 - Warn before leaving an edit form with unsaved changes.
-- Add MSW-backed tests for detail, successful edit, hidden illegal actions, field
-  errors, conflicts, failures, cache refresh, and cancellation.
+- Add MSW-backed tests for loading the edit form, successful edit, hidden illegal
+  actions, field errors, conflicts, failures, cache refresh, and cancellation.
 
 Commit gate:
 
@@ -371,14 +375,15 @@ make frontend-test
 
 **Status:** Not started.
 
-Commit 5 adds deletion to the detail page with an explicit accessible confirmation.
+Commit 5 adds deletion to eligible dashboard cards with an explicit accessible
+confirmation.
 
 In plain language, selecting Delete must not immediately erase an entry. The app
 opens a confirmation that names the item, gives the user a safe Cancel choice, and
 requires a second clear action before calling the backend.
 
 ```text
-Delete button → Confirmation opens
+Dashboard-card Delete button → Confirmation opens
                     ├─ Cancel → nothing changes
                     └─ Delete entry → DELETE /api/entries/{id}
                                              ↓ 204
@@ -400,7 +405,7 @@ Commit 5: Add waiting entry deletion
 
 Implement:
 
-- Show Delete only for entries whose stored status is `waiting`.
+- Show Delete only on Waiting and Needs check-in dashboard cards.
 - Open a confirmation dialog that names the entry and describes permanence.
 - Provide separate Cancel and destructive Delete actions.
 - Move focus into the dialog, keep keyboard focus within it, close on Escape when
@@ -427,7 +432,7 @@ make frontend-test
 
 **Status:** Not started.
 
-Commit 6 reviews the create, detail, edit, and delete experience as one complete
+Commit 6 reviews the create, edit, and delete experience as one complete
 feature and closes gaps that focused implementation tests may miss.
 
 In plain language, the earlier commits make each operation work. This commit proves
@@ -446,10 +451,10 @@ Implement:
 - Verify every new route is protected and uses a safe sign-in return path.
 - Verify focus placement, visible focus, labels, error announcements, dialog behavior,
   and pending-state announcements.
-- Confirm forms and detail content work at narrow and wide viewport sizes.
+- Confirm forms and dashboard-card actions work at narrow and wide viewport sizes.
 - Confirm long item names, reasons, server messages, and prices do not break layouts.
 - Test cancellation and component unmounting without false error messages.
-- Test a complete create, detail, edit, and delete journey with MSW.
+- Test a complete create, edit, and delete journey with MSW.
 - Prove successful mutations refresh the dashboard without a browser reload.
 - Prove request payloads always contain integer cents, never decimal dollars.
 - Update this document's tracker, statuses, implementation record, verification
@@ -499,7 +504,14 @@ requests cannot be submitted twice, guests and expired sessions return safely to
 login, and changed forms warn before in-app navigation or browser unload discards
 their contents.
 
-Commits 4–6 are not started. Continue filling in this section as they are completed
+Commit 4 added Edit actions directly to Waiting and Needs check-in dashboard cards
+without adding a separate read-only detail page. The reusable protected Edit screen
+loads current server data, formats exact cents for the shared form, updates only the
+three allowed fields, refreshes cached entry and dashboard data, handles safe access
+errors, and replaces stale edit conflicts with current server truth. Saved and
+Purchased cards do not expose Edit.
+
+Commits 5–6 are not started. Continue filling in this section as they are completed
 rather than recording planned work as implemented work.
 
 The final record should include:

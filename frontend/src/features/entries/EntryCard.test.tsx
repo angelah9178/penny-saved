@@ -41,13 +41,38 @@ describe("EntryCard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("makes the check-in action keyboard reachable", async () => {
+  it.each(["needs_check_in", "waiting"] satisfies DashboardBucket[])(
+    "shows edit navigation for a %s entry",
+    (section) => {
+      renderCard(section);
+
+      expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute(
+        "href",
+        "/entries/entry-1/edit",
+      );
+    },
+  );
+
+  it.each(["saved", "purchased"] satisfies DashboardBucket[])(
+    "does not show edit navigation for a %s entry",
+    (section) => {
+      renderCard(section);
+
+      expect(
+        screen.queryByRole("link", { name: "Edit" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("makes entry actions keyboard reachable", async () => {
     const user = userEvent.setup();
     renderCard("needs_check_in");
 
     await user.tab();
 
     expect(screen.getByRole("link", { name: "Check in" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveFocus();
   });
 
   it("does not create a check-in action from a past browser timestamp", () => {

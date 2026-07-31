@@ -42,9 +42,12 @@ export function EntryCard({ entry, section }: EntryCardProps) {
         ) : null}
       </div>
 
-      {section === "needs_check_in" ? (
+      {section === "needs_check_in" || section === "waiting" ? (
         <footer className="entry-card__actions">
-          <Link to={`/entries/${entry.id}/check-in`}>Check in</Link>
+          {section === "needs_check_in" ? (
+            <Link to={`/entries/${entry.id}/check-in`}>Check in</Link>
+          ) : null}
+          <Link to={`/entries/${entry.id}/edit`}>Edit</Link>
         </footer>
       ) : null}
     </article>
