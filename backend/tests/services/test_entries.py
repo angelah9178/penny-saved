@@ -11,6 +11,7 @@ from uuid import UUID
 import httpx
 import pytest
 from app.api.dependencies import get_current_user
+from app.api.errors import ApplicationError
 from app.core.config import AppEnvironment, Settings
 from app.core.time import FixedClock, get_clock
 from app.db.session import get_db_session
@@ -18,8 +19,13 @@ from app.main import create_app
 from app.models.entry import EntryStatus, ImpulsePurchaseEntry
 from app.models.session import Session
 from app.models.user import User
-from app.schemas.entry import EntryCreateRequest
-from app.services.entries import create_entry, get_entry_detail, list_dashboard_entries
+from app.schemas.entry import EntryCheckInRequest, EntryCreateRequest
+from app.services.entries import (
+    check_in_entry,
+    create_entry,
+    get_entry_detail,
+    list_dashboard_entries,
+)
 from fastapi import FastAPI
 from sqlalchemy import func, select
 from sqlalchemy.engine import URL
@@ -843,3 +849,232 @@ async def test_entry_endpoints_share_one_complete_public_representation(
         assert all(set(representation) == expected_fields for representation in representations)
         assert representations[0] == representations[1] == representations[2]
         assert all("user_id" not in representation for representation in representations)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("result", [EntryStatus.SAVED, EntryStatus.PURCHASED])
+async def test_check_in_service_resolves_at_exact_boundary_with_one_clock_read(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    result: EntryStatus,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("90000000-0000-4000-8000-000000000001")
+    async with factory() as db:
+        user = make_user()
+        entry = make_entry(
+            entry_id=entry_id,
+            created_at=NOW - timedelta(hours=48),
+        )
+        original_core_fields = (
+            entry.user_id,
+            entry.item_name,
+            entry.price_cents,
+            entry.reason_wanted,
+            entry.created_at,
+        )
+        db.add_all([user, entry])
+        await db.commit()
+        clock = CountingClock()
+
+        response = await check_in_entry(
+            db,
+            user=user,
+            entry_id=entry_id,
+            payload=EntryCheckInRequest(
+                result=result.value,
+                comment="  I made a decision.  ",
+            ),
+            clock=clock,
+        )
+
+        assert clock.calls == 1
+        assert response.status is result
+        assert response.dashboard_bucket == result.value
+        assert response.comment == "I made a decision."
+        assert response.checked_in_at == response.updated_at == NOW
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is result
+        assert persisted.comment == "I made a decision."
+        assert persisted.checked_in_at == persisted.updated_at == NOW
+        assert (
+            persisted.user_id,
+            persisted.item_name,
+            persisted.price_cents,
+            persisted.reason_wanted,
+            persisted.created_at,
+        ) == original_core_fields
+
+
+@pytest.mark.asyncio
+async def test_check_in_service_rejects_one_microsecond_early_without_mutation(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("90000000-0000-4000-8000-000000000002")
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(
+                    entry_id=entry_id,
+                    created_at=NOW - timedelta(hours=48) + timedelta(microseconds=1),
+                ),
+            ]
+        )
+        await db.commit()
+
+        with pytest.raises(ApplicationError) as raised:
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=entry_id,
+                payload=EntryCheckInRequest(result="saved", comment="Too early"),
+                clock=FixedClock(NOW),
+            )
+
+        assert raised.value.status_code == 409
+        assert raised.value.code == "early_check_in"
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is EntryStatus.WAITING
+        assert persisted.comment is None
+        assert persisted.checked_in_at is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stored_status", [EntryStatus.SAVED, EntryStatus.PURCHASED])
+async def test_check_in_service_rejects_an_already_resolved_entry(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    stored_status: EntryStatus,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("90000000-0000-4000-8000-000000000003")
+    original_checked_in_at = NOW - timedelta(hours=1)
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(
+                    entry_id=entry_id,
+                    status=stored_status,
+                    created_at=NOW - timedelta(days=3),
+                    checked_in_at=original_checked_in_at,
+                ),
+            ]
+        )
+        await db.commit()
+
+        with pytest.raises(ApplicationError) as raised:
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=entry_id,
+                payload=EntryCheckInRequest(result="saved", comment="Second decision"),
+                clock=FixedClock(NOW),
+            )
+
+        assert raised.value.status_code == 409
+        assert raised.value.code == "invalid_entry_status"
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is stored_status
+        assert persisted.comment is None
+        assert persisted.checked_in_at == original_checked_in_at
+
+
+@pytest.mark.asyncio
+async def test_check_in_service_distinguishes_forbidden_from_not_found(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    other_entry_id = UUID("90000000-0000-4000-8000-000000000004")
+    unknown_entry_id = UUID("90000000-0000-4000-8000-000000000099")
+    async with factory() as db:
+        user = make_user()
+        other_user = make_user(user_id=OTHER_USER_ID, email="other-check-in@example.com")
+        db.add_all(
+            [
+                user,
+                other_user,
+                make_entry(
+                    entry_id=other_entry_id,
+                    user_id=OTHER_USER_ID,
+                    created_at=NOW - timedelta(days=3),
+                ),
+            ]
+        )
+        await db.commit()
+        payload = EntryCheckInRequest(result="saved")
+
+        with pytest.raises(ApplicationError) as forbidden:
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=other_entry_id,
+                payload=payload,
+                clock=FixedClock(NOW),
+            )
+        await db.refresh(user)
+        with pytest.raises(ApplicationError) as missing:
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=unknown_entry_id,
+                payload=payload,
+                clock=FixedClock(NOW),
+            )
+
+        assert (forbidden.value.status_code, forbidden.value.code) == (403, "forbidden")
+        assert (missing.value.status_code, missing.value.code) == (404, "not_found")
+        other_entry = await db.get(ImpulsePurchaseEntry, other_entry_id)
+        assert other_entry is not None
+        assert other_entry.status is EntryStatus.WAITING
+
+
+@pytest.mark.asyncio
+async def test_check_in_service_rolls_back_a_failed_repository_update(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("90000000-0000-4000-8000-000000000005")
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(entry_id=entry_id, created_at=NOW - timedelta(days=3)),
+            ]
+        )
+        await db.commit()
+
+        def fail_after_partial_update(**kwargs: object) -> None:
+            entry = kwargs["entry"]
+            assert isinstance(entry, ImpulsePurchaseEntry)
+            entry.status = EntryStatus.SAVED
+            entry.comment = "Partial change"
+            entry.checked_in_at = NOW
+            entry.updated_at = NOW
+            raise RuntimeError("injected check-in failure")
+
+        monkeypatch.setattr(
+            "app.services.entries.check_in_owned_entry",
+            fail_after_partial_update,
+        )
+        with pytest.raises(RuntimeError, match="injected check-in failure"):
+            await check_in_entry(
+                db,
+                user=user,
+                entry_id=entry_id,
+                payload=EntryCheckInRequest(result="saved"),
+                clock=FixedClock(NOW),
+            )
+
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status is EntryStatus.WAITING
+        assert persisted.comment is None
+        assert persisted.checked_in_at is None

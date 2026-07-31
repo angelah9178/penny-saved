@@ -24,7 +24,7 @@ complete.
 | ----------- | -------------------------------------------------------------------- | --------------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--define-the-check-in-contract)                         | Define the check-in contract            | DEV-010     |
 | &#91;x&#93; | [2](#commit-2--add-the-protected-database-update)                    | Add the protected database update       | Commit 1    |
-| &#91; &#93; | [3](#commit-3--enforce-the-48-hour-check-in-rules)                   | Enforce the 48-hour check-in rules      | Commit 2    |
+| &#91;x&#93; | [3](#commit-3--enforce-the-48-hour-check-in-rules)                   | Enforce the 48-hour check-in rules      | Commit 2    |
 | &#91; &#93; | [4](#commit-4--publish-the-check-in-endpoint)                        | Publish the check-in endpoint           | Commit 3    |
 | &#91; &#93; | [5](#commit-5--prove-boundary-ownership-and-concurrency-safety)      | Prove boundary and concurrency safety   | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-check-in-api-verification-and-documentation) | Complete verification and documentation | Commits 1–5 |
@@ -231,7 +231,7 @@ make backend-test
 
 ## Commit 3 — Enforce the 48-Hour Check-In Rules
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 3 implements the service operation and its transaction. This is the commit
 that makes a valid check-in change stored data.
@@ -240,6 +240,19 @@ In plain English, the service is the decision maker. It gets the current time on
 locks the user's entry, and asks two questions in order: “Is this still waiting?” and
 “Have the full 48 hours passed?” Only when both answers are yes does it save the
 user's choice.
+
+Commit 3 checks all of the following:
+
+- The entry belongs to the signed-in user. Another user's entry is rejected.
+- The entry still has the stored status `waiting`. A saved or purchased entry cannot
+  be checked in again.
+- The entry has reached `created_at + 48 hours`. One microsecond early is rejected;
+  exactly 48 hours is accepted.
+- The result from Commit 1 is applied through the protected update from Commit 2.
+- One UTC clock reading is used for the eligibility decision, `checked_in_at`,
+  `updated_at`, and the response.
+- The transaction commits only after the complete update succeeds. Any failure rolls
+  back without leaving a partial decision, comment, or timestamp.
 
 ```text
 Lock owned entry
@@ -424,14 +437,14 @@ Complete this section as the commit series is implemented.
 
 ### Commit Results
 
-| Commit | Hash | Result                                 |
-| ------ | ---- | -------------------------------------- |
-| 1      | —    | Implemented; 312 backend tests passing |
-| 2      | —    | Implemented; 317 backend tests passing |
-| 3      | —    | Planned                                |
-| 4      | —    | Planned                                |
-| 5      | —    | Planned                                |
-| 6      | —    | Planned                                |
+| Commit | Hash      | Result                                 |
+| ------ | --------- | -------------------------------------- |
+| 1      | `04dbf61` | Implemented; 312 backend tests passing |
+| 2      | `de45c5a` | Implemented; 317 backend tests passing |
+| 3      | —         | Implemented; 324 backend tests passing |
+| 4      | —         | Planned                                |
+| 5      | —         | Planned                                |
+| 6      | —         | Planned                                |
 
 ### Final Verification
 
