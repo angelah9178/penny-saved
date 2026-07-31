@@ -12,11 +12,13 @@ from app.models.user import User
 from app.schemas.common import ErrorResponse
 from app.schemas.entry import (
     DashboardEntriesResponse,
+    EntryCheckInRequest,
     EntryCreateRequest,
     EntryEnvelope,
     EntryUpdateRequest,
 )
 from app.services.entries import (
+    check_in_entry,
     create_entry,
     delete_entry,
     get_entry_detail,
@@ -145,3 +147,35 @@ async def delete_user_entry(
     del trusted_origin
     await delete_entry(db, user=user, entry_id=entry_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/{entry_id}/check-in",
+    operation_id="check_in_entry",
+    response_model=EntryEnvelope,
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse},
+        status.HTTP_403_FORBIDDEN: {"model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+        status.HTTP_409_CONFLICT: {"model": ErrorResponse},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorResponse},
+    },
+)
+async def check_in_user_entry(
+    entry_id: UUID,
+    payload: EntryCheckInRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    clock: Annotated[Clock, Depends(get_clock)],
+    trusted_origin: Annotated[None, Depends(enforce_trusted_origin)],
+) -> EntryEnvelope:
+    """Resolve one eligible owned waiting entry as saved or purchased."""
+    del trusted_origin
+    entry = await check_in_entry(
+        db,
+        user=user,
+        entry_id=entry_id,
+        payload=payload,
+        clock=clock,
+    )
+    return EntryEnvelope(entry=entry)

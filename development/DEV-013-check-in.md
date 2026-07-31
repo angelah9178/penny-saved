@@ -3,13 +3,14 @@
 ## Table of Contents
 
 - [Commit Tracker](#commit-tracker)
+- [APIs Added by DEV-013](#apis-added-by-dev-013)
 - [Objective](#objective)
 - [Check-In in Plain English](#check-in-in-plain-english)
 - [API Contract](#api-contract)
 - [Commit 1 — Define the Check-In Contract](#commit-1--define-the-check-in-contract)
 - [Commit 2 — Add the Protected Database Update](#commit-2--add-the-protected-database-update)
 - [Commit 3 — Enforce the 48-Hour Check-In Rules](#commit-3--enforce-the-48-hour-check-in-rules)
-- [Commit 4 — Publish the Check-In Endpoint](#commit-4--publish-the-check-in-endpoint)
+- [Commit 4 — Connect Check-In to the Frontend](#commit-4--connect-check-in-to-the-frontend)
 - [Commit 5 — Prove Boundary, Ownership, and Concurrency Safety](#commit-5--prove-boundary-ownership-and-concurrency-safety)
 - [Commit 6 — Complete Check-In API Verification and Documentation](#commit-6--complete-check-in-api-verification-and-documentation)
 - [Out of Scope](#out-of-scope)
@@ -25,9 +26,23 @@ complete.
 | &#91;x&#93; | [1](#commit-1--define-the-check-in-contract)                         | Define the check-in contract            | DEV-010     |
 | &#91;x&#93; | [2](#commit-2--add-the-protected-database-update)                    | Add the protected database update       | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--enforce-the-48-hour-check-in-rules)                   | Enforce the 48-hour check-in rules      | Commit 2    |
-| &#91; &#93; | [4](#commit-4--publish-the-check-in-endpoint)                        | Publish the check-in endpoint           | Commit 3    |
+| &#91;x&#93; | [4](#commit-4--connect-check-in-to-the-frontend)                     | Connect check-in to the frontend        | Commit 3    |
 | &#91; &#93; | [5](#commit-5--prove-boundary-ownership-and-concurrency-safety)      | Prove boundary and concurrency safety   | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-check-in-api-verification-and-documentation) | Complete verification and documentation | Commits 1–5 |
+
+## APIs Added by DEV-013
+
+DEV-013 adds one backend API:
+
+| Method | Path                               | Purpose                                               |
+| ------ | ---------------------------------- | ----------------------------------------------------- |
+| `POST` | `/api/entries/{entry_id}/check-in` | Resolve an eligible waiting entry as saved/purchased. |
+
+This is the backend connection that DEV-014's visible check-in controls will call
+when the user selects “I did not buy it” or “I bought it.” DEV-013 does not build the
+button or check-in screen; it receives the frontend request, verifies the signed-in
+user and trusted browser origin, invokes the Commit 3 service rules, and returns the
+updated entry or a safe error response.
 
 ## Objective
 
@@ -298,9 +313,9 @@ make backend-lint
 make backend-test
 ```
 
-## Commit 4 — Publish the Check-In Endpoint
+## Commit 4 — Connect Check-In to the Frontend
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 4 exposes the service through the authenticated entry router.
 
@@ -308,10 +323,27 @@ In plain English, this commit gives the frontend one safe web address for submit
 the user's final choice. The route translates HTTP into the service call; it does not
 repeat timing, ownership, locking, or lifecycle logic.
 
+This is what a future visible check-in button uses behind the scenes:
+
+```text
+User selects “I did not buy it” or “I bought it” in DEV-014
+                              ↓
+Frontend calls POST /api/entries/{entry_id}/check-in
+                              ↓
+Commit 4 authenticates and accepts the web request
+                              ↓
+Commit 3 checks ownership, status, and 48-hour eligibility
+                              ↓
+Updated saved/purchased entry or a safe error response
+```
+
+Commit 4 does not create the button or page. Its responsibility is to connect that
+future frontend interaction to the backend check-in service.
+
 Suggested commit message:
 
 ```text
-Commit 4: Publish the entry check-in endpoint
+Commit 4: Connect check-in to the frontend
 ```
 
 Implement:
@@ -441,8 +473,8 @@ Complete this section as the commit series is implemented.
 | ------ | --------- | -------------------------------------- |
 | 1      | `04dbf61` | Implemented; 312 backend tests passing |
 | 2      | `de45c5a` | Implemented; 317 backend tests passing |
-| 3      | —         | Implemented; 324 backend tests passing |
-| 4      | —         | Planned                                |
+| 3      | `3346fdf` | Implemented; 324 backend tests passing |
+| 4      | —         | Implemented; 331 backend tests passing |
 | 5      | —         | Planned                                |
 | 6      | —         | Planned                                |
 
