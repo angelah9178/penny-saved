@@ -33,7 +33,7 @@ export function EntrySection({
       ) : (
         <ul className="entry-list">
           {entries.map((entry) => (
-            <li key={entry.id}>
+            <li className="entry-list__item" key={entry.id}>
               <EntryCard entry={entry} section={section} />
             </li>
           ))}

@@ -23,6 +23,7 @@ describe("EntryCard", () => {
       expect(screen.getByText("$89.99")).toBeVisible();
       expect(screen.getByText(/Useful while commuting/)).toBeVisible();
       expect(screen.getByText(new RegExp(statusText))).toBeVisible();
+      expect(screen.getByText(sectionLabel(section))).toBeVisible();
     },
   );
 
@@ -80,6 +81,19 @@ describe("EntryCard", () => {
 
 function renderCard(section: DashboardBucket, overrides: Partial<Entry> = {}) {
   return render(cardInRouter(section, overrides));
+}
+
+function sectionLabel(section: DashboardBucket): string {
+  switch (section) {
+    case "needs_check_in":
+      return "Needs check-in";
+    case "waiting":
+      return "Waiting";
+    case "saved":
+      return "Saved";
+    case "purchased":
+      return "Purchased";
+  }
 }
 
 function cardInRouter(

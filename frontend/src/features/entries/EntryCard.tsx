@@ -18,25 +18,50 @@ export function EntryCard({ entry, section }: EntryCardProps) {
 
   return (
     <article className="entry-card">
-      <h3>{entry.item_name}</h3>
-      <p className="entry-card__price">{formatUsd(entry.price_cents)}</p>
-      <p>
-        <strong>Reason:</strong> {entry.reason_wanted}
-      </p>
+      <header className="entry-card__header">
+        <div className="entry-card__title-group">
+          <h3>{entry.item_name}</h3>
+          <p className="entry-card__price">{formatUsd(entry.price_cents)}</p>
+        </div>
+        <span className={`entry-card__status entry-card__status--${section}`}>
+          {sectionLabel(section)}
+        </span>
+      </header>
 
-      <EntryStatus entry={entry} section={section} />
-
-      {showComment ? (
+      <div className="entry-card__body">
         <p>
-          <strong>Comment:</strong> {entry.comment}
+          <strong>Reason:</strong> {entry.reason_wanted}
         </p>
-      ) : null}
+
+        <EntryStatus entry={entry} section={section} />
+
+        {showComment ? (
+          <p>
+            <strong>Comment:</strong> {entry.comment}
+          </p>
+        ) : null}
+      </div>
 
       {section === "needs_check_in" ? (
-        <Link to={`/entries/${entry.id}/check-in`}>Check in</Link>
+        <footer className="entry-card__actions">
+          <Link to={`/entries/${entry.id}/check-in`}>Check in</Link>
+        </footer>
       ) : null}
     </article>
   );
+}
+
+function sectionLabel(section: DashboardBucket): string {
+  switch (section) {
+    case "needs_check_in":
+      return "Needs check-in";
+    case "waiting":
+      return "Waiting";
+    case "saved":
+      return "Saved";
+    case "purchased":
+      return "Purchased";
+  }
 }
 
 function EntryStatus({ entry, section }: EntryCardProps) {
