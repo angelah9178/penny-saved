@@ -1352,3 +1352,72 @@ async def test_concurrent_check_in_requests_produce_one_complete_outcome(
         assert persisted.comment == winner_entry["comment"]
         assert persisted.checked_in_at == persisted.updated_at == NOW
         assert persisted.checked_in_at > persisted.created_at
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("result", ["saved", "purchased"])
+async def test_resolved_check_in_is_consistent_across_entry_endpoints(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    result: str,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("93000000-0000-4000-8000-000000000001")
+    async with factory() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_entry(entry_id=entry_id, created_at=NOW - timedelta(days=3)),
+            ]
+        )
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            checked_in = await client.post(
+                f"/api/entries/{entry_id}/check-in",
+                json={"result": result, "comment": "Final decision"},
+            )
+            dashboard = await client.get("/api/entries")
+            detail = await client.get(f"/api/entries/{entry_id}")
+            rejected_update = await client.patch(
+                f"/api/entries/{entry_id}",
+                json={
+                    "item_name": "Must not change",
+                    "price_cents": 2_000,
+                    "reason_wanted": "Resolved history is immutable",
+                },
+            )
+            rejected_delete = await client.delete(f"/api/entries/{entry_id}")
+            detail_after_rollbacks = await client.get(f"/api/entries/{entry_id}")
+
+        assert checked_in.status_code == 200
+        expected_entry = checked_in.json()["entry"]
+        assert set(expected_entry) == {
+            "id",
+            "item_name",
+            "price_cents",
+            "reason_wanted",
+            "status",
+            "dashboard_bucket",
+            "comment",
+            "created_at",
+            "eligible_for_check_in_at",
+            "checked_in_at",
+            "updated_at",
+        }
+        assert "user_id" not in checked_in.text
+        assert dashboard.status_code == detail.status_code == 200
+        assert dashboard.json()[result] == [expected_entry]
+        other_buckets = {"needs_check_in", "waiting", "saved", "purchased"} - {result}
+        assert all(dashboard.json()[bucket] == [] for bucket in other_buckets)
+        assert detail.json()["entry"] == expected_entry
+
+        for response in (rejected_update, rejected_delete):
+            assert response.status_code == 409
+            assert set(response.json()) == {"error"}
+            assert set(response.json()["error"]) == {"code", "message"}
+            assert response.json()["error"]["code"] == "invalid_entry_status"
+
+        assert detail_after_rollbacks.status_code == 200
+        assert detail_after_rollbacks.json()["entry"] == expected_entry

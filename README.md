@@ -203,17 +203,18 @@ Email:    demo@penny-saved.local
 Password: PennySavedDemo!2026
 ```
 
-## Entry CRUD and Dashboard API
+## Entry CRUD, Dashboard, and Check-In API
 
-The backend provides five authenticated entry endpoints:
+The backend provides six authenticated entry endpoints:
 
-| Method   | Endpoint                  | Purpose                                                 |
-| -------- | ------------------------- | ------------------------------------------------------- |
-| `POST`   | `/api/entries`            | Create a new waiting entry for the current user.        |
-| `GET`    | `/api/entries`            | Return the current user's four dashboard buckets.       |
-| `GET`    | `/api/entries/{entry_id}` | Return one entry owned by the current user.             |
-| `PATCH`  | `/api/entries/{entry_id}` | Edit an owned entry whose stored status is `waiting`.   |
-| `DELETE` | `/api/entries/{entry_id}` | Delete an owned entry whose stored status is `waiting`. |
+| Method   | Endpoint                           | Purpose                                                  |
+| -------- | ---------------------------------- | -------------------------------------------------------- |
+| `POST`   | `/api/entries`                     | Create a new waiting entry for the current user.         |
+| `GET`    | `/api/entries`                     | Return the current user's four dashboard buckets.        |
+| `GET`    | `/api/entries/{entry_id}`          | Return one entry owned by the current user.              |
+| `PATCH`  | `/api/entries/{entry_id}`          | Edit an owned entry whose stored status is `waiting`.    |
+| `DELETE` | `/api/entries/{entry_id}`          | Delete an owned entry whose stored status is `waiting`.  |
+| `POST`   | `/api/entries/{entry_id}/check-in` | Resolve an eligible waiting entry as saved or purchased. |
 
 Create and update bodies use `item_name`, `price_cents`, and `reason_wanted`.
 `price_cents` must be a positive integer from 1 through 999,999,999,999; decimal
@@ -235,6 +236,36 @@ entries displayed in `needs_check_in`. Saved and purchased entries are retained 
 history and return `409 invalid_entry_status`. Successful deletion returns `204 No
 Content` with an empty body. Browser POST, PATCH, and DELETE requests must also pass
 the configured exact-origin check.
+
+### Entry check-in
+
+After the complete 48-hour waiting period, check in an entry with:
+
+```json
+{
+  "result": "saved",
+  "comment": "I waited and realized I did not need it."
+}
+```
+
+`result` accepts only `saved` or `purchased`. `comment` is optional, is trimmed, and
+is stored as `null` when omitted, empty, or whitespace-only.
+
+The server—not the browser—checks eligibility using `created_at + 48 hours`. One
+microsecond before that time returns `409 early_check_in`; exactly at the boundary
+succeeds. A successful check-in changes only the status, normalized comment,
+`checked_in_at`, and `updated_at`. The two timestamps use the same UTC clock value,
+and later statistics use `checked_in_at` as the decision date.
+
+Check-in locks the owned database row inside one transaction. If two requests race,
+exactly one can resolve the entry; the other returns `409 invalid_entry_status`.
+Already saved or purchased entries return the same lifecycle conflict and cannot be
+checked in, edited, or deleted again.
+
+The endpoint returns `403` for another user's known entry, `404` for an unknown entry,
+and `422` for an invalid UUID or request body. These responses use the standard safe
+error envelope without revealing owner data. Browser requests must be authenticated
+and pass the configured exact-origin check.
 
 ## Frontend development server
 
@@ -286,10 +317,9 @@ passwords, session values, database URLs, API secrets, or other credentials in a
   FastAPI server is not running at `http://127.0.0.1:8000`.
 - Run frontend commands from `frontend/`; running them from the repository root will not
   find the frontend `package.json`.
-- The login, signup, and protected entry-list dashboard are implemented. The dashboard
-  reads the four server-owned entry buckets, keeps Purchased collapsed initially, and
-  handles loading, retry, and expired-session states. Entry management and statistics
-  screens arrive in later development tasks.
+- Login, signup, dashboard entry lists, and entry management are implemented. The
+  backend check-in API is also complete; its visible frontend check-in experience and
+  statistics screens arrive in later development tasks.
 
 ## Database migrations
 

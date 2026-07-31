@@ -28,7 +28,7 @@ complete.
 | &#91;x&#93; | [3](#commit-3--enforce-the-48-hour-check-in-rules)                   | Enforce the 48-hour check-in rules      | Commit 2    |
 | &#91;x&#93; | [4](#commit-4--connect-check-in-to-the-frontend)                     | Connect check-in to the frontend        | Commit 3    |
 | &#91;x&#93; | [5](#commit-5--prove-boundary-ownership-and-concurrency-safety)      | Prove boundary and concurrency safety   | Commit 4    |
-| &#91; &#93; | [6](#commit-6--complete-check-in-api-verification-and-documentation) | Complete verification and documentation | Commits 1–5 |
+| &#91;x&#93; | [6](#commit-6--complete-check-in-api-verification-and-documentation) | Complete verification and documentation | Commits 1–5 |
 
 ## APIs Added by DEV-013
 
@@ -436,7 +436,7 @@ make backend-test
 
 ## Commit 6 — Complete Check-In API Verification and Documentation
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 6 closes gaps across the completed feature and records the final behavior for
 future frontend and statistics work.
@@ -489,7 +489,68 @@ make check
 
 ## Implementation Record
 
-Complete this section as the commit series is implemented.
+### Overview
+
+DEV-013 added the authenticated backend operation that resolves an eligible waiting
+entry as saved or purchased. The implementation separates the public request
+contract, repository-owned row locking and field mutation, service-owned lifecycle
+rules and transaction control, and HTTP route translation.
+
+The operation uses one PostgreSQL transaction and `SELECT ... FOR UPDATE`. It checks
+the stored state again after acquiring the row lock, so simultaneous requests cannot
+both resolve the same entry.
+
+### What It Achieved
+
+Authenticated users can now submit one final outcome after the complete 48-hour
+waiting period. The implementation added:
+
+- A strict request contract accepting only `saved` or `purchased` plus an optional
+  normalized comment.
+- A protected repository update that changes only status, comment, `checked_in_at`,
+  and `updated_at`.
+- A service transaction that enforces ownership, waiting status, and the exact
+  48-hour boundary with one injected UTC clock reading.
+- `POST /api/entries/{entry_id}/check-in`, with authentication and exact-origin
+  protection.
+- Safe validation, access, early-check-in, and stale-status error responses.
+- PostgreSQL boundary, row-lock, rollback, ownership, cross-endpoint, and synchronized
+  concurrency coverage.
+
+### API and Lifecycle Behavior
+
+The final DEV-013 API is:
+
+```text
+POST /api/entries/{entry_id}/check-in
+```
+
+The request accepts `result` and optional `comment`. Outer comment whitespace is
+removed and blank comments become `null`. Unknown fields, invalid result values,
+non-string comments, and comments longer than 4,000 characters are rejected.
+
+A waiting entry is eligible when `now >= created_at + 48 hours`. Exactly at the
+boundary succeeds; one microsecond earlier returns `409 early_check_in` without a
+mutation. A successful request sets the chosen resolved status and uses the same clock
+value for `checked_in_at` and `updated_at`. Item name, price, reason, owner, and
+creation time remain unchanged.
+
+Saved and purchased results immediately appear in the matching dashboard bucket.
+Resolved entries remain readable history but return `409 invalid_entry_status` from
+check-in, core-edit, and delete operations.
+
+### Ownership, Transactions, and Concurrency
+
+The route derives the user from the authenticated server-side session. The locking
+query scopes both entry UUID and authenticated user UUID. A known entry belonging to
+another user returns `403`; an unknown UUID returns `404`; neither response includes
+owner identity or entry fields.
+
+The service locks the owned row before checking stored status and eligibility. Every
+failure rolls back the transaction. A synchronized two-session PostgreSQL test proves
+that competing saved and purchased requests produce exactly one `200` success and one
+`409 invalid_entry_status` conflict. The final row contains the complete status,
+comment, and timestamps from the winning request only.
 
 ### Commit Results
 
@@ -499,10 +560,38 @@ Complete this section as the commit series is implemented.
 | 2      | `de45c5a` | Implemented; 317 backend tests passing |
 | 3      | `3346fdf` | Implemented; 324 backend tests passing |
 | 4      | `1b8b832` | Implemented; 331 backend tests passing |
-| 5      | —         | Implemented; 332 backend tests passing |
-| 6      | —         | Planned                                |
+| 5      | `013c630` | Implemented; 332 backend tests passing |
+| 6      | —         | Implemented; 334 backend tests passing |
 
 ### Final Verification
 
-Record the date, database used for integration and concurrency tests, focused test
-counts, full `make check` result, and any accepted limitations here after Commit 6.
+The final verification command was:
+
+```bash
+make check
+```
+
+It completed successfully on July 31, 2026. Results included:
+
+- Prettier and Ruff formatting checks passed.
+- ESLint and Ruff lint checks passed.
+- Strict frontend TypeScript checking passed.
+- 249 frontend tests passed across 32 files.
+- 334 backend tests passed against the explicit PostgreSQL test database.
+- Alembic reported no new upgrade operations or model/migration drift.
+- The Vite production build completed successfully.
+- Backend application construction completed successfully.
+- `git diff --check` completed without whitespace errors.
+
+Focused Commit 6 verification also passed both saved and purchased cross-endpoint
+journeys. Each journey checked in an entry, verified its dashboard and detail
+representations, rejected later edit and delete requests, and proved the session
+remained usable after both transaction rollbacks.
+
+### Limitations and Follow-Up
+
+DEV-013 provides the backend API only. DEV-014 must build the visible check-in choices,
+optional-comment form, request states, confirmation, navigation, and frontend cache
+refresh behavior. DEV-015 owns later editing of resolved comments. DEV-016 owns
+statistics aggregation using `checked_in_at`, and DEV-020 owns the final shared
+accessibility and responsive review.
