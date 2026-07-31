@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import type { KeyboardEvent } from "react";
 
@@ -9,6 +9,8 @@ import { useDashboardEntries } from "../features/entries/queries";
 
 export function DashboardPage() {
   const dashboard = useDashboardEntries();
+  const location = useLocation();
+  const entryCreated = hasEntryCreatedState(location.state);
 
   if (dashboard.isPending) {
     return (
@@ -35,6 +37,11 @@ export function DashboardPage() {
 
   return (
     <DashboardFrame>
+      {entryCreated ? (
+        <p className="request-state request-state--success" role="status">
+          Entry added to Waiting.
+        </p>
+      ) : null}
       <p>Review your waiting decisions and the purchases you have resolved.</p>
       {dashboard.isFetching ? (
         <p className="dashboard-updating" role="status" aria-live="polite">
@@ -78,6 +85,15 @@ export function DashboardPage() {
         />
       </details>
     </DashboardFrame>
+  );
+}
+
+function hasEntryCreatedState(state: unknown): boolean {
+  return (
+    typeof state === "object" &&
+    state !== null &&
+    "entryCreated" in state &&
+    state.entryCreated === true
   );
 }
 

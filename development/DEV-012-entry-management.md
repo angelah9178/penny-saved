@@ -8,7 +8,7 @@
 - [Frontend Routes and APIs](#frontend-routes-and-apis)
 - [Commit 1 — Connect Entry Management to the Backend](#commit-1--connect-entry-management-to-the-backend)
 - [Commit 2 — Build the Create and Edit Form](#commit-2--build-the-create-and-edit-form)
-- [Commit 3 — Build the Create Entry Flow](#commit-3--build-the-create-entry-flow)
+- [Commit 3 — Add the New Entry Process](#commit-3--add-the-new-entry-process)
 - [Commit 4 — Build Entry Detail and Edit Flows](#commit-4--build-entry-detail-and-edit-flows)
 - [Commit 5 — Add Safe Entry Deletion](#commit-5--add-safe-entry-deletion)
 - [Commit 6 — Complete Entry Management States and Verification](#commit-6--complete-entry-management-states-and-verification)
@@ -24,7 +24,7 @@ complete.
 | ----------- | --------------------------------------------------------------------------- | ------------------------------------------ | ----------- |
 | &#91;x&#93; | [1](#commit-1--connect-entry-management-to-the-backend)                     | Connect entry management to the backend    | DEV-010     |
 | &#91;x&#93; | [2](#commit-2--build-the-create-and-edit-form)                             | Build the Create and Edit form             | Commit 1    |
-| &#91; &#93; | [3](#commit-3--build-the-create-entry-flow)                                 | Build the create entry flow                | Commit 2    |
+| &#91;x&#93; | [3](#commit-3--add-the-new-entry-process)                                 | Add the new entry process                  | Commit 2    |
 | &#91; &#93; | [4](#commit-4--build-entry-detail-and-edit-flows)                           | Build detail and edit flows                | Commit 3    |
 | &#91; &#93; | [5](#commit-5--add-safe-entry-deletion)                                     | Add safe entry deletion                    | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-entry-management-states-and-verification)           | Complete states and verification           | Commits 1–5 |
@@ -243,9 +243,9 @@ make frontend-typecheck
 make frontend-test
 ```
 
-## Commit 3 — Build the Create Entry Flow
+## Commit 3 — Add the New Entry Process
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 3 makes the existing “Add new impulse purchase” dashboard link useful by
 building the protected `/entries/new` page.
@@ -253,6 +253,21 @@ building the protected `/entries/new` page.
 In plain language, this is the first commit in DEV-012 that lets the user change
 stored data. The user fills in the shared form, submits it once, and returns to a
 dashboard that includes the new waiting entry.
+
+Put simply, Commit 3 builds the complete process for creating a new entry:
+
+```text
+Dashboard “Add new impulse purchase” link
+→ Create Entry page
+→ Form from Commit 2
+→ Send the entry to the backend
+→ Return to the dashboard
+→ Show the new entry in Waiting
+```
+
+It also prevents duplicate submissions, preserves the form when a request fails,
+returns an expired session to login, warns before discarding unsaved changes, and
+refreshes the dashboard after successful creation.
 
 ```text
 Dashboard Add link → Create form → POST /api/entries
@@ -270,7 +285,7 @@ clear retry path rather than silently losing their work.
 Suggested commit message:
 
 ```text
-Commit 3: Build the create entry flow
+Commit 3: Add the new entry process
 ```
 
 Implement:
@@ -477,7 +492,14 @@ parsing, and exact cents-to-edit-value formatting. The form preserves user input
 failures, maps backend `price_cents` errors to the visible Price field, and prevents
 duplicate submission while a save is pending.
 
-Commits 3–6 are not started. Continue filling in this section as they are completed
+Commit 3 added the protected `/entries/new` page and connected the shared form to the
+create mutation. Successful creation returns to the dashboard with a status
+announcement and refreshed Waiting data. Failed requests preserve input, pending
+requests cannot be submitted twice, guests and expired sessions return safely to
+login, and changed forms warn before in-app navigation or browser unload discards
+their contents.
+
+Commits 4–6 are not started. Continue filling in this section as they are completed
 rather than recording planned work as implemented work.
 
 The final record should include:

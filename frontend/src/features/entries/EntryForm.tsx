@@ -8,6 +8,7 @@ import { entryFormSchema, type EntryFormValues } from "./entryFormValidation";
 export type EntryFormProps = {
   mode: "create" | "edit";
   initialValues?: EntryFormValues;
+  onDirtyChange?: (isDirty: boolean) => void;
   onSubmit: (payload: CreateEntryRequest) => Promise<void> | void;
 };
 
@@ -18,7 +19,12 @@ const EMPTY_VALUES: EntryFormValues = {
 };
 const GENERIC_ERROR = "We could not save the entry. Please try again.";
 
-export function EntryForm({ mode, initialValues, onSubmit }: EntryFormProps) {
+export function EntryForm({
+  mode,
+  initialValues,
+  onDirtyChange,
+  onSubmit,
+}: EntryFormProps) {
   const formId = useId();
   const summaryRef = useRef<HTMLDivElement>(null);
   const submissionInFlight = useRef(false);
@@ -29,7 +35,7 @@ export function EntryForm({ mode, initialValues, onSubmit }: EntryFormProps) {
     handleSubmit,
     register,
     setError,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<EntryFormValues>({
     defaultValues: initialValues ?? EMPTY_VALUES,
   });
@@ -39,6 +45,10 @@ export function EntryForm({ mode, initialValues, onSubmit }: EntryFormProps) {
       summaryRef.current?.focus();
     }
   }, [globalError]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   const submit = handleSubmit(async (values) => {
     if (submissionInFlight.current) {

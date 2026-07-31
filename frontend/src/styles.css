@@ -110,6 +110,12 @@ button {
   background: #fef2f2;
 }
 
+.request-state--success {
+  border: 1px solid #15803d;
+  color: #14532d;
+  background: #f0fdf4;
+}
+
 .request-state--empty {
   border: 1px solid #d1d5db;
   text-align: center;
@@ -156,6 +162,39 @@ button {
 .field-error {
   margin: 0;
   color: #991b1b;
+}
+
+.entry-management-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.entry-management-page > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.unsaved-changes {
+  position: fixed;
+  z-index: 20;
+  inset: 50% auto auto 50%;
+  width: min(calc(100% - 2rem), 30rem);
+  border: 2px solid #92400e;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 1rem 3rem rgb(15 23 42 / 25%);
+  transform: translate(-50%, -50%);
+}
+
+.unsaved-changes > :first-child {
+  margin-top: 0;
+}
+
+.unsaved-changes__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .account-control {
