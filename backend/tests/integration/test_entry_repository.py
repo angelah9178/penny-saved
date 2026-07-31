@@ -11,6 +11,7 @@ from app.models.entry import EntryStatus, ImpulsePurchaseEntry
 from app.models.user import User
 from app.repositories.entries import (
     add_entry,
+    check_in_owned_entry,
     delete_owned_entry,
     entry_id_exists,
     get_entry_by_id,
@@ -18,8 +19,9 @@ from app.repositories.entries import (
     list_entries_by_user,
     update_owned_entry_details,
 )
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.engine import URL
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 USER_ID = UUID("30000000-0000-4000-8000-000000000001")
@@ -137,6 +139,32 @@ async def test_owned_lookup_returns_none_for_unknown_id(db: AsyncSession) -> Non
 
 
 @pytest.mark.asyncio
+async def test_get_entry_for_update_holds_the_database_row_lock(db: AsyncSession) -> None:
+    db.add(make_entry(entry_id=WAITING_OLDER_ID))
+    await db.commit()
+
+    locked = await get_entry_for_update(
+        db,
+        user_id=USER_ID,
+        entry_id=WAITING_OLDER_ID,
+    )
+    assert locked is not None
+
+    competing_factory = async_sessionmaker(db.bind, expire_on_commit=False)
+    async with competing_factory() as competing_db:
+        await competing_db.execute(text("SET LOCAL lock_timeout = '100ms'"))
+        with pytest.raises(DBAPIError):
+            await get_entry_for_update(
+                competing_db,
+                user_id=USER_ID,
+                entry_id=WAITING_OLDER_ID,
+            )
+        await competing_db.rollback()
+
+    await db.rollback()
+
+
+@pytest.mark.asyncio
 async def test_existence_check_returns_only_boolean_without_loading_entry(
     db: AsyncSession,
 ) -> None:
@@ -238,6 +266,74 @@ def test_update_helper_rejects_an_entry_owned_by_another_user() -> None:
         )
 
     assert entry.item_name != "Forbidden update"
+
+
+@pytest.mark.parametrize("result", [EntryStatus.SAVED, EntryStatus.PURCHASED])
+def test_check_in_helper_changes_only_owned_resolution_fields(result: EntryStatus) -> None:
+    entry = make_entry(entry_id=WAITING_OLDER_ID, created_at=NOW - timedelta(days=3))
+    original_core_fields = (
+        entry.id,
+        entry.user_id,
+        entry.item_name,
+        entry.price_cents,
+        entry.reason_wanted,
+        entry.created_at,
+    )
+    checked_in_at = NOW + timedelta(minutes=1)
+
+    check_in_owned_entry(
+        entry=entry,
+        user_id=USER_ID,
+        result=result,
+        comment="I made a decision.",
+        checked_in_at=checked_in_at,
+    )
+
+    assert entry.status is result
+    assert entry.comment == "I made a decision."
+    assert entry.checked_in_at == checked_in_at
+    assert entry.updated_at == checked_in_at
+    assert (
+        entry.id,
+        entry.user_id,
+        entry.item_name,
+        entry.price_cents,
+        entry.reason_wanted,
+        entry.created_at,
+    ) == original_core_fields
+    assert inspect(entry).modified is True
+
+
+def test_check_in_helper_rejects_an_entry_owned_by_another_user() -> None:
+    entry = make_entry(entry_id=OTHER_ENTRY_ID, user_id=OTHER_USER_ID)
+    original_values = dict(entry.__dict__)
+
+    with pytest.raises(ValueError, match="does not belong"):
+        check_in_owned_entry(
+            entry=entry,
+            user_id=USER_ID,
+            result=EntryStatus.SAVED,
+            comment="Forbidden decision",
+            checked_in_at=NOW,
+        )
+
+    assert entry.__dict__ == original_values
+
+
+def test_check_in_helper_rejects_waiting_as_a_result_without_mutation() -> None:
+    entry = make_entry(entry_id=WAITING_OLDER_ID)
+    original_values = dict(entry.__dict__)
+
+    with pytest.raises(ValueError, match="must be saved or purchased"):
+        check_in_owned_entry(
+            entry=entry,
+            user_id=USER_ID,
+            result=EntryStatus.WAITING,
+            comment="Not a resolved result",
+            checked_in_at=NOW,
+        )
+
+    assert entry.__dict__ == original_values
 
 
 @pytest.mark.asyncio

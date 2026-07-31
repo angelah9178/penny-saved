@@ -7,7 +7,7 @@
 - [Check-In in Plain English](#check-in-in-plain-english)
 - [API Contract](#api-contract)
 - [Commit 1 — Define the Check-In Contract](#commit-1--define-the-check-in-contract)
-- [Commit 2 — Add the Atomic Repository Transition](#commit-2--add-the-atomic-repository-transition)
+- [Commit 2 — Add the Protected Database Update](#commit-2--add-the-protected-database-update)
 - [Commit 3 — Enforce the 48-Hour Check-In Rules](#commit-3--enforce-the-48-hour-check-in-rules)
 - [Commit 4 — Publish the Check-In Endpoint](#commit-4--publish-the-check-in-endpoint)
 - [Commit 5 — Prove Boundary, Ownership, and Concurrency Safety](#commit-5--prove-boundary-ownership-and-concurrency-safety)
@@ -23,7 +23,7 @@ complete.
 |             | Commit                                                               | Title                                   | Depends on  |
 | ----------- | -------------------------------------------------------------------- | --------------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--define-the-check-in-contract)                         | Define the check-in contract            | DEV-010     |
-| &#91; &#93; | [2](#commit-2--add-the-atomic-repository-transition)                 | Add the atomic repository transition    | Commit 1    |
+| &#91;x&#93; | [2](#commit-2--add-the-protected-database-update)                    | Add the protected database update       | Commit 1    |
 | &#91; &#93; | [3](#commit-3--enforce-the-48-hour-check-in-rules)                   | Enforce the 48-hour check-in rules      | Commit 2    |
 | &#91; &#93; | [4](#commit-4--publish-the-check-in-endpoint)                        | Publish the check-in endpoint           | Commit 3    |
 | &#91; &#93; | [5](#commit-5--prove-boundary-ownership-and-concurrency-safety)      | Prove boundary and concurrency safety   | Commit 4    |
@@ -169,11 +169,11 @@ make backend-lint
 make backend-test
 ```
 
-## Commit 2 — Add the Atomic Repository Transition
+## Commit 2 — Add the Protected Database Update
 
-**Status:** Planned.
+**Status:** Complete.
 
-Commit 2 adds the persistence operation used after the service has locked and
+Commit 2 adds the protected database operation used after the service has locked and
 validated an owned entry.
 
 In plain English, this commit prepares the database layer to write the final decision
@@ -185,10 +185,27 @@ The owned `SELECT ... FOR UPDATE` query already established by DEV-010 should re
 the single locking path. The new repository mutation stages the four allowed fields;
 the service continues to own commit and rollback.
 
+Commit 2 is responsible for safely making the database update:
+
+- Lock the entry while check-in is in progress.
+- Change `waiting` to the already-approved `saved` or `purchased` result.
+- Store the optional comment.
+- Set `checked_in_at` and `updated_at` to the supplied check-in time.
+- Leave the item name, price, reason, owner, and creation time unchanged.
+
+It does not decide whether the check-in is allowed. Commit 3 checks the authenticated
+owner, current `waiting` status, and 48-hour eligibility before asking this database
+helper to apply the result.
+
+```text
+Commit 2: Apply this validated result safely and change only allowed fields.
+Commit 3: Decide whether this entry is allowed to receive the result.
+```
+
 Suggested commit message:
 
 ```text
-Commit 2: Add the atomic check-in repository transition
+Commit 2: Add the protected check-in database update
 ```
 
 Implement:
@@ -410,7 +427,7 @@ Complete this section as the commit series is implemented.
 | Commit | Hash | Result                                 |
 | ------ | ---- | -------------------------------------- |
 | 1      | —    | Implemented; 312 backend tests passing |
-| 2      | —    | Planned                                |
+| 2      | —    | Implemented; 317 backend tests passing |
 | 3      | —    | Planned                                |
 | 4      | —    | Planned                                |
 | 5      | —    | Planned                                |
