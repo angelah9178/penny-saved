@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from app.main import create_app
 from app.models.entry import EntryStatus, ImpulsePurchaseEntry
 from app.models.session import Session
 from app.models.user import User
+from app.repositories.entries import get_entry_for_update as repository_get_entry_for_update
 from app.schemas.entry import EntryCheckInRequest, EntryCreateRequest
 from app.services.entries import (
     check_in_entry,
@@ -1268,3 +1270,85 @@ async def test_check_in_api_rejects_invalid_input_and_untrusted_origin(
         persisted = await db.get(ImpulsePurchaseEntry, entry_id)
         assert persisted is not None
         assert persisted.status is EntryStatus.WAITING
+
+
+@pytest.mark.asyncio
+async def test_concurrent_check_in_requests_produce_one_complete_outcome(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("92000000-0000-4000-8000-000000000001")
+    async with factory() as setup_db:
+        setup_db.add_all(
+            [
+                make_user(),
+                make_entry(entry_id=entry_id, created_at=NOW - timedelta(days=3)),
+            ]
+        )
+        await setup_db.commit()
+
+    both_requests_ready = asyncio.Event()
+    arrived = 0
+
+    async def synchronize_before_row_lock(
+        db: AsyncSession,
+        *,
+        user_id: UUID,
+        entry_id: UUID,
+    ) -> ImpulsePurchaseEntry | None:
+        nonlocal arrived
+        arrived += 1
+        if arrived == 2:
+            both_requests_ready.set()
+        await asyncio.wait_for(both_requests_ready.wait(), timeout=2)
+        return await repository_get_entry_for_update(
+            db,
+            user_id=user_id,
+            entry_id=entry_id,
+        )
+
+    monkeypatch.setattr(
+        "app.services.entries.get_entry_for_update",
+        synchronize_before_row_lock,
+    )
+
+    async with factory() as saved_db, factory() as purchased_db:
+        saved_app = entry_app(db=saved_db, user=make_user())
+        purchased_app = entry_app(db=purchased_db, user=make_user())
+        async with (
+            api_client(saved_app) as saved_client,
+            api_client(purchased_app) as purchased_client,
+        ):
+            saved_response, purchased_response = await asyncio.gather(
+                saved_client.post(
+                    f"/api/entries/{entry_id}/check-in",
+                    json={"result": "saved", "comment": "Saved request won."},
+                ),
+                purchased_client.post(
+                    f"/api/entries/{entry_id}/check-in",
+                    json={"result": "purchased", "comment": "Purchased request won."},
+                ),
+            )
+
+    responses = [saved_response, purchased_response]
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    winner = next(response for response in responses if response.status_code == 200)
+    loser = next(response for response in responses if response.status_code == 409)
+    assert loser.json()["error"]["code"] == "invalid_entry_status"
+
+    winner_entry = winner.json()["entry"]
+    expected_comments = {
+        "saved": "Saved request won.",
+        "purchased": "Purchased request won.",
+    }
+    assert winner_entry["comment"] == expected_comments[winner_entry["status"]]
+    assert winner_entry["checked_in_at"] == winner_entry["updated_at"]
+
+    async with factory() as verification_db:
+        persisted = await verification_db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.status.value == winner_entry["status"]
+        assert persisted.comment == winner_entry["comment"]
+        assert persisted.checked_in_at == persisted.updated_at == NOW
+        assert persisted.checked_in_at > persisted.created_at

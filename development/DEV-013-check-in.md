@@ -27,7 +27,7 @@ complete.
 | &#91;x&#93; | [2](#commit-2--add-the-protected-database-update)                    | Add the protected database update       | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--enforce-the-48-hour-check-in-rules)                   | Enforce the 48-hour check-in rules      | Commit 2    |
 | &#91;x&#93; | [4](#commit-4--connect-check-in-to-the-frontend)                     | Connect check-in to the frontend        | Commit 3    |
-| &#91; &#93; | [5](#commit-5--prove-boundary-ownership-and-concurrency-safety)      | Prove boundary and concurrency safety   | Commit 4    |
+| &#91;x&#93; | [5](#commit-5--prove-boundary-ownership-and-concurrency-safety)      | Prove boundary and concurrency safety   | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-check-in-api-verification-and-documentation) | Complete verification and documentation | Commits 1–5 |
 
 ## APIs Added by DEV-013
@@ -372,7 +372,7 @@ make backend-test
 
 ## Commit 5 — Prove Boundary, Ownership, and Concurrency Safety
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 5 adds PostgreSQL-backed tests for the risks that ordinary mocked tests cannot
 prove: the exact time boundary and two real transactions racing for one row.
@@ -380,6 +380,30 @@ prove: the exact time boundary and two real transactions racing for one row.
 In plain English, this commit tries the dangerous cases on purpose. It checks that a
 user cannot check in even one microsecond early, cannot check in someone else's item,
 and cannot create two answers by clicking twice or using two tabs at once.
+
+Commit 5 tests all of the following against PostgreSQL:
+
+- **Too early:** one microsecond before 48 hours returns `early_check_in` and changes
+  nothing.
+- **Exact boundary:** exactly 48 hours succeeds.
+- **Both answers:** eligible entries can resolve completely as either saved or
+  purchased.
+- **Ownership:** another user's entry is rejected and remains unchanged without
+  leaking private owner or entry data.
+- **Simultaneous requests:** two separate database sessions submit different answers
+  for the same waiting entry at the same time.
+- **One winner:** the race returns one `200` success and one
+  `invalid_entry_status` `409` conflict.
+- **No mixed result:** the final status, comment, and timestamps all come from the one
+  winning request; none come from the losing request.
+- **No partial failure:** rejected requests do not leave a partial status, comment, or
+  timestamp change.
+- **Statistics timestamp:** `checked_in_at` records the decision time rather than the
+  entry's creation time.
+
+Commit 5 does not add another user-facing feature. Commits 1–4 provide the behavior;
+Commit 5 proves its timing, ownership, and locking guarantees under real database
+conditions.
 
 Suggested commit message:
 
@@ -474,8 +498,8 @@ Complete this section as the commit series is implemented.
 | 1      | `04dbf61` | Implemented; 312 backend tests passing |
 | 2      | `de45c5a` | Implemented; 317 backend tests passing |
 | 3      | `3346fdf` | Implemented; 324 backend tests passing |
-| 4      | —         | Implemented; 331 backend tests passing |
-| 5      | —         | Planned                                |
+| 4      | `1b8b832` | Implemented; 331 backend tests passing |
+| 5      | —         | Implemented; 332 backend tests passing |
 | 6      | —         | Planned                                |
 
 ### Final Verification
