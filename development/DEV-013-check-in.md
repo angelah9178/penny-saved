@@ -22,7 +22,7 @@ complete.
 
 |             | Commit                                                               | Title                                   | Depends on  |
 | ----------- | -------------------------------------------------------------------- | --------------------------------------- | ----------- |
-| &#91; &#93; | [1](#commit-1--define-the-check-in-contract)                         | Define the check-in contract            | DEV-010     |
+| &#91;x&#93; | [1](#commit-1--define-the-check-in-contract)                         | Define the check-in contract            | DEV-010     |
 | &#91; &#93; | [2](#commit-2--add-the-atomic-repository-transition)                 | Add the atomic repository transition    | Commit 1    |
 | &#91; &#93; | [3](#commit-3--enforce-the-48-hour-check-in-rules)                   | Enforce the 48-hour check-in rules      | Commit 2    |
 | &#91; &#93; | [4](#commit-4--publish-the-check-in-endpoint)                        | Publish the check-in endpoint           | Commit 3    |
@@ -123,7 +123,7 @@ envelopes and transaction rollback behavior.
 
 ## Commit 1 — Define the Check-In Contract
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 1 defines the valid language shared by the API, service, and tests before any
 entry can actually change state.
@@ -132,6 +132,16 @@ In plain English, this commit writes the rules for the check-in form that a futu
 frontend will send. It says that the answer must be either “I did not buy it” or “I
 bought it,” and that a reflection is optional. It prevents a caller from inventing a
 third outcome or changing protected entry fields during check-in.
+
+Commit 1 defines only what a valid check-in request looks like. It does not yet
+decide whether a particular stored entry may be checked in. The ownership, stored
+`waiting` status, and 48-hour eligibility checks belong to Commit 3, where they can
+be enforced together inside the transaction.
+
+```text
+Commit 1: Is the submitted answer and optional comment valid?
+Commit 3: Is this user allowed to check in this entry right now?
+```
 
 Suggested commit message:
 
@@ -397,14 +407,14 @@ Complete this section as the commit series is implemented.
 
 ### Commit Results
 
-| Commit | Hash | Result  |
-| ------ | ---- | ------- |
-| 1      | —    | Planned |
-| 2      | —    | Planned |
-| 3      | —    | Planned |
-| 4      | —    | Planned |
-| 5      | —    | Planned |
-| 6      | —    | Planned |
+| Commit | Hash | Result                                 |
+| ------ | ---- | -------------------------------------- |
+| 1      | —    | Implemented; 312 backend tests passing |
+| 2      | —    | Planned                                |
+| 3      | —    | Planned                                |
+| 4      | —    | Planned                                |
+| 5      | —    | Planned                                |
+| 6      | —    | Planned                                |
 
 ### Final Verification
 

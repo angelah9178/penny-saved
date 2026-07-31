@@ -7,7 +7,12 @@ from enum import StrEnum
 from typing import Annotated
 from uuid import UUID
 
-from app.models.entry import MAX_PRICE_CENTS, EntryStatus, ImpulsePurchaseEntry
+from app.models.entry import (
+    MAX_COMMENT_LENGTH,
+    MAX_PRICE_CENTS,
+    EntryStatus,
+    ImpulsePurchaseEntry,
+)
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -37,6 +42,13 @@ class DashboardBucket(StrEnum):
     PURCHASED = "purchased"
 
 
+class EntryCheckInResult(StrEnum):
+    """User-selectable outcomes accepted by the check-in API."""
+
+    SAVED = "saved"
+    PURCHASED = "purchased"
+
+
 class _EntryWriteFields(BaseModel):
     """Core entry fields shared by create and waiting-entry update requests."""
 
@@ -61,6 +73,24 @@ class EntryCreateRequest(_EntryWriteFields):
 
 class EntryUpdateRequest(_EntryWriteFields):
     """User-controlled fields accepted when replacing waiting-entry details."""
+
+
+class EntryCheckInRequest(BaseModel):
+    """The outcome and optional reflection accepted during entry check-in."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    result: EntryCheckInResult
+    comment: str | None = Field(default=None, max_length=MAX_COMMENT_LENGTH)
+
+    @field_validator("comment", mode="before")
+    @classmethod
+    def normalize_comment(cls, value: object) -> object:
+        """Trim comments and represent blank text consistently as null."""
+        if isinstance(value, str):
+            normalized = value.strip()
+            return normalized or None
+        return value
 
 
 class EntryResponse(BaseModel):
