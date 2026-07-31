@@ -6,7 +6,7 @@
 - [Objective](#objective)
 - [Entry Management in Plain English](#entry-management-in-plain-english)
 - [Frontend Routes and APIs](#frontend-routes-and-apis)
-- [Commit 1 — Add Entry API Mutations and Cache Rules](#commit-1--add-entry-api-mutations-and-cache-rules)
+- [Commit 1 — Connect Entry Management to the Backend](#commit-1--connect-entry-management-to-the-backend)
 - [Commit 2 — Parse Money and Build Shared Form Controls](#commit-2--parse-money-and-build-shared-form-controls)
 - [Commit 3 — Build the Create Entry Flow](#commit-3--build-the-create-entry-flow)
 - [Commit 4 — Build Entry Detail and Edit Flows](#commit-4--build-entry-detail-and-edit-flows)
@@ -22,7 +22,7 @@ complete.
 
 |             | Commit                                                                      | Title                                      | Depends on  |
 | ----------- | --------------------------------------------------------------------------- | ------------------------------------------ | ----------- |
-| &#91; &#93; | [1](#commit-1--add-entry-api-mutations-and-cache-rules)                     | Add API mutations and cache rules          | DEV-010     |
+| &#91;x&#93; | [1](#commit-1--connect-entry-management-to-the-backend)                    | Connect entry management to the backend    | DEV-010     |
 | &#91; &#93; | [2](#commit-2--parse-money-and-build-shared-form-controls)                  | Parse money and build shared form controls | Commit 1    |
 | &#91; &#93; | [3](#commit-3--build-the-create-entry-flow)                                 | Build the create entry flow                | Commit 2    |
 | &#91; &#93; | [4](#commit-4--build-entry-detail-and-edit-flows)                           | Build detail and edit flows                | Commit 3    |
@@ -109,18 +109,31 @@ cache and invalidates both detail and dashboard data. Delete removes the detail 
 and invalidates the dashboard. Mutations are not retried automatically because
 repeating a write may produce an unintended second action.
 
-## Commit 1 — Add Entry API Mutations and Cache Rules
+## Commit 1 — Connect Entry Management to the Backend
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 1 builds the internal frontend connection to the four DEV-010 APIs used by
 this task. It adds typed request functions and TanStack Query hooks, but it does not
 build the visible forms yet.
 
-In plain language, this commit gives later screens one safe, consistent way to load,
-create, change, and delete an entry. A page component should say “create this entry”
-or “load this entry”; it should not assemble URLs, call `fetch`, interpret a `204`
-body, or remember which cached lists need refreshing.
+In plain language, this commit prepares the behind-the-scenes frontend code that later
+screens use to create, view, edit, and delete entries. It does not build the visible
+forms yet.
+
+This is partly what lets the user edit entries, but it supports all entry-management
+actions:
+
+- Create an entry.
+- Load one entry for the detail and edit pages.
+- Edit an entry.
+- Delete an entry.
+- Refresh the dashboard and entry details after a change so the user immediately sees
+  current information.
+
+A page component should say “create this entry” or “load this entry”; it should not
+assemble URLs, call `fetch`, interpret a `204` body, or remember which cached lists
+need refreshing.
 
 ```text
 Visible entry screen
@@ -135,7 +148,7 @@ DEV-010 entry API
 Suggested commit message:
 
 ```text
-Commit 1: Add entry management API operations
+Commit 1: Connect entry management to the backend
 ```
 
 Implement:
@@ -439,8 +452,15 @@ DEV-012 does not include:
 
 ## Implementation Record
 
-DEV-012 is not started. Fill in this section as commits are completed rather than
-recording planned work as implemented work.
+DEV-012 is in progress. Commit 1 added the typed frontend operations and TanStack
+Query integration for entry detail, creation, editing, and deletion. Successful
+mutations now invalidate the dashboard; edits also update and invalidate entry detail,
+while deletion removes the deleted detail from the cache. Protected requests report
+session expiry with the route the user was using, detail requests support
+cancellation, and mutations explicitly do not retry.
+
+Commits 2–6 are not started. Continue filling in this section as they are completed
+rather than recording planned work as implemented work.
 
 The final record should include:
 
