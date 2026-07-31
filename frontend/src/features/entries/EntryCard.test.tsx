@@ -1,8 +1,10 @@
 import { render, screen } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
+import { createQueryClient } from "../../app/queryClient";
 import type { DashboardBucket, Entry } from "../../types/api";
 import { EntryCard } from "./EntryCard";
 
@@ -54,13 +56,25 @@ describe("EntryCard", () => {
   );
 
   it.each(["saved", "purchased"] satisfies DashboardBucket[])(
-    "does not show edit navigation for a %s entry",
+    "does not show edit or delete actions for a %s entry",
     (section) => {
       renderCard(section);
 
       expect(
         screen.queryByRole("link", { name: "Edit" }),
       ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Delete" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(["needs_check_in", "waiting"] satisfies DashboardBucket[])(
+    "shows safe deletion access for a %s entry",
+    (section) => {
+      renderCard(section);
+
+      expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled();
     },
   );
 
@@ -126,9 +140,11 @@ function cardInRouter(
   overrides: Partial<Entry> = {},
 ) {
   return (
-    <MemoryRouter>
-      <EntryCard entry={makeEntry(overrides)} section={section} />
-    </MemoryRouter>
+    <QueryClientProvider client={createQueryClient()}>
+      <MemoryRouter>
+        <EntryCard entry={makeEntry(overrides)} section={section} />
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 

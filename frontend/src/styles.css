@@ -35,6 +35,10 @@ button {
   font-weight: 600;
 }
 
+.button--danger {
+  background: #b91c1c;
+}
+
 :focus-visible {
   outline: 0.1875rem solid #2563eb;
   outline-offset: 0.1875rem;
@@ -194,6 +198,35 @@ button {
 .unsaved-changes__actions {
   display: flex;
   flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 55%);
+}
+
+.delete-dialog {
+  width: min(100%, 32rem);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  background: #ffffff;
+  box-shadow: 0 1rem 3rem rgb(15 23 42 / 35%);
+}
+
+.delete-dialog > :first-child {
+  margin-top: 0;
+}
+
+.delete-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.75rem;
 }
 

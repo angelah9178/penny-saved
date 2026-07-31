@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { KeyboardEvent } from "react";
 
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -12,6 +12,7 @@ export function DashboardPage() {
   const location = useLocation();
   const entryCreated = hasEntryCreatedState(location.state);
   const entryUpdated = hasEntryUpdatedState(location.state);
+  const [entryNotice, setEntryNotice] = useState<string>();
 
   if (dashboard.isPending) {
     return (
@@ -48,6 +49,11 @@ export function DashboardPage() {
           Entry changes saved.
         </p>
       ) : null}
+      {entryNotice === undefined ? null : (
+        <p className="request-state request-state--success" role="status">
+          {entryNotice}
+        </p>
+      )}
       <p>Review your waiting decisions and the purchases you have resolved.</p>
       {dashboard.isFetching ? (
         <p className="dashboard-updating" role="status" aria-live="polite">
@@ -65,12 +71,14 @@ export function DashboardPage() {
         emptyMessage="Nothing needs your attention right now."
         entries={entries.needs_check_in}
         section="needs_check_in"
+        onNotice={setEntryNotice}
       />
       <EntrySection
         title="Waiting"
         emptyMessage="You have no purchases in the waiting period."
         entries={entries.waiting}
         section="waiting"
+        onNotice={setEntryNotice}
       />
       <EntrySection
         title="Saved"

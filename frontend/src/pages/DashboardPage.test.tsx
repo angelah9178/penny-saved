@@ -270,6 +270,160 @@ describe("DashboardPage", () => {
     await user.keyboard("{Enter}");
     expect(summary.closest("details")).toHaveAttribute("open");
   });
+
+  it("requires confirmation and restores focus when deletion is cancelled", async () => {
+    const user = userEvent.setup();
+    useDashboardResponse({
+      ...emptyDashboard(),
+      waiting: [makeEntry("waiting-1", "Desk lamp", "waiting")],
+    });
+    renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
+
+    const deleteTrigger = await screen.findByRole("button", { name: "Delete" });
+    await user.click(deleteTrigger);
+
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Delete Desk lamp?",
+    });
+    expect(dialog).toHaveTextContent("cannot be undone");
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(deleteTrigger).toHaveFocus());
+    expect(screen.getByText("Desk lamp")).toBeVisible();
+  });
+
+  it("keeps keyboard focus inside the delete confirmation and closes on Escape", async () => {
+    const user = userEvent.setup();
+    useDashboardResponse({
+      ...emptyDashboard(),
+      waiting: [makeEntry("waiting-1", "Desk lamp", "waiting")],
+    });
+    renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
+
+    const deleteTrigger = await screen.findByRole("button", { name: "Delete" });
+    await user.click(deleteTrigger);
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    const confirm = screen.getByRole("button", { name: "Delete entry" });
+
+    await user.tab({ shift: true });
+    expect(confirm).toHaveFocus();
+    await user.tab();
+    expect(cancel).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(deleteTrigger).toHaveFocus());
+  });
+
+  it("removes an entry only after a confirmed 204 response", async () => {
+    const user = userEvent.setup();
+    let deleted = false;
+    let deleteRequests = 0;
+    server.use(
+      http.get("/api/entries", () =>
+        HttpResponse.json({
+          ...emptyDashboard(),
+          waiting: deleted
+            ? []
+            : [makeEntry("waiting-1", "Desk lamp", "waiting")],
+        }),
+      ),
+      http.delete("/api/entries/waiting-1", async () => {
+        deleteRequests += 1;
+        await delay(50);
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await user.dblClick(screen.getByRole("button", { name: "Delete entry" }));
+
+    expect(screen.getByRole("button", { name: "Deleting…" })).toBeDisabled();
+    expect(await screen.findByText("Desk lamp was deleted.")).toHaveAttribute(
+      "role",
+      "status",
+    );
+    expect(
+      await screen.findByText("You have no purchases in the waiting period."),
+    ).toBeVisible();
+    expect(deleteRequests).toBe(1);
+  });
+
+  it("keeps the entry and confirmation available after deletion fails", async () => {
+    const user = userEvent.setup();
+    useDashboardResponse({
+      ...emptyDashboard(),
+      waiting: [makeEntry("waiting-1", "Desk lamp", "waiting")],
+    });
+    server.use(
+      http.delete("/api/entries/waiting-1", () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "unavailable",
+              message: "Deletion is temporarily unavailable.",
+            },
+          },
+          { status: 503 },
+        ),
+      ),
+    );
+    renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Delete entry" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Deletion is temporarily unavailable.",
+    );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(screen.getByText("Desk lamp")).toBeVisible();
+  });
+
+  it("refreshes the dashboard when stale deletion receives a conflict", async () => {
+    const user = userEvent.setup();
+    let conflictReceived = false;
+    server.use(
+      http.get("/api/entries", () =>
+        HttpResponse.json({
+          ...emptyDashboard(),
+          waiting: conflictReceived
+            ? []
+            : [makeEntry("waiting-1", "Desk lamp", "waiting")],
+          saved: conflictReceived
+            ? [makeEntry("waiting-1", "Desk lamp", "saved")]
+            : [],
+        }),
+      ),
+      http.delete("/api/entries/waiting-1", () => {
+        conflictReceived = true;
+        return HttpResponse.json(
+          {
+            error: {
+              code: "invalid_entry_status",
+              message: "Only waiting entries may be deleted.",
+            },
+          },
+          { status: 409 },
+        );
+      }),
+    );
+    renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Delete entry" }));
+
+    expect(
+      await screen.findByText(
+        "Desk lamp is no longer waiting and was not deleted.",
+      ),
+    ).toHaveAttribute("role", "status");
+    expect(await screen.findByText("Saved on")).toBeVisible();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
 });
 
 function useDashboardResponse(response: DashboardEntries) {

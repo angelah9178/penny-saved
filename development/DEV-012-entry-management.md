@@ -26,7 +26,7 @@ complete.
 | &#91;x&#93; | [2](#commit-2--build-the-create-and-edit-form)                             | Build the Create and Edit form             | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--add-the-new-entry-process)                                 | Add the new entry process                  | Commit 2    |
 | &#91;x&#93; | [4](#commit-4--add-entry-editing-from-the-dashboard)                     | Add editing from the dashboard             | Commit 3    |
-| &#91; &#93; | [5](#commit-5--add-safe-entry-deletion)                                     | Add safe entry deletion                    | Commit 4    |
+| &#91;x&#93; | [5](#commit-5--add-safe-entry-deletion)                                     | Add safe entry deletion                    | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-entry-management-states-and-verification)           | Complete states and verification           | Commits 1–5 |
 
 ## Objective
@@ -373,7 +373,7 @@ make frontend-test
 
 ## Commit 5 — Add Safe Entry Deletion
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 5 adds deletion to eligible dashboard cards with an explicit accessible
 confirmation.
@@ -381,6 +381,21 @@ confirmation.
 In plain language, selecting Delete must not immediately erase an entry. The app
 opens a confirmation that names the item, gives the user a safe Cancel choice, and
 requires a second clear action before calling the backend.
+
+Put simply, Commit 5 adds safe deletion directly to Waiting and Needs check-in cards:
+
+```text
+Select Delete on a card
+→ Show a confirmation naming the item
+→ Cancel, or explicitly confirm deletion
+→ Call DELETE /api/entries/{id}
+→ Remove the entry from the dashboard
+```
+
+It prevents accidental one-click deletion, keeps keyboard focus inside the
+confirmation, restores focus after cancellation, prevents repeated delete requests,
+and leaves the card in place when the server does not confirm deletion. Saved and
+Purchased entries do not offer Delete.
 
 ```text
 Dashboard-card Delete button → Confirmation opens
@@ -511,7 +526,15 @@ three allowed fields, refreshes cached entry and dashboard data, handles safe ac
 errors, and replaces stale edit conflicts with current server truth. Saved and
 Purchased cards do not expose Edit.
 
-Commits 5–6 are not started. Continue filling in this section as they are completed
+Commit 5 added Delete actions directly to Waiting and Needs check-in cards. The
+accessible confirmation names the item, explains that deletion is permanent, traps
+keyboard focus, supports Escape and Cancel, restores trigger focus, and disables
+repeat submission. Only a confirmed `204` removes cached detail and refreshes the
+dashboard. Failures preserve the card and confirmation, while stale `409` conflicts
+refresh server truth and announce that the entry was not deleted. Saved and Purchased
+cards do not expose Delete.
+
+Commit 6 is not started. Continue filling in this section as it is completed
 rather than recording planned work as implemented work.
 
 The final record should include:

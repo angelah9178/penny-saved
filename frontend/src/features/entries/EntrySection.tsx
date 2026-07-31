@@ -6,6 +6,7 @@ export type EntrySectionProps = {
   emptyMessage: string;
   entries: Entry[];
   section: DashboardBucket;
+  onNotice?: ((message: string) => void) | undefined;
 };
 
 export function EntrySection({
@@ -13,6 +14,7 @@ export function EntrySection({
   emptyMessage,
   entries,
   section,
+  onNotice,
 }: EntrySectionProps) {
   return (
     <section className={`entry-section entry-section--${section}`}>
@@ -34,7 +36,7 @@ export function EntrySection({
         <ul className="entry-list">
           {entries.map((entry) => (
             <li className="entry-list__item" key={entry.id}>
-              <EntryCard entry={entry} section={section} />
+              <EntryCard entry={entry} section={section} onNotice={onNotice} />
             </li>
           ))}
         </ul>
