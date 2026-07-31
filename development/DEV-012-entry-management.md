@@ -7,7 +7,7 @@
 - [Entry Management in Plain English](#entry-management-in-plain-english)
 - [Frontend Routes and APIs](#frontend-routes-and-apis)
 - [Commit 1 — Connect Entry Management to the Backend](#commit-1--connect-entry-management-to-the-backend)
-- [Commit 2 — Parse Money and Build Shared Form Controls](#commit-2--parse-money-and-build-shared-form-controls)
+- [Commit 2 — Build the Create and Edit Form](#commit-2--build-the-create-and-edit-form)
 - [Commit 3 — Build the Create Entry Flow](#commit-3--build-the-create-entry-flow)
 - [Commit 4 — Build Entry Detail and Edit Flows](#commit-4--build-entry-detail-and-edit-flows)
 - [Commit 5 — Add Safe Entry Deletion](#commit-5--add-safe-entry-deletion)
@@ -22,8 +22,8 @@ complete.
 
 |             | Commit                                                                      | Title                                      | Depends on  |
 | ----------- | --------------------------------------------------------------------------- | ------------------------------------------ | ----------- |
-| &#91;x&#93; | [1](#commit-1--connect-entry-management-to-the-backend)                    | Connect entry management to the backend    | DEV-010     |
-| &#91; &#93; | [2](#commit-2--parse-money-and-build-shared-form-controls)                  | Parse money and build shared form controls | Commit 1    |
+| &#91;x&#93; | [1](#commit-1--connect-entry-management-to-the-backend)                     | Connect entry management to the backend    | DEV-010     |
+| &#91;x&#93; | [2](#commit-2--build-the-create-and-edit-form)                             | Build the Create and Edit form             | Commit 1    |
 | &#91; &#93; | [3](#commit-3--build-the-create-entry-flow)                                 | Build the create entry flow                | Commit 2    |
 | &#91; &#93; | [4](#commit-4--build-entry-detail-and-edit-flows)                           | Build detail and edit flows                | Commit 3    |
 | &#91; &#93; | [5](#commit-5--add-safe-entry-deletion)                                     | Add safe entry deletion                    | Commit 4    |
@@ -173,12 +173,24 @@ make frontend-typecheck
 make frontend-test
 ```
 
-## Commit 2 — Parse Money and Build Shared Form Controls
+## Commit 2 — Build the Create and Edit Form
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 2 creates the reusable form foundation used by both Create and Edit. It also
 defines exactly how a dollar amount typed by a person becomes cents for the API.
+
+In simple terms, Commit 2 has two related responsibilities:
+
+- Convert money between user-friendly dollars and API cents. For example, the user
+  types `89.99`, the frontend sends `8999`, and an existing `8999` cents becomes
+  `89.99` when placed in the Edit form.
+- Build the shared Item name, Price, and Reason wanted fields used by both Create and
+  Edit, including validation messages and accessible labels.
+
+The dashboard's `$89.99` display formatting already exists from DEV-011. Commit 2
+specifically handles money entered into forms and provides the common form structure;
+Commits 3 and 4 place that form on the Create and Edit pages.
 
 In plain language, JavaScript decimal arithmetic can introduce rounding surprises.
 This commit avoids that problem by reading the price as text and separating the
@@ -202,7 +214,7 @@ and must also be shown.
 Suggested commit message:
 
 ```text
-Commit 2: Add entry form validation and money parsing
+Commit 2: Build the create and edit form
 ```
 
 Implement:
@@ -459,7 +471,13 @@ while deletion removes the deleted detail from the cache. Protected requests rep
 session expiry with the route the user was using, detail requests support
 cancellation, and mutations explicitly do not retry.
 
-Commits 2–6 are not started. Continue filling in this section as they are completed
+Commit 2 added one shared Create/Edit form with accessible labels and field errors,
+trimmed text validation, backend-aligned length limits, exact string-based dollar
+parsing, and exact cents-to-edit-value formatting. The form preserves user input after
+failures, maps backend `price_cents` errors to the visible Price field, and prevents
+duplicate submission while a save is pending.
+
+Commits 3–6 are not started. Continue filling in this section as they are completed
 rather than recording planned work as implemented work.
 
 The final record should include:
