@@ -569,6 +569,13 @@ button {
   }
 }
 
+@media (max-width: 31.999rem) {
+  .check-in-context dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

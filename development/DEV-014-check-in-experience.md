@@ -27,7 +27,7 @@ complete.
 | &#91;x&#93; | [3](#commit-3--add-the-protected-check-in-route)                    | Add the protected check-in route        | Commit 2    |
 | &#91;x&#93; | [4](#commit-4--submit-and-confirm-both-outcomes)                    | Submit and confirm both outcomes        | Commit 3    |
 | &#91;x&#93; | [5](#commit-5--handle-conflicts-and-request-failures)               | Handle conflicts and request failures   | Commit 4    |
-| &#91; &#93; | [6](#commit-6--complete-accessibility-integration-and-verification) | Complete accessibility and verification | Commits 1–5 |
+| &#91;x&#93; | [6](#commit-6--complete-accessibility-integration-and-verification) | Complete accessibility and verification | Commits 1–5 |
 
 ## Objective
 
@@ -445,7 +445,7 @@ make frontend-test
 
 ## Commit 6 — Complete Accessibility, Integration, and Verification
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 6 reviews DEV-014 as one complete experience, closes gaps between the focused
 commits, and records the behavior that was actually implemented.
@@ -514,7 +514,92 @@ DEV-014 does not include:
 
 ## Implementation Record
 
-Complete this section during Commit 6. Record the final commit hashes, meaningful
-design decisions, test totals, verification date, and follow-up work. Keep the table
-of contents, tracker, status labels, commit descriptions, and actual implementation
-synchronized as the series is completed.
+### Overview
+
+DEV-014 completed the visible check-in experience on top of DEV-013's atomic backend
+operation. An authenticated user can follow a Needs check-in dashboard action, review
+the original purchase context, deliberately select saved or purchased, add an
+optional normalized reflection, and receive a confirmation based on the actual
+server response.
+
+The frontend treats entry detail returned by the backend as lifecycle truth. It does
+not compare browser time with `eligible_for_check_in_at`, optimistically change an
+entry's bucket, or announce success before the mutation returns.
+
+### What It Achieved
+
+The completed feature includes:
+
+- A typed, non-retrying check-in mutation that updates entry detail and invalidates
+  dashboard and all statistics query families.
+- A reusable accessible form with an explicit saved/purchased radio group, optional
+  comment normalization, Unicode-aware length validation, pending announcements, and
+  duplicate-submission protection.
+- The protected `/entries/{entry_id}/check-in` route with current item, price, reason,
+  creation time, and server-provided eligibility context.
+- Server-confirmed saved and purchased success states using the returned status and
+  normalized comment.
+- Distinct recovery for early check-in and stale-status conflicts, safe mutation-time
+  access-loss states, retryable failures with preserved input, and session expiry
+  with the complete return path.
+- Responsive context layout, long-content handling, keyboard operation, touch and
+  repeated-activation coverage, focus management, and live-region announcements.
+
+### Important Design Decisions
+
+The detail response's `dashboard_bucket` determines whether the form is shown. A
+stored `waiting` entry must also be in `needs_check_in`; the browser never promotes a
+plain Waiting entry based on its own clock.
+
+Commit 3 connected the route's active form to the mutation so the intermediate page
+did not contain a submit button that silently did nothing. Commit 4 then completed
+the successful journey with a response-derived confirmation and return to refreshed
+dashboard data.
+
+Successful check-in is not optimistic. The form remains pending until the backend
+returns, and the confirmation uses the returned status and comment. A failed request
+never creates the confirmation. The two `409` codes are interpreted separately:
+`early_check_in` refreshes the still-waiting state, while `invalid_entry_status`
+refreshes an outcome another request may already have recorded.
+
+### Commit Results
+
+| Commit | Hash      | Result                                                |
+| ------ | --------- | ----------------------------------------------------- |
+| 1      | `8fbebd4` | Added typed check-in API and query/cache integration  |
+| 2      | `a45b79a` | Added the accessible reusable check-in form           |
+| 3      | `c78b98b` | Added the protected route and decision context        |
+| 4      | `3f89e96` | Added server-confirmed outcomes and dashboard journey |
+| 5      | `e2950af` | Added conflict, access, session, and retry recovery   |
+| 6      | —         | Completed hardening, documentation, and verification  |
+
+### Final Verification
+
+The complete quality gate was verified on August 1, 2026. The combined `make check`
+run completed formatting, lint, and type checking before the execution wrapper ended
+during its nested Vitest process. The remaining gate targets were rerun directly and
+all completed successfully:
+
+- Prettier and Ruff formatting checks passed.
+- ESLint and Ruff lint checks passed.
+- Strict frontend TypeScript checking passed.
+- 291 frontend tests passed across 35 files.
+- 334 backend tests passed against the configured PostgreSQL test database.
+- Alembic reported no new upgrade operations or migration drift.
+- The Vite production build completed successfully.
+- Backend application construction completed successfully.
+- `git diff --check` completed without whitespace errors.
+
+Focused completion coverage includes both saved and purchased dashboard journeys,
+comments present and absent, exact cache effects, loading and validation states,
+early and stale conflicts, access loss, expired authentication, retry after failure,
+keyboard selection, repeated click/keyboard/touch activation, confirmation focus, and
+long decision content.
+
+### Limitations and Follow-Up
+
+DEV-015 owns editing or clearing a comment after an entry has been resolved. DEV-016
+through DEV-019 own statistics calculations and their visible screens; DEV-014 only
+invalidates the existing statistics query family after successful check-in. DEV-020
+remains responsible for the final cross-feature WCAG 2.2 AA and responsive
+application audit.

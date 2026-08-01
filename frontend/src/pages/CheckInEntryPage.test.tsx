@@ -64,6 +64,31 @@ describe("CheckInEntryPage", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
+  it("keeps long decision context available without truncating its meaning", async () => {
+    const longItemName =
+      `Coffee grinder ${"with accessories ".repeat(12)}`.trim();
+    const longReason =
+      `I wanted more control over each cup because ${"consistency matters ".repeat(30)}`.trim();
+    respondWithEntry({
+      entry: {
+        ...eligibleResponse.entry,
+        item_name: longItemName,
+        price_cents: 999_999_999_999,
+        reason_wanted: longReason,
+      },
+    });
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { name: `Check in: ${longItemName}` }),
+    ).toBeVisible();
+    expect(screen.getByText(longReason)).toBeVisible();
+    expect(screen.getByText("$9,999,999,999.99")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Submit check-in" }),
+    ).toBeVisible();
+  });
+
   it.each([
     ["saved", "I did not buy it", "Purchase avoided", "Server reflection"],
     ["purchased", "I bought it", "Purchase recorded", null],

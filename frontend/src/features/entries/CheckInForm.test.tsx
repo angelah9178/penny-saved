@@ -160,4 +160,39 @@ describe("CheckInForm", () => {
     expect(submit).toHaveBeenCalledOnce();
     finishSubmission?.();
   });
+
+  it.each(["keyboard", "touch"] as const)(
+    "prevents repeated %s activation while submission is pending",
+    async (activation) => {
+      const user = userEvent.setup();
+      let finishSubmission: (() => void) | undefined;
+      const submit = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishSubmission = resolve;
+          }),
+      );
+      renderWithApp(<CheckInForm onSubmit={submit} />);
+      await user.click(screen.getByRole("radio", { name: "I bought it" }));
+      const button = screen.getByRole("button", { name: "Submit check-in" });
+
+      if (activation === "keyboard") {
+        button.focus();
+        await user.keyboard("{Enter}{Enter}");
+      } else {
+        await user.pointer([
+          { keys: "[TouchA>]", target: button },
+          { keys: "[/TouchA]" },
+          { keys: "[TouchB>]", target: button },
+          { keys: "[/TouchB]" },
+        ]);
+      }
+
+      expect(submit).toHaveBeenCalledOnce();
+      expect(
+        screen.getByRole("button", { name: "Submitting check-in…" }),
+      ).toBeDisabled();
+      finishSubmission?.();
+    },
+  );
 });
