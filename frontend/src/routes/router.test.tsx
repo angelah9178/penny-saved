@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { AppProviders } from "../app/providers";
 import { createQueryClient } from "../app/queryClient";
+import { resetSessionExpiry } from "../features/auth/sessionExpiry";
 import { server } from "../test/server";
 import { appRoutes } from "./router";
 
@@ -198,6 +199,49 @@ describe("authentication routes", () => {
     expect(router.state.location).toMatchObject({
       pathname: "/login",
       state: { returnTo: `/entries/${entryId}/check-in` },
+    });
+  });
+
+  it("returns an expired check-in request to login with the full return path", async () => {
+    resetSessionExpiry();
+    const user = userEvent.setup();
+    const entryId = "70000000-0000-4000-8000-000000000001";
+    const eligibleEntry = {
+      ...makeWaitingEntry(entryId, {
+        item_name: "Coffee grinder",
+        price_cents: 8_999,
+        reason_wanted: "Better coffee at home",
+      }),
+      dashboard_bucket: "needs_check_in",
+    };
+    useAuthenticatedSession();
+    server.use(
+      http.get(`/api/entries/${entryId}`, () =>
+        HttpResponse.json({ entry: eligibleEntry }),
+      ),
+      http.post(`/api/entries/${entryId}/check-in`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "unauthorized",
+              message: "Authentication is required.",
+            },
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+    const { router } = renderRoute(`/entries/${entryId}/check-in`);
+
+    await user.click(
+      await screen.findByRole("radio", { name: "I did not buy it" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Submit check-in" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(router.state.location.state).toEqual({
+      returnTo: `/entries/${entryId}/check-in`,
+      sessionExpired: true,
     });
   });
 

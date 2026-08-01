@@ -1,3 +1,4 @@
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -11,6 +12,7 @@ import {
   useEntryDetail,
 } from "../features/entries/queries";
 import { formatUsd } from "../lib/currency";
+import { queryKeys } from "../lib/queryKeys";
 import type { Entry, EntryResponse } from "../types/api";
 
 export function CheckInEntryPage() {
@@ -18,7 +20,9 @@ export function CheckInEntryPage() {
   const returnPath = `/entries/${encodeURIComponent(entryId)}/check-in`;
   const detail = useEntryDetail(entryId, returnPath);
   const checkIn = useCheckInEntryMutation(entryId);
+  const queryClient = useQueryClient();
   const [confirmation, setConfirmation] = useState<EntryResponse>();
+  const [mutationUnavailable, setMutationUnavailable] = useState<string>();
 
   if (confirmation !== undefined) {
     return <CheckInConfirmation entry={confirmation.entry} />;
@@ -40,6 +44,15 @@ export function CheckInEntryPage() {
   }
 
   const entry = detail.data.entry;
+  if (mutationUnavailable !== undefined) {
+    return (
+      <CheckInPageLayout title={`Check in: ${entry.item_name}`}>
+        <EntryContext entry={entry} />
+        <ErrorAlert message={mutationUnavailable} />
+      </CheckInPageLayout>
+    );
+  }
+
   if (!isEligibleWaitingEntry(entry)) {
     return (
       <CheckInPageLayout title={`Check in: ${entry.item_name}`}>
@@ -59,12 +72,59 @@ export function CheckInEntryPage() {
       <EntryContext entry={entry} />
       <CheckInForm
         onSubmit={async (payload) => {
-          const response = await checkIn.mutateAsync(payload);
-          setConfirmation(response);
+          try {
+            const response = await checkIn.mutateAsync(payload);
+            setConfirmation(response);
+          } catch (error) {
+            if (!(error instanceof ApiError)) throw error;
+
+            if (error.code === "early_check_in") {
+              await refreshCheckInTruth(queryClient, entryId);
+              throw new ApiError(
+                error.status,
+                error.code,
+                "The server says the full waiting period has not ended yet. Return to the dashboard and try again when the entry is ready.",
+              );
+            }
+
+            if (error.code === "invalid_entry_status") {
+              await refreshCheckInTruth(queryClient, entryId);
+              throw new ApiError(
+                error.status,
+                error.code,
+                "This entry was already resolved. The page has been refreshed with current server data.",
+              );
+            }
+
+            if (error.status === 403 || error.status === 404) {
+              setMutationUnavailable(
+                error.status === 403
+                  ? "You no longer have access to this entry."
+                  : "This entry is no longer available.",
+              );
+              return;
+            }
+
+            throw error;
+          }
         }}
       />
     </CheckInPageLayout>
   );
+}
+
+async function refreshCheckInTruth(
+  queryClient: QueryClient,
+  entryId: string,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.entries.detail(entryId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.entries.dashboard(),
+    }),
+  ]);
 }
 
 function CheckInConfirmation({ entry }: { entry: Entry }) {

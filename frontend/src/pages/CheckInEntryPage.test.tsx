@@ -150,6 +150,198 @@ describe("CheckInEntryPage", () => {
     },
   );
 
+  it("refreshes server truth when the server rejects an early check-in", async () => {
+    const user = userEvent.setup();
+    let conflictReceived = false;
+    let detailRequests = 0;
+    server.use(
+      http.get(`/api/entries/${entryId}`, () => {
+        detailRequests += 1;
+        return HttpResponse.json({
+          entry: conflictReceived
+            ? {
+                ...eligibleResponse.entry,
+                dashboard_bucket: "waiting",
+              }
+            : eligibleResponse.entry,
+        });
+      }),
+      http.post(`/api/entries/${entryId}/check-in`, () => {
+        conflictReceived = true;
+        return HttpResponse.json(
+          {
+            error: {
+              code: "early_check_in",
+              message: "The entry is not eligible yet.",
+            },
+          },
+          { status: 409 },
+        );
+      }),
+    );
+    const { queryClient } = renderPage();
+    queryClient.setQueryData(queryKeys.entries.dashboard(), {
+      needs_check_in: [eligibleResponse.entry],
+      waiting: [],
+      saved: [],
+      purchased: [],
+    });
+
+    await user.click(
+      await screen.findByRole("radio", { name: "I did not buy it" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Submit check-in" }));
+
+    expect(
+      await screen.findByText(/still in its waiting period/i),
+    ).toBeVisible();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(detailRequests).toBeGreaterThanOrEqual(2);
+    expect(
+      queryClient.getQueryState(queryKeys.entries.dashboard())?.isInvalidated,
+    ).toBe(true);
+  });
+
+  it("shows the already-resolved server state after a stale-status conflict", async () => {
+    const user = userEvent.setup();
+    let conflictReceived = false;
+    server.use(
+      http.get(`/api/entries/${entryId}`, () =>
+        HttpResponse.json({
+          entry: conflictReceived
+            ? {
+                ...eligibleResponse.entry,
+                status: "saved",
+                dashboard_bucket: "saved",
+                checked_in_at: "2026-08-02T14:05:00Z",
+              }
+            : eligibleResponse.entry,
+        }),
+      ),
+      http.post(`/api/entries/${entryId}/check-in`, () => {
+        conflictReceived = true;
+        return HttpResponse.json(
+          {
+            error: {
+              code: "invalid_entry_status",
+              message: "The entry is no longer waiting.",
+            },
+          },
+          { status: 409 },
+        );
+      }),
+    );
+    renderPage();
+
+    await user.click(await screen.findByRole("radio", { name: "I bought it" }));
+    await user.click(screen.getByRole("button", { name: "Submit check-in" }));
+
+    expect(
+      await screen.findByText(/already been resolved as saved/i),
+    ).toBeVisible();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Check-in complete" }),
+    ).toBeNull();
+  });
+
+  it.each([
+    [403, "You no longer have access to this entry."],
+    [404, "This entry is no longer available."],
+  ])(
+    "replaces the form after mutation access loss with HTTP %d",
+    async (status, message) => {
+      const user = userEvent.setup();
+      respondWithEntry(eligibleResponse);
+      server.use(
+        http.post(`/api/entries/${entryId}/check-in`, () =>
+          HttpResponse.json(
+            {
+              error: {
+                code: "access_lost",
+                message: "Private backend detail.",
+              },
+            },
+            { status },
+          ),
+        ),
+      );
+      renderPage();
+
+      await user.click(
+        await screen.findByRole("radio", { name: "I did not buy it" }),
+      );
+      await user.click(screen.getByRole("button", { name: "Submit check-in" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(message);
+      expect(
+        screen.queryByText("Private backend detail."),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    },
+  );
+
+  it("preserves input and allows an explicit retry after a request failure", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    respondWithEntry(eligibleResponse);
+    server.use(
+      http.post(`/api/entries/${entryId}/check-in`, () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return HttpResponse.json(
+            {
+              error: {
+                code: "unavailable",
+                message: "The service is temporarily unavailable.",
+              },
+            },
+            { status: 503 },
+          );
+        }
+        return HttpResponse.json({
+          entry: {
+            ...eligibleResponse.entry,
+            status: "saved",
+            dashboard_bucket: "saved",
+            comment: "My reflection",
+            checked_in_at: "2026-08-02T14:05:00Z",
+            updated_at: "2026-08-02T14:05:00Z",
+          },
+        });
+      }),
+    );
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("radio", { name: "I did not buy it" }),
+    );
+    await user.type(
+      screen.getByLabelText("Reflection (optional)"),
+      "My reflection",
+    );
+    await user.click(screen.getByRole("button", { name: "Submit check-in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The service is temporarily unavailable.",
+    );
+    expect(
+      screen.getByRole("radio", { name: "I did not buy it" }),
+    ).toBeChecked();
+    expect(screen.getByLabelText("Reflection (optional)")).toHaveValue(
+      "My reflection",
+    );
+    expect(
+      screen.getByRole("button", { name: "Submit check-in" }),
+    ).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Submit check-in" }));
+    expect(
+      await screen.findByRole("heading", { name: "Purchase avoided" }),
+    ).toBeVisible();
+    expect(attempts).toBe(2);
+  });
+
   it.each([
     ["waiting", "waiting", "still in its waiting period"],
     ["saved", "saved", "already been resolved as saved"],
