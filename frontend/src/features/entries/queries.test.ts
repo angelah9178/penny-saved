@@ -6,6 +6,7 @@ import { ApiError } from "../../api/errors";
 import { queryKeys } from "../../lib/queryKeys";
 import { server } from "../../test/server";
 import type {
+  CheckInEntryRequest,
   CreateEntryRequest,
   DashboardEntries,
   EntryResponse,
@@ -15,6 +16,7 @@ import {
   subscribeToSessionExpiry,
 } from "../auth/sessionExpiry";
 import {
+  checkInEntryMutationOptions,
   createEntryMutationOptions,
   dashboardEntriesQueryOptions,
   deleteEntryMutationOptions,
@@ -162,6 +164,28 @@ describe("entry management query and mutation options", () => {
     unsubscribe();
   });
 
+  it("reports detail session expiry with a caller-specific check-in return path", async () => {
+    server.use(
+      http.get(`/api/entries/${entryId}`, () =>
+        HttpResponse.json(
+          { error: { code: "unauthorized", message: "Sign in." } },
+          { status: 401 },
+        ),
+      ),
+    );
+    const listener = vi.fn();
+    const unsubscribe = subscribeToSessionExpiry(listener);
+    const returnPath = `/entries/${entryId}/check-in`;
+
+    await expect(
+      testQueryClient().fetchQuery(
+        entryDetailQueryOptions(entryId, returnPath),
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(listener).toHaveBeenCalledWith({ returnTo: returnPath });
+    unsubscribe();
+  });
+
   it("creates without retrying and invalidates the dashboard", async () => {
     server.use(
       http.post("/api/entries", async ({ request }) => {
@@ -260,6 +284,82 @@ describe("entry management query and mutation options", () => {
         .execute(payload),
     ).rejects.toMatchObject({ status: 401 });
     expect(listener).toHaveBeenCalledWith({ returnTo: "/entries/new" });
+    unsubscribe();
+  });
+
+  it("checks in without retrying and refreshes every affected cache", async () => {
+    const checkInPayload: CheckInEntryRequest = {
+      result: "saved",
+      comment: "I can borrow one.",
+    };
+    const checkedInResponse: EntryResponse = {
+      entry: {
+        ...entryResponse.entry,
+        status: "saved",
+        dashboard_bucket: "saved",
+        comment: checkInPayload.comment,
+        checked_in_at: "2026-08-02T14:00:00Z",
+        updated_at: "2026-08-02T14:00:00Z",
+      },
+    };
+    server.use(
+      http.post(`/api/entries/${entryId}/check-in`, async ({ request }) => {
+        expect(await request.json()).toEqual(checkInPayload);
+        return HttpResponse.json(checkedInResponse);
+      }),
+    );
+    const queryClient = testQueryClient();
+    seedDashboard(queryClient);
+    queryClient.setQueryData(queryKeys.entries.detail(entryId), entryResponse);
+    queryClient.setQueryData(
+      queryKeys.stats.summary("this_month"),
+      "cached statistics",
+    );
+    const options = checkInEntryMutationOptions(queryClient, entryId);
+
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, options)
+        .execute(checkInPayload),
+    ).resolves.toEqual(checkedInResponse);
+
+    expect(options.retry).toBe(false);
+    expect(queryClient.getQueryData(queryKeys.entries.detail(entryId))).toEqual(
+      checkedInResponse,
+    );
+    expect(
+      queryClient.getQueryState(queryKeys.entries.dashboard())?.isInvalidated,
+    ).toBe(true);
+    expect(
+      queryClient.getQueryState(queryKeys.stats.summary("this_month"))
+        ?.isInvalidated,
+    ).toBe(true);
+  });
+
+  it("reports check-in session expiry with the check-in return path", async () => {
+    server.use(
+      http.post(`/api/entries/${entryId}/check-in`, () =>
+        HttpResponse.json(
+          { error: { code: "unauthorized", message: "Sign in." } },
+          { status: 401 },
+        ),
+      ),
+    );
+    const listener = vi.fn();
+    const unsubscribe = subscribeToSessionExpiry(listener);
+    const queryClient = testQueryClient();
+    const options = checkInEntryMutationOptions(queryClient, entryId);
+
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, options)
+        .execute({ result: "purchased", comment: null }),
+    ).rejects.toMatchObject({ status: 401, code: "unauthorized" });
+    expect(listener).toHaveBeenCalledWith({
+      returnTo: `/entries/${entryId}/check-in`,
+    });
     unsubscribe();
   });
 });

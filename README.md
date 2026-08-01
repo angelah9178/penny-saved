@@ -267,6 +267,14 @@ and `422` for an invalid UUID or request body. These responses use the standard 
 error envelope without revealing owner data. Browser requests must be authenticated
 and pass the configured exact-origin check.
 
+The protected frontend route `/entries/{entry_id}/check-in` displays the original
+item, price, reason, and server-provided timing context. The user must explicitly
+choose “I did not buy it” or “I bought it” and may add an optional reflection. The
+frontend does not calculate eligibility. It waits for the server response, shows the
+confirmed saved or purchased result, and refreshes entry, dashboard, and statistics
+caches. Early or stale conflicts refresh server truth, retryable failures preserve
+the form values, and expired sessions retain the complete check-in return path.
+
 ## Frontend development server
 
 Install the locked frontend dependencies during first-time setup or whenever
@@ -317,9 +325,8 @@ passwords, session values, database URLs, API secrets, or other credentials in a
   FastAPI server is not running at `http://127.0.0.1:8000`.
 - Run frontend commands from `frontend/`; running them from the repository root will not
   find the frontend `package.json`.
-- Login, signup, dashboard entry lists, and entry management are implemented. The
-  backend check-in API is also complete; its visible frontend check-in experience and
-  statistics screens arrive in later development tasks.
+- Login, signup, dashboard entry lists, entry management, and the complete check-in
+  experience are implemented. Statistics screens arrive in later development tasks.
 
 ## Database migrations
 

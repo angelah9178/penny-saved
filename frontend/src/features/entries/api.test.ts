@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  CheckInEntryRequest,
   CreateEntryRequest,
   DashboardEntries,
   EntryResponse,
 } from "../../types/api";
 import {
+  checkInEntry,
   createEntry,
   deleteEntry,
   getDashboardEntries,
@@ -129,6 +131,36 @@ describe("dashboard entries API", () => {
       credentials: "include",
     });
     expect(init?.body).toBeUndefined();
+  });
+
+  it("checks in an entry with only the result and optional comment", async () => {
+    const checkInPayload: CheckInEntryRequest = {
+      result: "saved",
+      comment: "I can borrow one.",
+    };
+    const checkedInResponse: EntryResponse = {
+      entry: {
+        ...entryResponse.entry,
+        status: "saved",
+        dashboard_bucket: "saved",
+        comment: checkInPayload.comment,
+        checked_in_at: "2026-08-02T14:00:00Z",
+        updated_at: "2026-08-02T14:00:00Z",
+      },
+    };
+    fetchMock.mockResolvedValue(Response.json(checkedInResponse));
+
+    await expect(
+      checkInEntry("entry/with spaces", checkInPayload),
+    ).resolves.toEqual(checkedInResponse);
+
+    const [url, init] = firstFetchCall();
+    expect(url).toBe("/api/entries/entry%2Fwith%20spaces/check-in");
+    expect(init).toMatchObject({
+      method: "POST",
+      credentials: "include",
+      body: JSON.stringify(checkInPayload),
+    });
   });
 });
 

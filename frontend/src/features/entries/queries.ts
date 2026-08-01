@@ -9,9 +9,14 @@ import {
 
 import { shouldRetryQuery } from "../../app/queryClient";
 import { queryKeys } from "../../lib/queryKeys";
-import type { CreateEntryRequest, UpdateEntryRequest } from "../../types/api";
+import type {
+  CheckInEntryRequest,
+  CreateEntryRequest,
+  UpdateEntryRequest,
+} from "../../types/api";
 import { runProtectedRequest } from "../auth/sessionExpiry";
 import {
+  checkInEntry,
   createEntry,
   deleteEntry,
   getDashboardEntries,
@@ -39,21 +44,21 @@ export function useDashboardEntries() {
   return useQuery(dashboardEntriesQueryOptions());
 }
 
-export function entryDetailQueryOptions(entryId: string) {
+export function entryDetailQueryOptions(entryId: string, returnPath?: string) {
   return queryOptions({
     queryKey: queryKeys.entries.detail(entryId),
     queryFn: ({ signal }) =>
       runProtectedRequest(
         () => getEntry(entryId, signal),
-        entryDetailReturnPath(entryId),
+        returnPath ?? entryDetailReturnPath(entryId),
       ),
     staleTime: DASHBOARD_STALE_TIME_MS,
     retry: shouldRetryQuery,
   });
 }
 
-export function useEntryDetail(entryId: string) {
-  return useQuery(entryDetailQueryOptions(entryId));
+export function useEntryDetail(entryId: string, returnPath?: string) {
+  return useQuery(entryDetailQueryOptions(entryId, returnPath));
 }
 
 export function createEntryMutationOptions(queryClient: QueryClient) {
@@ -129,6 +134,36 @@ export function deleteEntryMutationOptions(
 export function useDeleteEntryMutation(entryId: string) {
   const queryClient = useQueryClient();
   return useMutation(deleteEntryMutationOptions(queryClient, entryId));
+}
+
+export function checkInEntryMutationOptions(
+  queryClient: QueryClient,
+  entryId: string,
+) {
+  return mutationOptions({
+    mutationFn: (payload: CheckInEntryRequest) =>
+      runProtectedRequest(
+        () => checkInEntry(entryId, payload),
+        `${entryDetailReturnPath(entryId)}/check-in`,
+      ),
+    onSuccess: async (response) => {
+      queryClient.setQueryData(queryKeys.entries.detail(entryId), response);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.entries.dashboard(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.stats.all(),
+        }),
+      ]);
+    },
+    retry: false,
+  });
+}
+
+export function useCheckInEntryMutation(entryId: string) {
+  const queryClient = useQueryClient();
+  return useMutation(checkInEntryMutationOptions(queryClient, entryId));
 }
 
 function entryDetailReturnPath(entryId: string): string {

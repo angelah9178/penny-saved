@@ -1,5 +1,6 @@
 import { apiFetch } from "../../api/client";
 import type {
+  CheckInEntryRequest,
   CreateEntryRequest,
   DashboardEntries,
   EntryResponse,
@@ -46,6 +47,16 @@ export function updateEntry(
 
 export function deleteEntry(entryId: string): Promise<void> {
   return apiFetch<void>(entryPath(entryId), { method: "DELETE" });
+}
+
+export function checkInEntry(
+  entryId: string,
+  payload: CheckInEntryRequest,
+): Promise<EntryResponse> {
+  return apiFetch<EntryResponse>(`${entryPath(entryId)}/check-in`, {
+    method: "POST",
+    body: payload,
+  });
 }
 
 function entryPath(entryId: string): string {

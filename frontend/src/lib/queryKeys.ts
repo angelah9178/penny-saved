@@ -9,7 +9,9 @@ export const queryKeys = {
     detail: (entryId: string) => ["entries", "detail", entryId] as const,
   },
   stats: {
-    summary: (range: StatsRange) => ["stats", "summary", range] as const,
+    all: () => ["stats"] as const,
+    summary: (range: StatsRange) =>
+      [...queryKeys.stats.all(), "summary", range] as const,
   },
   opportunityCosts: {
     list: () => ["opportunity-costs", "list"] as const,
