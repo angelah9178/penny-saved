@@ -25,7 +25,7 @@ complete.
 | &#91;x&#93; | [1](#commit-1--connect-check-in-to-the-backend)                     | Connect check-in to the backend         | DEV-013     |
 | &#91;x&#93; | [2](#commit-2--build-the-check-in-form)                             | Build the check-in form                 | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--add-the-protected-check-in-route)                    | Add the protected check-in route        | Commit 2    |
-| &#91; &#93; | [4](#commit-4--submit-and-confirm-both-outcomes)                    | Submit and confirm both outcomes        | Commit 3    |
+| &#91;x&#93; | [4](#commit-4--submit-and-confirm-both-outcomes)                    | Submit and confirm both outcomes        | Commit 3    |
 | &#91; &#93; | [5](#commit-5--handle-conflicts-and-request-failures)               | Handle conflicts and request failures   | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-accessibility-integration-and-verification) | Complete accessibility and verification | Commits 1–5 |
 
@@ -320,7 +320,7 @@ make frontend-test
 
 ## Commit 4 — Submit and Confirm Both Outcomes
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 4 connects the route and form to the mutation from Commit 1. It completes the
 successful saved and purchased journeys and shows a confirmation based on the actual
@@ -330,6 +330,14 @@ In plain English, this commit makes the buttons real. After the user deliberatel
 chooses and submits an outcome, the page waits for the server. Only a successful
 response produces a success message. That message says whether the item was saved or
 purchased and gives the user a clear way back to the refreshed dashboard.
+
+Commit 3 already added the page and its basic mutation call so an active form would
+not contain a submit button that silently did nothing. Commit 4 completes everything
+the user expects after that call: it waits for the confirmed response, replaces the
+form with the matching saved or purchased confirmation, and provides the return to
+the refreshed dashboard. Put another way, Commit 3 makes submission technically
+possible; Commit 4 makes successful submission a complete and trustworthy user
+journey.
 
 ```text
 User submits saved or purchased

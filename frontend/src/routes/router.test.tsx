@@ -240,6 +240,80 @@ describe("authentication routes", () => {
     ).toBeVisible();
   });
 
+  it.each([
+    ["saved", "I did not buy it", "Saved"],
+    ["purchased", "I bought it", "Purchased entries"],
+  ] as const)(
+    "completes a %s check-in and returns to the matching dashboard section",
+    async (status, choice, sectionHeading) => {
+      const user = userEvent.setup();
+      const entryId = "70000000-0000-4000-8000-000000000001";
+      let resolved = false;
+      const eligibleEntry = {
+        ...makeWaitingEntry(entryId, {
+          item_name: "Coffee grinder",
+          price_cents: 8_999,
+          reason_wanted: "Better coffee at home",
+        }),
+        dashboard_bucket: "needs_check_in",
+      };
+      const resolvedEntry = {
+        ...eligibleEntry,
+        status,
+        dashboard_bucket: status,
+        checked_in_at: "2026-08-02T14:05:00Z",
+        updated_at: "2026-08-02T14:05:00Z",
+      };
+      useAuthenticatedSession();
+      server.use(
+        http.get("/api/entries", () =>
+          HttpResponse.json({
+            needs_check_in: resolved ? [] : [eligibleEntry],
+            waiting: [],
+            saved: resolved && status === "saved" ? [resolvedEntry] : [],
+            purchased:
+              resolved && status === "purchased" ? [resolvedEntry] : [],
+          }),
+        ),
+        http.get(`/api/entries/${entryId}`, () =>
+          HttpResponse.json({
+            entry: resolved ? resolvedEntry : eligibleEntry,
+          }),
+        ),
+        http.post(`/api/entries/${entryId}/check-in`, () => {
+          resolved = true;
+          return HttpResponse.json({ entry: resolvedEntry });
+        }),
+      );
+      renderRoute("/dashboard");
+
+      await user.click(await screen.findByRole("link", { name: "Check in" }));
+      await user.click(await screen.findByRole("radio", { name: choice }));
+      await user.click(screen.getByRole("button", { name: "Submit check-in" }));
+      await screen.findByRole("heading", {
+        name: status === "saved" ? "Purchase avoided" : "Purchase recorded",
+      });
+      await user.click(
+        screen.getByRole("link", { name: "Return to dashboard" }),
+      );
+
+      if (status === "purchased") {
+        await user.click(await screen.findByText("Purchased (1)"));
+      }
+      expect(
+        await screen.findByRole("heading", {
+          name: new RegExp(`^${sectionHeading}`),
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: "Coffee grinder" }),
+      ).toBeVisible();
+      expect(
+        screen.queryByRole("link", { name: "Check in" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("completes create, edit, and delete without a full-page reload", async () => {
     const user = userEvent.setup();
     const entryId = "70000000-0000-4000-8000-000000000001";

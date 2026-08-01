@@ -1,10 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
 import { createMemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
 import { AppProviders } from "../app/providers";
 import { createQueryClient } from "../app/queryClient";
+import { queryKeys } from "../lib/queryKeys";
 import { server } from "../test/server";
 import type { EntryResponse } from "../types/api";
 import { CheckInEntryPage } from "./CheckInEntryPage";
@@ -61,6 +63,92 @@ describe("CheckInEntryPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading check-in…");
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
+
+  it.each([
+    ["saved", "I did not buy it", "Purchase avoided", "Server reflection"],
+    ["purchased", "I bought it", "Purchase recorded", null],
+  ] as const)(
+    "shows the server-confirmed %s outcome and refreshes affected caches",
+    async (status, choice, heading, returnedComment) => {
+      const user = userEvent.setup();
+      const checkedInAt = "2026-08-02T14:05:00Z";
+      let submittedBody: unknown;
+      respondWithEntry(eligibleResponse);
+      server.use(
+        http.post(`/api/entries/${entryId}/check-in`, async ({ request }) => {
+          submittedBody = await request.json();
+          return HttpResponse.json({
+            entry: {
+              ...eligibleResponse.entry,
+              status,
+              dashboard_bucket: status,
+              comment: returnedComment,
+              checked_in_at: checkedInAt,
+              updated_at: checkedInAt,
+            },
+          });
+        }),
+      );
+      const { queryClient, router } = renderPage();
+      queryClient.setQueryData(queryKeys.entries.dashboard(), {
+        needs_check_in: [eligibleResponse.entry],
+        waiting: [],
+        saved: [],
+        purchased: [],
+      });
+      queryClient.setQueryData(
+        queryKeys.stats.summary("this_month"),
+        "cached statistics",
+      );
+
+      await screen.findByRole("button", { name: "Submit check-in" });
+      await user.click(screen.getByRole("radio", { name: choice }));
+      await user.type(
+        screen.getByLabelText("Reflection (optional)"),
+        "Submitted reflection",
+      );
+      await user.click(screen.getByRole("button", { name: "Submit check-in" }));
+
+      const confirmation = await screen.findByRole("status");
+      expect(confirmation).toHaveFocus();
+      expect(screen.getByRole("heading", { name: heading })).toBeVisible();
+      expect(confirmation).toHaveTextContent(
+        `confirmed this entry as ${status}`,
+      );
+      if (returnedComment === null) {
+        expect(screen.queryByText(/Reflection:/)).not.toBeInTheDocument();
+      } else {
+        expect(confirmation).toHaveTextContent(
+          `Reflection: ${returnedComment}`,
+        );
+        expect(confirmation).not.toHaveTextContent("Submitted reflection");
+      }
+      expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+      expect(submittedBody).toEqual({
+        result: status,
+        comment: "Submitted reflection",
+      });
+      const cachedDetail = queryClient.getQueryData<EntryResponse>(
+        queryKeys.entries.detail(entryId),
+      );
+      expect(cachedDetail?.entry.status).toBe(status);
+      expect(cachedDetail?.entry.comment).toBe(returnedComment);
+      expect(
+        queryClient.getQueryState(queryKeys.entries.dashboard())?.isInvalidated,
+      ).toBe(true);
+      expect(
+        queryClient.getQueryState(queryKeys.stats.summary("this_month"))
+          ?.isInvalidated,
+      ).toBe(true);
+
+      await user.click(
+        screen.getByRole("link", { name: "Return to dashboard" }),
+      );
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe("/dashboard"),
+      );
+    },
+  );
 
   it.each([
     ["waiting", "waiting", "still in its waiting period"],
@@ -129,5 +217,9 @@ function renderPage() {
     { initialEntries: [`/entries/${entryId}/check-in`] },
   );
 
-  return render(<AppProviders queryClient={queryClient} router={router} />);
+  return {
+    ...render(<AppProviders queryClient={queryClient} router={router} />),
+    queryClient,
+    router,
+  };
 }

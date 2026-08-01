@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/errors";
@@ -11,13 +11,18 @@ import {
   useEntryDetail,
 } from "../features/entries/queries";
 import { formatUsd } from "../lib/currency";
-import type { Entry } from "../types/api";
+import type { Entry, EntryResponse } from "../types/api";
 
 export function CheckInEntryPage() {
   const { entryId = "" } = useParams();
   const returnPath = `/entries/${encodeURIComponent(entryId)}/check-in`;
   const detail = useEntryDetail(entryId, returnPath);
   const checkIn = useCheckInEntryMutation(entryId);
+  const [confirmation, setConfirmation] = useState<EntryResponse>();
+
+  if (confirmation !== undefined) {
+    return <CheckInConfirmation entry={confirmation.entry} />;
+  }
 
   if (detail.isPending) {
     return <Loading message="Loading check-in…" />;
@@ -54,10 +59,52 @@ export function CheckInEntryPage() {
       <EntryContext entry={entry} />
       <CheckInForm
         onSubmit={async (payload) => {
-          await checkIn.mutateAsync(payload);
+          const response = await checkIn.mutateAsync(payload);
+          setConfirmation(response);
         }}
       />
     </CheckInPageLayout>
+  );
+}
+
+function CheckInConfirmation({ entry }: { entry: Entry }) {
+  const confirmationRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    confirmationRef.current?.focus();
+  }, []);
+
+  const outcome =
+    entry.status === "saved"
+      ? `You did not buy ${entry.item_name}.`
+      : `You bought ${entry.item_name}.`;
+
+  return (
+    <div className="check-in-page">
+      <h1>Check-in complete</h1>
+      <div
+        className="request-state request-state--success"
+        ref={confirmationRef}
+        role="status"
+        tabIndex={-1}
+      >
+        <h2>
+          {entry.status === "saved" ? "Purchase avoided" : "Purchase recorded"}
+        </h2>
+        <p>{outcome}</p>
+        <p>
+          The server confirmed this entry as <strong>{entry.status}</strong>.
+        </p>
+        {entry.comment === null ? null : (
+          <p>
+            <strong>Reflection:</strong> {entry.comment}
+          </p>
+        )}
+      </div>
+      <Link className="dashboard-add-link" to="/dashboard">
+        Return to dashboard
+      </Link>
+    </div>
   );
 }
 
