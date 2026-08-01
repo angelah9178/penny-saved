@@ -22,7 +22,7 @@ complete.
 
 |             | Commit                                                              | Title                                   | Depends on  |
 | ----------- | ------------------------------------------------------------------- | --------------------------------------- | ----------- |
-| &#91; &#93; | [1](#commit-1--connect-check-in-to-the-backend)                     | Connect check-in to the backend         | DEV-013     |
+| &#91;x&#93; | [1](#commit-1--connect-check-in-to-the-backend)                     | Connect check-in to the backend         | DEV-013     |
 | &#91; &#93; | [2](#commit-2--build-the-check-in-form)                             | Build the check-in form                 | Commit 1    |
 | &#91; &#93; | [3](#commit-3--add-the-protected-check-in-route)                    | Add the protected check-in route        | Commit 2    |
 | &#91; &#93; | [4](#commit-4--submit-and-confirm-both-outcomes)                    | Submit and confirm both outcomes        | Commit 3    |
@@ -122,7 +122,7 @@ On success, cache handling must:
 
 ## Commit 1 — Connect Check-In to the Backend
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 1 adds the typed frontend operation and TanStack Query mutation used by the
 later screen. It connects existing frontend infrastructure to DEV-013 without adding
@@ -132,6 +132,36 @@ In plain English, this commit builds the behind-the-scenes messenger. Later code
 say “resolve this entry as saved” or “resolve it as purchased” without assembling a
 URL, managing credentials, decoding the response, or remembering which cached views
 have become stale.
+
+For example, a later page can call the frontend operation like this:
+
+```ts
+checkIn({
+  entryId: "abc-123",
+  result: "saved",
+  comment: "I realized I did not need it.",
+});
+```
+
+Commit 1 turns that instruction into the authenticated backend request:
+
+```http
+POST /api/entries/abc-123/check-in
+Content-Type: application/json
+
+{
+  "result": "saved",
+  "comment": "I realized I did not need it."
+}
+```
+
+It then receives the updated entry, places it in the detail cache, and marks the
+dashboard and statistics data for refresh. Backend errors remain available for the
+future page to explain. The mutation is never retried automatically because check-in
+is a deliberate, one-time lifecycle decision.
+
+Commit 1 does not create a page, form, or visible button. It installs the frontend
+“wiring”; Commits 2 through 4 add the controls and connect the complete user journey.
 
 ```text
 Future check-in form

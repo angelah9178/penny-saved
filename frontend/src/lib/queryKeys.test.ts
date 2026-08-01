@@ -27,6 +27,7 @@ describe("queryKeys", () => {
     "last_year",
     "all_time",
   ])("includes the %s range in a statistics key", (range) => {
+    expect(queryKeys.stats.all()).toEqual(["stats"]);
     expect(queryKeys.stats.summary(range)).toEqual(["stats", "summary", range]);
   });
 
