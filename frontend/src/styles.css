@@ -127,11 +127,58 @@ button {
 }
 
 .auth-form,
-.entry-form {
+.entry-form,
+.check-in-form {
   display: grid;
   gap: 1rem;
   max-width: 30rem;
   margin-bottom: 1rem;
+}
+
+.check-in-form__choices {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  border: 1px solid #9ca3af;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.check-in-form__choices legend {
+  padding: 0 0.25rem;
+  font-weight: 700;
+}
+
+.check-in-form__choices label {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+.check-in-form__choices input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+}
+
+.form-help {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.9375rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .form-field {

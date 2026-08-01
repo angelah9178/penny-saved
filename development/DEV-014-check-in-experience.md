@@ -23,7 +23,7 @@ complete.
 |             | Commit                                                              | Title                                   | Depends on  |
 | ----------- | ------------------------------------------------------------------- | --------------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--connect-check-in-to-the-backend)                     | Connect check-in to the backend         | DEV-013     |
-| &#91; &#93; | [2](#commit-2--build-the-check-in-form)                             | Build the check-in form                 | Commit 1    |
+| &#91;x&#93; | [2](#commit-2--build-the-check-in-form)                             | Build the check-in form                 | Commit 1    |
 | &#91; &#93; | [3](#commit-3--add-the-protected-check-in-route)                    | Add the protected check-in route        | Commit 2    |
 | &#91; &#93; | [4](#commit-4--submit-and-confirm-both-outcomes)                    | Submit and confirm both outcomes        | Commit 3    |
 | &#91; &#93; | [5](#commit-5--handle-conflicts-and-request-failures)               | Handle conflicts and request failures   | Commit 4    |
@@ -205,7 +205,7 @@ make frontend-test
 
 ## Commit 2 — Build the Check-In Form
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 2 builds the reusable visible form for choosing an outcome and writing the
 optional reflection. It is responsible for collecting a clear decision, not for
