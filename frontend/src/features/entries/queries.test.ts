@@ -164,6 +164,28 @@ describe("entry management query and mutation options", () => {
     unsubscribe();
   });
 
+  it("reports detail session expiry with a caller-specific check-in return path", async () => {
+    server.use(
+      http.get(`/api/entries/${entryId}`, () =>
+        HttpResponse.json(
+          { error: { code: "unauthorized", message: "Sign in." } },
+          { status: 401 },
+        ),
+      ),
+    );
+    const listener = vi.fn();
+    const unsubscribe = subscribeToSessionExpiry(listener);
+    const returnPath = `/entries/${entryId}/check-in`;
+
+    await expect(
+      testQueryClient().fetchQuery(
+        entryDetailQueryOptions(entryId, returnPath),
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(listener).toHaveBeenCalledWith({ returnTo: returnPath });
+    unsubscribe();
+  });
+
   it("creates without retrying and invalidates the dashboard", async () => {
     server.use(
       http.post("/api/entries", async ({ request }) => {

@@ -24,7 +24,7 @@ complete.
 | ----------- | ------------------------------------------------------------------- | --------------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--connect-check-in-to-the-backend)                     | Connect check-in to the backend         | DEV-013     |
 | &#91;x&#93; | [2](#commit-2--build-the-check-in-form)                             | Build the check-in form                 | Commit 1    |
-| &#91; &#93; | [3](#commit-3--add-the-protected-check-in-route)                    | Add the protected check-in route        | Commit 2    |
+| &#91;x&#93; | [3](#commit-3--add-the-protected-check-in-route)                    | Add the protected check-in route        | Commit 2    |
 | &#91; &#93; | [4](#commit-4--submit-and-confirm-both-outcomes)                    | Submit and confirm both outcomes        | Commit 3    |
 | &#91; &#93; | [5](#commit-5--handle-conflicts-and-request-failures)               | Handle conflicts and request failures   | Commit 4    |
 | &#91; &#93; | [6](#commit-6--complete-accessibility-integration-and-verification) | Complete accessibility and verification | Commits 1–5 |
@@ -259,7 +259,7 @@ make frontend-test
 
 ## Commit 3 — Add the Protected Check-In Route
 
-**Status:** Planned.
+**Status:** Complete.
 
 Commit 3 adds `/entries/{entry_id}/check-in`, loads the current owned entry, and
 places its original decision context beside the form from Commit 2.

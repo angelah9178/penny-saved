@@ -60,6 +60,14 @@ export const appRoutes = [
               return { Component: EditEntryPage };
             },
           },
+          {
+            path: "entries/:entryId/check-in",
+            lazy: async () => {
+              const { CheckInEntryPage } =
+                await import("../pages/CheckInEntryPage");
+              return { Component: CheckInEntryPage };
+            },
+          },
         ],
       },
       {

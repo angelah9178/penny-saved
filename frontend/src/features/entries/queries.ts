@@ -44,21 +44,21 @@ export function useDashboardEntries() {
   return useQuery(dashboardEntriesQueryOptions());
 }
 
-export function entryDetailQueryOptions(entryId: string) {
+export function entryDetailQueryOptions(entryId: string, returnPath?: string) {
   return queryOptions({
     queryKey: queryKeys.entries.detail(entryId),
     queryFn: ({ signal }) =>
       runProtectedRequest(
         () => getEntry(entryId, signal),
-        entryDetailReturnPath(entryId),
+        returnPath ?? entryDetailReturnPath(entryId),
       ),
     staleTime: DASHBOARD_STALE_TIME_MS,
     retry: shouldRetryQuery,
   });
 }
 
-export function useEntryDetail(entryId: string) {
-  return useQuery(entryDetailQueryOptions(entryId));
+export function useEntryDetail(entryId: string, returnPath?: string) {
+  return useQuery(entryDetailQueryOptions(entryId, returnPath));
 }
 
 export function createEntryMutationOptions(queryClient: QueryClient) {

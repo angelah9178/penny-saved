@@ -188,6 +188,58 @@ describe("authentication routes", () => {
     });
   });
 
+  it("protects the check-in route and preserves the selected entry as the return path", async () => {
+    const entryId = "70000000-0000-4000-8000-000000000001";
+    const { router } = renderRoute(`/entries/${entryId}/check-in`);
+
+    expect(
+      await screen.findByRole("heading", { name: "Log in" }),
+    ).toBeInTheDocument();
+    expect(router.state.location).toMatchObject({
+      pathname: "/login",
+      state: { returnTo: `/entries/${entryId}/check-in` },
+    });
+  });
+
+  it("opens an eligible check-in from the dashboard with current server context", async () => {
+    const user = userEvent.setup();
+    const entryId = "70000000-0000-4000-8000-000000000001";
+    const eligibleEntry = {
+      ...makeWaitingEntry(entryId, {
+        item_name: "Coffee grinder",
+        price_cents: 8_999,
+        reason_wanted: "Better coffee at home",
+      }),
+      dashboard_bucket: "needs_check_in",
+    };
+    useAuthenticatedSession();
+    server.use(
+      http.get("/api/entries", () =>
+        HttpResponse.json({
+          needs_check_in: [eligibleEntry],
+          waiting: [],
+          saved: [],
+          purchased: [],
+        }),
+      ),
+      http.get(`/api/entries/${entryId}`, () =>
+        HttpResponse.json({ entry: eligibleEntry }),
+      ),
+    );
+    const { router } = renderRoute("/dashboard");
+
+    await user.click(await screen.findByRole("link", { name: "Check in" }));
+
+    expect(router.state.location.pathname).toBe(`/entries/${entryId}/check-in`);
+    expect(
+      await screen.findByRole("heading", { name: "Check in: Coffee grinder" }),
+    ).toBeVisible();
+    expect(screen.getByText("Better coffee at home")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Submit check-in" }),
+    ).toBeVisible();
+  });
+
   it("completes create, edit, and delete without a full-page reload", async () => {
     const user = userEvent.setup();
     const entryId = "70000000-0000-4000-8000-000000000001";
