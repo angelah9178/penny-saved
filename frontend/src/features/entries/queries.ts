@@ -12,6 +12,7 @@ import { queryKeys } from "../../lib/queryKeys";
 import type {
   CheckInEntryRequest,
   CreateEntryRequest,
+  UpdateEntryCommentRequest,
   UpdateEntryRequest,
 } from "../../types/api";
 import { runProtectedRequest } from "../auth/sessionExpiry";
@@ -22,6 +23,7 @@ import {
   getDashboardEntries,
   getEntry,
   updateEntry,
+  updateEntryComment,
 } from "./api";
 
 const DASHBOARD_STALE_TIME_MS = 30 * 1_000;
@@ -164,6 +166,31 @@ export function checkInEntryMutationOptions(
 export function useCheckInEntryMutation(entryId: string) {
   const queryClient = useQueryClient();
   return useMutation(checkInEntryMutationOptions(queryClient, entryId));
+}
+
+export function updateEntryCommentMutationOptions(
+  queryClient: QueryClient,
+  entryId: string,
+) {
+  return mutationOptions({
+    mutationFn: (payload: UpdateEntryCommentRequest) =>
+      runProtectedRequest(
+        () => updateEntryComment(entryId, payload),
+        entryDetailReturnPath(entryId),
+      ),
+    onSuccess: async (response) => {
+      queryClient.setQueryData(queryKeys.entries.detail(entryId), response);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.entries.dashboard(),
+      });
+    },
+    retry: false,
+  });
+}
+
+export function useUpdateEntryCommentMutation(entryId: string) {
+  const queryClient = useQueryClient();
+  return useMutation(updateEntryCommentMutationOptions(queryClient, entryId));
 }
 
 function entryDetailReturnPath(entryId: string): string {

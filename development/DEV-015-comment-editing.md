@@ -25,7 +25,7 @@ complete.
 | &#91;x&#93;      | [1](#commit-1--define-the-comment-update-contract)                      | Define the comment update contract       | DEV-013     |
 | &#91;x&#93;      | [2](#commit-2--add-the-locked-comment-update)                           | Add the locked comment update            | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--expose-the-protected-comment-api)                        | Expose the protected comment API         | Commit 2    |
-| &#91;&#160;&#93; | [4](#commit-4--connect-comment-editing-to-the-frontend)                 | Connect comment editing to the frontend  | Commit 3    |
+| &#91;x&#93;      | [4](#commit-4--connect-comment-editing-to-the-frontend)                 | Connect comment editing to the frontend  | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--build-the-resolved-comment-editor)                       | Build the resolved comment editor        | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-failure-handling-and-verification)              | Complete failures and verification       | Commits 1–5 |
 
@@ -274,6 +274,38 @@ In plain English, this commit adds the door the frontend can use. The door check
 session and browser origin, validates the entry ID and body, calls the protected
 service, and translates the result or error into the project's standard JSON shape.
 
+As a metaphor, Commit 2 built a secure room inside a bank. Inside that room, a trained
+employee can lock one customer's record, confirm the customer owns it, confirm the
+entry is saved or purchased, change only the comment, and unlock the record. The room
+is safe, but customers cannot reach it directly.
+
+Commit 3 adds a guarded service window between the customer and that secure room:
+
+```text
+Frontend customer
+       ↓
+Guarded API service window
+       ↓
+Secure Commit 2 transaction room
+       ↓
+Database record
+```
+
+Before handing anything through the window, the guard asks whether the user is signed
+in, whether the request came from the trusted website, whether the entry ID is valid,
+and whether the form contains only a valid comment. If those checks pass, Commit 2
+still verifies ownership and locks the database row before changing it.
+
+In this metaphor, “exposing” means giving the frontend a reachable service window at
+`PATCH /api/entries/{entry_id}/comment`. “Protected” means that the URL is not an open
+door: unauthorized, untrusted, or malformed requests are turned away.
+
+The first three commits therefore divide responsibility clearly:
+
+- Commit 1 creates the strict form the customer must submit.
+- Commit 2 builds the secure room where the database update happens.
+- Commit 3 opens the guarded service window connecting the frontend to that room.
+
 “Protected” means that the endpoint requires a valid signed-in session, enforces the
 configured exact browser origin, scopes access to the authenticated owner, validates
 the UUID and strict comment-only body, and relies on Commit 2 to lock the row and
@@ -348,7 +380,7 @@ make backend-test
 
 ## Commit 4 — Connect Comment Editing to the Frontend
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 4 adds the typed API function and TanStack Query mutation that the visible
 editor will use. It does not add the editor to the page yet.
@@ -357,6 +389,44 @@ In plain English, this commit builds the behind-the-scenes messenger. A componen
 say “save this reflection for this entry” without assembling a URL, handling session
 credentials, decoding the entry response, or remembering which cached screens are
 stale.
+
+Commit 4 does not give the user a visible comment box or Save button. It only connects
+frontend code to the protected backend API created in Commit 3:
+
+```http
+PATCH /api/entries/{entry_id}/comment
+Content-Type: application/json
+
+{
+  "comment": "I borrowed one instead."
+}
+```
+
+Clearing the comment sends `{ "comment": null }`. A successful response contains the
+complete server-confirmed `EntryEnvelope`, including the normalized comment and new
+`updated_at` value.
+
+The boundary between commits is:
+
+```text
+Commit 3: Backend URL exists
+              ↓
+Commit 4: Frontend code can call that URL
+              ↓
+Commit 5: User gets a visible editor and Save button
+```
+
+After Commit 4, a later component can call the mutation with an instruction such as:
+
+```ts
+updateComment({
+  entryId: "abc-123",
+  comment: "I borrowed one instead.",
+});
+```
+
+Regular users still cannot trigger that instruction from the screen. Commit 5 builds
+the interface and connects its Save button to this Commit 4 mutation.
 
 ```text
 comment editor
@@ -548,6 +618,14 @@ and frontend editor remain intentionally unimplemented until Commits 2 through 5
 - Added API integration coverage for saved and purchased updates, clearing,
   authentication, `403` versus `404`, waiting rejection, malformed UUID and JSON,
   strict body validation, origin enforcement, response shape, and protected fields.
+- Added the typed frontend `PATCH /api/entries/{entry_id}/comment` operation using the
+  shared credentialed API client and encoded entry paths.
+- Added a non-retrying TanStack Query mutation that reports session expiry with the
+  detail return path, stores the server envelope in detail cache, and invalidates the
+  dashboard without invalidating statistics.
+- Added frontend API and query tests for replacement and `null` bodies, HTTP method,
+  encoded path, exact cache effects, retry behavior, session expiry, and preservation
+  of structured backend errors.
 - Documented the complete Commit 1 contract rules and corrected backend commit gates
   to use targets that exist in the repository Makefile.
 
@@ -565,11 +643,15 @@ The protected HTTP route now exposes that transaction to authenticated clients u
 the project's existing request validation, origin enforcement, error envelopes, and
 entry response contract.
 
+Frontend code can now call the protected operation through one typed mutation and
+immediately reconcile cached entry data with the server response. There is still no
+visible comment editor or Save button; Commit 5 owns that user interface.
+
 ### Usage and Safety Notes
 
-The schema validates request shape only; Commit 2 supplies database safety rules and
-Commit 3 supplies transport protection. The backend operation is now externally
-callable, but no visible frontend editor exists until Commits 4 and 5.
+The schema validates request shape only; Commit 2 supplies database safety rules,
+Commit 3 supplies transport protection, and Commit 4 supplies the frontend
+connection. No visible frontend editor exists until Commit 5.
 
 ### Verification
 
@@ -581,6 +663,9 @@ callable, but no visible frontend editor exists until Commits 4 and 5.
 - Commit 2 complete backend suite against PostgreSQL: 354 passed.
 - Commit 3 focused OpenAPI and entry API suite: 64 passed.
 - Commit 3 complete backend suite against PostgreSQL: 359 passed.
+- Commit 4 focused frontend API and query suite: 25 passed.
+- Commit 4 complete frontend suite: 296 passed.
+- Commit 4 frontend formatting, lint, and typecheck: passed.
 
 ### Limitations and Follow-Up
 
