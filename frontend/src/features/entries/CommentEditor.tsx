@@ -19,23 +19,28 @@ export function CommentEditor({ comment, onSubmit }: CommentEditorProps) {
   const [value, setValue] = useState(comment ?? "");
   const [savedValue, setSavedValue] = useState(comment);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string>();
+  const [fieldError, setFieldError] = useState<string>();
+  const [globalError, setGlobalError] = useState<string>();
   const [confirmation, setConfirmation] = useState<string>();
 
   useEffect(() => {
-    if (error !== undefined || confirmation !== undefined) {
+    if (globalError !== undefined || confirmation !== undefined) {
       feedbackRef.current?.focus();
     }
-  }, [confirmation, error]);
+  }, [confirmation, globalError]);
 
   async function submit() {
     if (submissionInFlight.current) return;
-    setError(undefined);
+    setFieldError(undefined);
+    setGlobalError(undefined);
     setConfirmation(undefined);
 
     const parsed = entryCommentSchema.safeParse(value);
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Enter a valid comment.");
+      setFieldError(
+        parsed.error.issues[0]?.message ?? "Enter a valid comment.",
+      );
+      setGlobalError("Please correct the comment.");
       return;
     }
     if (parsed.data === savedValue) {
@@ -53,7 +58,13 @@ export function CommentEditor({ comment, onSubmit }: CommentEditorProps) {
         response.entry.comment === null ? "Comment cleared." : "Comment saved.",
       );
     } catch (caught) {
-      setError(commentErrorMessage(caught));
+      const fieldMessage = commentFieldError(caught);
+      setFieldError(fieldMessage);
+      setGlobalError(
+        fieldMessage === undefined
+          ? commentRequestError(caught)
+          : "Please correct the comment.",
+      );
     } finally {
       submissionInFlight.current = false;
       setIsSubmitting(false);
@@ -61,7 +72,7 @@ export function CommentEditor({ comment, onSubmit }: CommentEditorProps) {
   }
 
   const helpId = `${fieldId}-help`;
-  const errorId = error === undefined ? undefined : `${fieldId}-error`;
+  const errorId = fieldError === undefined ? undefined : `${fieldId}-error`;
 
   return (
     <form
@@ -72,14 +83,14 @@ export function CommentEditor({ comment, onSubmit }: CommentEditorProps) {
         void submit();
       }}
     >
-      {error === undefined && confirmation === undefined ? null : (
+      {globalError === undefined && confirmation === undefined ? null : (
         <div
-          className={`request-state ${error === undefined ? "request-state--success" : "request-state--error"}`}
+          className={`request-state ${globalError === undefined ? "request-state--success" : "request-state--error"}`}
           ref={feedbackRef}
-          role={error === undefined ? "status" : "alert"}
+          role={globalError === undefined ? "status" : "alert"}
           tabIndex={-1}
         >
-          {error === undefined ? confirmation : "Please correct the comment."}
+          {globalError ?? confirmation}
         </div>
       )}
       <div className="form-field">
@@ -99,7 +110,7 @@ export function CommentEditor({ comment, onSubmit }: CommentEditorProps) {
         />
         {errorId === undefined ? null : (
           <p className="field-error" id={errorId}>
-            {error}
+            {fieldError}
           </p>
         )}
       </div>
@@ -115,9 +126,16 @@ export function CommentEditor({ comment, onSubmit }: CommentEditorProps) {
   );
 }
 
-function commentErrorMessage(error: unknown): string {
+function commentFieldError(error: unknown): string | undefined {
+  return error instanceof ApiError ? error.fields?.comment : undefined;
+}
+
+function commentRequestError(error: unknown): string {
   if (error instanceof ApiError) {
-    return error.fields?.comment ?? error.message;
+    if (error.status === 0 || error.status >= 500) {
+      return "We could not save the comment. Please try again.";
+    }
+    return error.message;
   }
   return "We could not save the comment. Please try again.";
 }

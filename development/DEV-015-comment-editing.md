@@ -27,7 +27,7 @@ complete.
 | &#91;x&#93;      | [3](#commit-3--expose-the-protected-comment-api)                        | Expose the protected comment API         | Commit 2    |
 | &#91;x&#93;      | [4](#commit-4--connect-comment-editing-to-the-frontend)                 | Connect comment editing to the frontend  | Commit 3    |
 | &#91;x&#93;      | [5](#commit-5--build-the-resolved-comment-editor)                       | Build the resolved comment editor        | Commit 4    |
-| &#91;&#160;&#93; | [6](#commit-6--complete-failure-handling-and-verification)              | Complete failures and verification       | Commits 1–5 |
+| &#91;x&#93;      | [6](#commit-6--complete-failure-handling-and-verification)              | Complete failures and verification       | Commits 1–5 |
 
 ## Objective
 
@@ -543,7 +543,7 @@ make frontend-test
 
 ## Commit 6 — Complete Failure Handling and Verification
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 6 completes recovery behavior, integration coverage, accessibility, responsive
 behavior, and the implementation record. It verifies the whole feature rather than
@@ -609,14 +609,19 @@ make check
 
 ## Implementation Record
 
-Complete this section as the commits land. Do not mark the tracker complete from the
-plan alone.
+This section records the completed implementation and verification.
 
 ### Overview
 
-Commit 1 defines the strict backend request contract for revising or clearing a
-resolved entry comment. The database mutation, service lifecycle check, API route,
-and frontend editor remain intentionally unimplemented until Commits 2 through 5.
+DEV-015 completes resolved-entry comment editing across the backend and frontend. An
+authenticated user can open a saved or purchased entry, revise or clear its optional
+reflection, and receive a server-confirmed result without changing the entry's core
+details, lifecycle result, check-in time, ownership, or statistics meaning.
+
+The backend validates a comment-only request, locks the owned row, verifies its
+current resolved status, and performs the narrow update in one transaction. The
+frontend exposes an accessible editor, uses the protected API without automatic
+write retries, and reconciles detail and dashboard caches from server truth.
 
 ### What Changed
 
@@ -659,6 +664,13 @@ and frontend editor remain intentionally unimplemented until Commits 2 through 5
 - Added component, card, and detail-page tests for saved and purchased access, waiting
   exclusion, null display, trimming, clearing, unchanged values, Unicode validation,
   server-normalized success, feedback focus, and duplicate activation.
+- Added retryable-failure handling that preserves edited text and hides backend
+  details behind generic retry guidance.
+- Added lifecycle-conflict recovery that refreshes detail and dashboard truth, plus a
+  single non-disclosing mutation-time unavailable state for both `403` and `404`.
+- Added cross-view integration coverage for dashboard navigation, comment submission,
+  server-confirmed detail cache replacement, dashboard invalidation, and unchanged
+  statistics cache state.
 - Documented the complete Commit 1 contract rules and corrected backend commit gates
   to use targets that exist in the repository Makefile.
 
@@ -688,9 +700,14 @@ without changing the historical purchase result.
 
 The schema validates request shape only; Commit 2 supplies database safety rules,
 Commit 3 supplies transport protection, Commit 4 supplies the frontend connection,
-and Commit 5 supplies the normal visible experience. Commit 6 still owns the broader
-mutation-time access-loss recovery, cross-view integration, accessibility, and
-responsive hardening pass.
+Commit 5 supplies the normal visible experience, and Commit 6 completes recovery and
+cross-view verification.
+
+The frontend never retries comment writes automatically or displays an optimistic
+comment. Retryable failures preserve the user's draft for an explicit retry. Session
+expiry uses the established protected-request flow and safe entry-detail return path.
+Mutation-time access loss does not reveal whether an entry exists for another owner.
+Statistics are deliberately not invalidated because comments do not affect totals.
 
 ### Verification
 
@@ -708,6 +725,12 @@ responsive hardening pass.
 - Commit 5 focused comment editor, entry card, and detail page suite: 24 passed.
 - Commit 5 complete frontend suite: 304 passed.
 - Commit 5 frontend formatting, lint, and typecheck: passed.
+- Commit 6 focused recovery and integration suite: 12 passed.
+- Final `make check`: passed.
+- Final frontend suite: 308 passed across 37 test files.
+- Final backend suite against PostgreSQL: 359 passed.
+- Final frontend production build and backend application construction: passed.
+- Final frontend/backend formatting and lint plus frontend typecheck: passed.
 
 ### Limitations and Follow-Up
 

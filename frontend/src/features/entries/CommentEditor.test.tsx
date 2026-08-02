@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "../../api/errors";
 import { renderWithApp } from "../../test/render";
 import type { EntryResponse } from "../../types/api";
 import { CommentEditor } from "./CommentEditor";
@@ -118,5 +119,36 @@ describe("CommentEditor", () => {
     ).toBeDisabled();
     expect(comment).toBeDisabled();
     finish?.(response("Updated"));
+  });
+
+  it("preserves edited text after a retryable failure and allows retry", async () => {
+    const user = userEvent.setup();
+    const submit = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new ApiError(503, "service_unavailable", "Internal database details"),
+      )
+      .mockResolvedValueOnce(response("Updated after retry"));
+    renderWithApp(<CommentEditor comment="Original" onSubmit={submit} />);
+    const comment = screen.getByLabelText("Comment");
+    await user.clear(comment);
+    await user.type(comment, "Updated after retry");
+
+    await user.click(screen.getByRole("button", { name: "Save comment" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We could not save the comment. Please try again.",
+    );
+    expect(
+      screen.queryByText(/Internal database details/),
+    ).not.toBeInTheDocument();
+    expect(comment).toHaveValue("Updated after retry");
+
+    await user.click(screen.getByRole("button", { name: "Save comment" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Comment saved.",
+    );
+    expect(submit).toHaveBeenCalledTimes(2);
   });
 });

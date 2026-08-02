@@ -1,3 +1,5 @@
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/errors";
@@ -10,11 +12,15 @@ import {
   useUpdateEntryCommentMutation,
 } from "../features/entries/queries";
 import { formatUsd } from "../lib/currency";
+import { queryKeys } from "../lib/queryKeys";
 
 export function EntryDetailPage() {
   const { entryId = "" } = useParams();
   const detail = useEntryDetail(entryId);
   const updateComment = useUpdateEntryCommentMutation(entryId);
+  const queryClient = useQueryClient();
+  const [mutationUnavailable, setMutationUnavailable] = useState(false);
+  const [lifecycleNotice, setLifecycleNotice] = useState<string>();
 
   if (detail.isPending) return <Loading message="Loading entry…" />;
 
@@ -66,7 +72,13 @@ export function EntryDetailPage() {
         )}
       </dl>
 
-      {resolved ? (
+      {lifecycleNotice === undefined ? null : (
+        <ErrorAlert message={lifecycleNotice} />
+      )}
+
+      {mutationUnavailable ? (
+        <ErrorAlert message="This entry is no longer available." />
+      ) : resolved ? (
         <section aria-labelledby="comment-editor-title">
           <h2 id="comment-editor-title">Edit comment</h2>
           <p>
@@ -74,7 +86,30 @@ export function EntryDetailPage() {
           </p>
           <CommentEditor
             comment={entry.comment}
-            onSubmit={(payload) => updateComment.mutateAsync(payload)}
+            onSubmit={async (payload) => {
+              try {
+                return await updateComment.mutateAsync(payload);
+              } catch (error) {
+                if (!(error instanceof ApiError)) throw error;
+
+                if (error.code === "invalid_entry_status") {
+                  setLifecycleNotice(
+                    "Only saved or purchased entries support comment editing. The page is refreshing with current server data.",
+                  );
+                  await refreshEntryTruth(queryClient, entryId);
+                  throw new ApiError(
+                    error.status,
+                    error.code,
+                    "This entry no longer supports comment editing.",
+                  );
+                }
+
+                if (error.status === 403 || error.status === 404) {
+                  setMutationUnavailable(true);
+                }
+                throw error;
+              }
+            }}
           />
         </section>
       ) : (
@@ -85,6 +120,20 @@ export function EntryDetailPage() {
       <Link to="/dashboard">Back to dashboard</Link>
     </div>
   );
+}
+
+async function refreshEntryTruth(
+  queryClient: QueryClient,
+  entryId: string,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.entries.detail(entryId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.entries.dashboard(),
+    }),
+  ]);
 }
 
 function detailErrorMessage(error: Error): string {
