@@ -52,7 +52,11 @@ export function EntryCard({ entry, section, onNotice }: EntryCardProps) {
           <Link to={`/entries/${entry.id}/edit`}>Edit</Link>
           <DeleteEntryButton entry={entry} onNotice={onNotice} />
         </footer>
-      ) : null}
+      ) : (
+        <footer className="entry-card__actions">
+          <Link to={`/entries/${entry.id}`}>Edit comment</Link>
+        </footer>
+      )}
     </article>
   );
 }

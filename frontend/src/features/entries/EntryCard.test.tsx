@@ -56,10 +56,13 @@ describe("EntryCard", () => {
   );
 
   it.each(["saved", "purchased"] satisfies DashboardBucket[])(
-    "does not show edit or delete actions for a %s entry",
+    "shows comment editing but not core editing or deletion for a %s entry",
     (section) => {
       renderCard(section);
 
+      expect(
+        screen.getByRole("link", { name: "Edit comment" }),
+      ).toHaveAttribute("href", "/entries/entry-1");
       expect(
         screen.queryByRole("link", { name: "Edit" }),
       ).not.toBeInTheDocument();

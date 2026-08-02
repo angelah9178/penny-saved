@@ -26,7 +26,7 @@ complete.
 | &#91;x&#93;      | [2](#commit-2--add-the-locked-comment-update)                           | Add the locked comment update            | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--expose-the-protected-comment-api)                        | Expose the protected comment API         | Commit 2    |
 | &#91;x&#93;      | [4](#commit-4--connect-comment-editing-to-the-frontend)                 | Connect comment editing to the frontend  | Commit 3    |
-| &#91;&#160;&#93; | [5](#commit-5--build-the-resolved-comment-editor)                       | Build the resolved comment editor        | Commit 4    |
+| &#91;x&#93;      | [5](#commit-5--build-the-resolved-comment-editor)                       | Build the resolved comment editor        | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-failure-handling-and-verification)              | Complete failures and verification       | Commits 1–5 |
 
 ## Objective
@@ -469,11 +469,34 @@ make frontend-test
 
 ## Commit 5 — Build the Resolved Comment Editor
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 5 adds the visible editor to owned saved and purchased entry details. Waiting
 details continue to expose the DEV-012 core-field actions and do not show this
 resolved-comment control.
+
+This is the commit where the feature becomes usable through the website. A saved or
+purchased dashboard card gets an Edit comment link. The protected detail page shows
+the current reflection in a labelled text box and provides a Save comment button.
+
+```text
+User opens a saved or purchased entry
+              ↓
+User edits or clears the comment
+              ↓
+User selects Save comment
+              ↓
+Commit 5 calls Commit 4's mutation
+              ↓
+Commit 4 calls Commit 3's protected API
+              ↓
+Commit 2 safely updates the locked database row
+```
+
+Commit 5 owns the normal visible experience: current entry context, validation,
+pending state, duplicate-submit prevention, and server-confirmed success feedback.
+Commit 6 follows with the broader failure recovery, accessibility integration, and
+responsive verification pass.
 
 In plain English, this commit gives the user one clearly labelled text box containing
 the current reflection and one save action. Saving nonblank text replaces the old
@@ -626,6 +649,16 @@ and frontend editor remain intentionally unimplemented until Commits 2 through 5
 - Added frontend API and query tests for replacement and `null` bodies, HTTP method,
   encoded path, exact cache effects, retry behavior, session expiry, and preservation
   of structured backend errors.
+- Added Edit comment navigation to saved and purchased dashboard cards and a protected
+  `/entries/{entry_id}` detail route with immutable purchase and resolution context.
+- Added the visible resolved comment editor with server-prefilled text, normalized
+  replacement and clear operations, unchanged-value detection, Unicode-aware
+  4,000-character validation, pending state, duplicate-submit prevention, and focused
+  success or validation feedback.
+- Kept the editor hidden for waiting entries and added responsive detail-page styling.
+- Added component, card, and detail-page tests for saved and purchased access, waiting
+  exclusion, null display, trimming, clearing, unchanged values, Unicode validation,
+  server-normalized success, feedback focus, and duplicate activation.
 - Documented the complete Commit 1 contract rules and corrected backend commit gates
   to use targets that exist in the repository Makefile.
 
@@ -644,14 +677,20 @@ the project's existing request validation, origin enforcement, error envelopes, 
 entry response contract.
 
 Frontend code can now call the protected operation through one typed mutation and
-immediately reconcile cached entry data with the server response. There is still no
-visible comment editor or Save button; Commit 5 owns that user interface.
+immediately reconcile cached entry data with the server response. Commit 5 builds the
+visible comment editor and Save comment button on top of that connection.
+
+Saved and purchased entries now expose that interface. Users can open entry details,
+edit or clear the reflection, select Save comment, and see the server-confirmed value
+without changing the historical purchase result.
 
 ### Usage and Safety Notes
 
 The schema validates request shape only; Commit 2 supplies database safety rules,
-Commit 3 supplies transport protection, and Commit 4 supplies the frontend
-connection. No visible frontend editor exists until Commit 5.
+Commit 3 supplies transport protection, Commit 4 supplies the frontend connection,
+and Commit 5 supplies the normal visible experience. Commit 6 still owns the broader
+mutation-time access-loss recovery, cross-view integration, accessibility, and
+responsive hardening pass.
 
 ### Verification
 
@@ -666,6 +705,9 @@ connection. No visible frontend editor exists until Commit 5.
 - Commit 4 focused frontend API and query suite: 25 passed.
 - Commit 4 complete frontend suite: 296 passed.
 - Commit 4 frontend formatting, lint, and typecheck: passed.
+- Commit 5 focused comment editor, entry card, and detail page suite: 24 passed.
+- Commit 5 complete frontend suite: 304 passed.
+- Commit 5 frontend formatting, lint, and typecheck: passed.
 
 ### Limitations and Follow-Up
 
