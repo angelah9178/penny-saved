@@ -10,6 +10,7 @@ import type {
   CreateEntryRequest,
   DashboardEntries,
   EntryResponse,
+  UpdateEntryCommentRequest,
 } from "../../types/api";
 import {
   resetSessionExpiry,
@@ -22,6 +23,7 @@ import {
   deleteEntryMutationOptions,
   entryDetailQueryOptions,
   updateEntryMutationOptions,
+  updateEntryCommentMutationOptions,
 } from "./queries";
 
 const dashboardEntries: DashboardEntries = {
@@ -361,6 +363,111 @@ describe("entry management query and mutation options", () => {
       returnTo: `/entries/${entryId}/check-in`,
     });
     unsubscribe();
+  });
+
+  it("updates a comment without retrying or invalidating statistics", async () => {
+    const commentPayload: UpdateEntryCommentRequest = {
+      comment: "I borrowed one instead.",
+    };
+    const updatedResponse: EntryResponse = {
+      entry: {
+        ...entryResponse.entry,
+        status: "saved",
+        dashboard_bucket: "saved",
+        comment: commentPayload.comment,
+        checked_in_at: "2026-08-02T14:00:00Z",
+        updated_at: "2026-08-03T14:00:00Z",
+      },
+    };
+    server.use(
+      http.patch(`/api/entries/${entryId}/comment`, async ({ request }) => {
+        expect(await request.json()).toEqual(commentPayload);
+        return HttpResponse.json(updatedResponse);
+      }),
+    );
+    const queryClient = testQueryClient();
+    seedDashboard(queryClient);
+    queryClient.setQueryData(queryKeys.entries.detail(entryId), entryResponse);
+    queryClient.setQueryData(
+      queryKeys.stats.summary("this_month"),
+      "cached statistics",
+    );
+    const options = updateEntryCommentMutationOptions(queryClient, entryId);
+
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, options)
+        .execute(commentPayload),
+    ).resolves.toEqual(updatedResponse);
+
+    expect(options.retry).toBe(false);
+    expect(queryClient.getQueryData(queryKeys.entries.detail(entryId))).toEqual(
+      updatedResponse,
+    );
+    expect(
+      queryClient.getQueryState(queryKeys.entries.dashboard())?.isInvalidated,
+    ).toBe(true);
+    expect(
+      queryClient.getQueryState(queryKeys.stats.summary("this_month"))
+        ?.isInvalidated,
+    ).toBe(false);
+  });
+
+  it("reports comment-update session expiry with the detail return path", async () => {
+    server.use(
+      http.patch(`/api/entries/${entryId}/comment`, () =>
+        HttpResponse.json(
+          { error: { code: "unauthorized", message: "Sign in." } },
+          { status: 401 },
+        ),
+      ),
+    );
+    const listener = vi.fn();
+    const unsubscribe = subscribeToSessionExpiry(listener);
+    const queryClient = testQueryClient();
+    const options = updateEntryCommentMutationOptions(queryClient, entryId);
+
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, options)
+        .execute({ comment: null }),
+    ).rejects.toMatchObject({ status: 401, code: "unauthorized" });
+    expect(listener).toHaveBeenCalledWith({
+      returnTo: `/entries/${entryId}`,
+    });
+    unsubscribe();
+  });
+
+  it("preserves structured comment-update failures for the future editor", async () => {
+    server.use(
+      http.patch(`/api/entries/${entryId}/comment`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "invalid_entry_status",
+              message: "Only resolved comments can be edited.",
+              fields: { comment: "The comment was not saved." },
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const queryClient = testQueryClient();
+    const options = updateEntryCommentMutationOptions(queryClient, entryId);
+
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, options)
+        .execute({ comment: "Reflection" }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: "invalid_entry_status",
+      fields: { comment: "The comment was not saved." },
+    });
   });
 });
 

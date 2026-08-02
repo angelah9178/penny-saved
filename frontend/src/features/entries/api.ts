@@ -4,6 +4,7 @@ import type {
   CreateEntryRequest,
   DashboardEntries,
   EntryResponse,
+  UpdateEntryCommentRequest,
   UpdateEntryRequest,
 } from "../../types/api";
 
@@ -55,6 +56,16 @@ export function checkInEntry(
 ): Promise<EntryResponse> {
   return apiFetch<EntryResponse>(`${entryPath(entryId)}/check-in`, {
     method: "POST",
+    body: payload,
+  });
+}
+
+export function updateEntryComment(
+  entryId: string,
+  payload: UpdateEntryCommentRequest,
+): Promise<EntryResponse> {
+  return apiFetch<EntryResponse>(`${entryPath(entryId)}/comment`, {
+    method: "PATCH",
     body: payload,
   });
 }

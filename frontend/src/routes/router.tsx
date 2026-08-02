@@ -54,6 +54,14 @@ export const appRoutes = [
             },
           },
           {
+            path: "entries/:entryId",
+            lazy: async () => {
+              const { EntryDetailPage } =
+                await import("../pages/EntryDetailPage");
+              return { Component: EntryDetailPage };
+            },
+          },
+          {
             path: "entries/:entryId/edit",
             lazy: async () => {
               const { EditEntryPage } = await import("../pages/EditEntryPage");

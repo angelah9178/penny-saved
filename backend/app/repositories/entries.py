@@ -148,6 +148,19 @@ def check_in_owned_entry(
     entry.updated_at = checked_in_at
 
 
+def update_owned_entry_comment(
+    *,
+    entry: ImpulsePurchaseEntry,
+    user_id: UUID,
+    comment: str | None,
+    updated_at: datetime,
+) -> None:
+    """Stage only comment metadata after the service locks and validates the entry."""
+    _require_entry_owner(entry, user_id)
+    entry.comment = comment
+    entry.updated_at = updated_at
+
+
 async def delete_owned_entry(
     db: AsyncSession,
     *,

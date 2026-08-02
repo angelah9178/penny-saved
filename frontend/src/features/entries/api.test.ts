@@ -5,6 +5,7 @@ import type {
   CreateEntryRequest,
   DashboardEntries,
   EntryResponse,
+  UpdateEntryCommentRequest,
 } from "../../types/api";
 import {
   checkInEntry,
@@ -13,6 +14,7 @@ import {
   getDashboardEntries,
   getEntry,
   updateEntry,
+  updateEntryComment,
 } from "./api";
 
 const fetchMock = vi.fn<typeof fetch>();
@@ -162,6 +164,38 @@ describe("dashboard entries API", () => {
       body: JSON.stringify(checkInPayload),
     });
   });
+
+  it.each([
+    { comment: "I borrowed one instead." },
+    { comment: null },
+  ] satisfies UpdateEntryCommentRequest[])(
+    "updates an entry comment with only $comment",
+    async (commentPayload) => {
+      const updatedResponse: EntryResponse = {
+        entry: {
+          ...entryResponse.entry,
+          status: "saved",
+          dashboard_bucket: "saved",
+          comment: commentPayload.comment,
+          checked_in_at: "2026-08-02T14:00:00Z",
+          updated_at: "2026-08-03T14:00:00Z",
+        },
+      };
+      fetchMock.mockResolvedValue(Response.json(updatedResponse));
+
+      await expect(
+        updateEntryComment("entry/with spaces", commentPayload),
+      ).resolves.toEqual(updatedResponse);
+
+      const [url, init] = firstFetchCall();
+      expect(url).toBe("/api/entries/entry%2Fwith%20spaces/comment");
+      expect(init).toMatchObject({
+        method: "PATCH",
+        credentials: "include",
+        body: JSON.stringify(commentPayload),
+      });
+    },
+  );
 });
 
 function firstFetchCall(): Parameters<typeof fetch> {
