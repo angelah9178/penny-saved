@@ -22,7 +22,7 @@ complete.
 
 |                  | Commit                                                                  | Title                                    | Depends on  |
 | ---------------- | ----------------------------------------------------------------------- | ---------------------------------------- | ----------- |
-| &#91;&#160;&#93; | [1](#commit-1--define-the-comment-update-contract)                      | Define the comment update contract       | DEV-013     |
+| &#91;x&#93;      | [1](#commit-1--define-the-comment-update-contract)                      | Define the comment update contract       | DEV-013     |
 | &#91;&#160;&#93; | [2](#commit-2--add-the-locked-comment-update)                           | Add the locked comment update            | Commit 1    |
 | &#91;&#160;&#93; | [3](#commit-3--expose-the-protected-comment-api)                        | Expose the protected comment API         | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--connect-comment-editing-to-the-frontend)                 | Connect comment editing to the frontend  | Commit 3    |
@@ -126,10 +126,24 @@ transaction rollback behavior.
 
 ## Commit 1 — Define the Comment Update Contract
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 1 defines the small request shape and the domain language used by the later
 repository, service, route, and tests. It does not update a database row yet.
+
+The contract rules are:
+
+- The request must contain exactly one field: `comment`.
+- `comment` may be a string or `null`; omitting it is invalid because callers must
+  deliberately choose whether to replace or clear the reflection.
+- Leading and trailing whitespace is removed before validation and storage.
+- Empty or whitespace-only text becomes `null`, which clears the comment.
+- A nonblank normalized comment may contain at most 4,000 Unicode characters.
+- Values of the wrong type are rejected instead of being converted to text.
+- Unknown fields such as `status`, `price_cents`, or `item_name` are rejected.
+- A successful operation will reuse the existing `EntryEnvelope` response shape.
+- Waiting-entry rejection uses the `invalid_entry_status` lifecycle conflict; the
+  database status check itself is implemented in Commit 2.
 
 In plain English, this commit establishes that the caller may submit a reflection and
 nothing else. A request cannot quietly include `status: "saved"`, a different price,
@@ -167,7 +181,6 @@ Commit gate:
 ```bash
 make backend-format-check
 make backend-lint
-make backend-typecheck
 make backend-test
 ```
 
@@ -221,7 +234,6 @@ Commit gate:
 ```bash
 make backend-format-check
 make backend-lint
-make backend-typecheck
 make backend-test
 ```
 
@@ -273,7 +285,6 @@ Commit gate:
 ```bash
 make backend-format-check
 make backend-lint
-make backend-typecheck
 make backend-test
 ```
 
@@ -452,23 +463,38 @@ plan alone.
 
 ### Overview
 
-Not implemented yet.
+Commit 1 defines the strict backend request contract for revising or clearing a
+resolved entry comment. The database mutation, service lifecycle check, API route,
+and frontend editor remain intentionally unimplemented until Commits 2 through 5.
 
 ### What Changed
 
-Not implemented yet.
+- Added `EntryCommentUpdateRequest` as a required, nullable, comment-only schema.
+- Extracted shared optional-comment normalization so check-in and later comment
+  updates trim and clear text identically.
+- Added focused schema coverage for valid normalization, Unicode length boundaries,
+  omitted input, wrong types, over-limit values, and protected extra fields.
+- Documented the complete Commit 1 contract rules and corrected backend commit gates
+  to use targets that exist in the repository Makefile.
 
 ### What It Achieved
 
-Not implemented yet.
+Later backend layers now have one validated request type that can express either a
+normalized replacement reflection or an explicit `null` clear operation without
+accepting lifecycle or core-entry fields.
 
 ### Usage and Safety Notes
 
-Not implemented yet.
+The schema validates request shape only. It does not establish ownership, inspect the
+stored status, or update a row. Those safety rules belong to the locked service
+transaction in Commit 2 and the authenticated route in Commit 3.
 
 ### Verification
 
-Not run yet.
+- Focused schema suite: 56 passed.
+- Backend Ruff formatting: passed.
+- Backend Ruff lint: passed.
+- Complete backend suite against PostgreSQL: 345 passed.
 
 ### Limitations and Follow-Up
 

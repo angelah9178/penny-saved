@@ -33,6 +33,14 @@ def normalize_required_text(value: str) -> str:
     return value.strip()
 
 
+def normalize_optional_comment(value: object) -> object:
+    """Trim comment text and represent blank input consistently as null."""
+    if isinstance(value, str):
+        normalized = value.strip()
+        return normalized or None
+    return value
+
+
 class DashboardBucket(StrEnum):
     """Display groups derived from stored entry state and request time."""
 
@@ -87,10 +95,21 @@ class EntryCheckInRequest(BaseModel):
     @classmethod
     def normalize_comment(cls, value: object) -> object:
         """Trim comments and represent blank text consistently as null."""
-        if isinstance(value, str):
-            normalized = value.strip()
-            return normalized or None
-        return value
+        return normalize_optional_comment(value)
+
+
+class EntryCommentUpdateRequest(BaseModel):
+    """The only user-controlled field accepted when revising a resolved comment."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    comment: str | None = Field(max_length=MAX_COMMENT_LENGTH)
+
+    @field_validator("comment", mode="before")
+    @classmethod
+    def normalize_comment(cls, value: object) -> object:
+        """Reuse check-in comment normalization for later reflection edits."""
+        return normalize_optional_comment(value)
 
 
 class EntryResponse(BaseModel):

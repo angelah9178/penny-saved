@@ -17,6 +17,7 @@ from app.schemas.entry import (
     DashboardEntriesResponse,
     EntryCheckInRequest,
     EntryCheckInResult,
+    EntryCommentUpdateRequest,
     EntryCreateRequest,
     EntryEnvelope,
     EntryUpdateRequest,
@@ -193,6 +194,51 @@ def test_entry_check_in_accepts_comment_at_database_limit_after_trimming() -> No
 def test_entry_check_in_rejects_invalid_contract_values(payload: dict[str, object]) -> None:
     with pytest.raises(ValidationError):
         EntryCheckInRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("comment", "expected"),
+    [
+        (None, None),
+        ("", None),
+        ("   ", None),
+        ("\t\n", None),
+        ("  I borrowed one instead.\n", "I borrowed one instead."),
+    ],
+)
+def test_entry_comment_update_normalizes_nullable_comment(
+    comment: str | None,
+    expected: str | None,
+) -> None:
+    request = EntryCommentUpdateRequest(comment=comment)
+
+    assert request.comment == expected
+
+
+def test_entry_comment_update_accepts_unicode_database_limit_after_trimming() -> None:
+    comment = "🪙" * MAX_COMMENT_LENGTH
+
+    request = EntryCommentUpdateRequest(comment=f" {comment} ")
+
+    assert request.comment == comment
+    assert len(request.comment) == MAX_COMMENT_LENGTH
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"comment": 123},
+        {"comment": "x" * (MAX_COMMENT_LENGTH + 1)},
+        {"comment": "Updated reflection", "status": "saved"},
+        {"comment": "Updated reflection", "price_cents": 1},
+    ],
+)
+def test_entry_comment_update_rejects_invalid_contract_values(
+    payload: dict[str, object],
+) -> None:
+    with pytest.raises(ValidationError):
+        EntryCommentUpdateRequest.model_validate(payload)
 
 
 def test_waiting_entry_remains_waiting_one_microsecond_before_eligibility() -> None:
