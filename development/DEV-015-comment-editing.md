@@ -24,7 +24,7 @@ complete.
 | ---------------- | ----------------------------------------------------------------------- | ---------------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--define-the-comment-update-contract)                      | Define the comment update contract       | DEV-013     |
 | &#91;x&#93;      | [2](#commit-2--add-the-locked-comment-update)                           | Add the locked comment update            | Commit 1    |
-| &#91;&#160;&#93; | [3](#commit-3--expose-the-protected-comment-api)                        | Expose the protected comment API         | Commit 2    |
+| &#91;x&#93;      | [3](#commit-3--expose-the-protected-comment-api)                        | Expose the protected comment API         | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--connect-comment-editing-to-the-frontend)                 | Connect comment editing to the frontend  | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--build-the-resolved-comment-editor)                       | Build the resolved comment editor        | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-failure-handling-and-verification)              | Complete failures and verification       | Commits 1–5 |
@@ -264,7 +264,7 @@ make backend-test
 
 ## Commit 3 — Expose the Protected Comment API
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 3 makes the service available through the authenticated HTTP endpoint. It
 wires transport concerns to the transaction from Commit 2 rather than duplicating
@@ -273,6 +273,11 @@ ownership or status rules in the route.
 In plain English, this commit adds the door the frontend can use. The door checks the
 session and browser origin, validates the entry ID and body, calls the protected
 service, and translates the result or error into the project's standard JSON shape.
+
+“Protected” means that the endpoint requires a valid signed-in session, enforces the
+configured exact browser origin, scopes access to the authenticated owner, validates
+the UUID and strict comment-only body, and relies on Commit 2 to lock the row and
+accept only a currently saved or purchased entry.
 
 ```text
 PATCH /api/entries/{entry_id}/comment
@@ -283,6 +288,34 @@ locked service transaction from Commit 2
         ↓
 200 EntryEnvelope or established safe error envelope
 ```
+
+The route stays thin. It handles HTTP concerns and delegates ownership, locking,
+lifecycle validation, mutation, commit, and rollback to the service transaction:
+
+```text
+HTTP request
+    ↓ validate session, origin, UUID, and request body
+Commit 2 service
+    ↓ lock row, verify ownership and status, update comment
+HTTP response
+```
+
+Expected responses are:
+
+| Situation                         | Status | Error code             |
+| --------------------------------- | -----: | ---------------------- |
+| Successful normalized update      |  `200` | —                      |
+| Missing or expired session        |  `401` | `unauthorized`         |
+| Entry belongs to another user     |  `403` | `forbidden`            |
+| Entry does not exist              |  `404` | `not_found`            |
+| Entry is still waiting            |  `409` | `invalid_entry_status` |
+| Invalid UUID or request body      |  `422` | `validation_error`     |
+| Malformed JSON                    |  `400` | `malformed_json`       |
+| Database unavailable              |  `503` | `service_unavailable`  |
+
+The request cannot change status, price, item name, reason, ownership, or lifecycle
+timestamps. Commit 1 rejects those fields, and Commit 2 limits the actual mutation to
+`comment` and `updated_at`.
 
 Suggested commit message:
 
@@ -507,6 +540,14 @@ and frontend editor remain intentionally unimplemented until Commits 2 through 5
 - Added repository and PostgreSQL service tests for saved and purchased updates,
   clearing, waiting rejection, ownership, access errors, rollback, timestamps, and
   preservation of protected fields.
+- Added the authenticated, exact-origin-protected
+  `PATCH /api/entries/{entry_id}/comment` route returning the established
+  `EntryEnvelope`.
+- Documented the route's success and safe failure responses in OpenAPI, including
+  malformed JSON, lifecycle conflicts, database availability, and unexpected errors.
+- Added API integration coverage for saved and purchased updates, clearing,
+  authentication, `403` versus `404`, waiting rejection, malformed UUID and JSON,
+  strict body validation, origin enforcement, response shape, and protected fields.
 - Documented the complete Commit 1 contract rules and corrected backend commit gates
   to use targets that exist in the repository Makefile.
 
@@ -520,12 +561,15 @@ The backend can now safely perform that update as one transaction. Concurrent en
 mutations serialize through the row lock, and only a currently saved or purchased
 owned entry can reach the narrow repository mutation.
 
+The protected HTTP route now exposes that transaction to authenticated clients using
+the project's existing request validation, origin enforcement, error envelopes, and
+entry response contract.
+
 ### Usage and Safety Notes
 
-The schema validates request shape only. It does not establish ownership, inspect the
-stored status, or update a row. Commit 2 now supplies those safety rules in the
-service layer. The operation is not externally callable until Commit 3 adds the
-authenticated, origin-protected HTTP route.
+The schema validates request shape only; Commit 2 supplies database safety rules and
+Commit 3 supplies transport protection. The backend operation is now externally
+callable, but no visible frontend editor exists until Commits 4 and 5.
 
 ### Verification
 
@@ -535,6 +579,8 @@ authenticated, origin-protected HTTP route.
 - Commit 1 complete backend suite against PostgreSQL: 345 passed.
 - Commit 2 focused repository and service suite: 65 passed.
 - Commit 2 complete backend suite against PostgreSQL: 354 passed.
+- Commit 3 focused OpenAPI and entry API suite: 64 passed.
+- Commit 3 complete backend suite against PostgreSQL: 359 passed.
 
 ### Limitations and Follow-Up
 

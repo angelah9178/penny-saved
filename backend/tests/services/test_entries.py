@@ -392,8 +392,20 @@ async def test_entry_api_requires_authentication_for_every_entry_action(
                 f"/api/entries/{entry_id}/check-in",
                 json={"result": "saved"},
             )
+            comment_updated = await client.patch(
+                f"/api/entries/{entry_id}/comment",
+                json={"comment": "Updated reflection"},
+            )
 
-        for response in (created, listed, detail, updated, deleted, checked_in):
+        for response in (
+            created,
+            listed,
+            detail,
+            updated,
+            deleted,
+            checked_in,
+            comment_updated,
+        ):
             assert response.status_code == 401
             assert response.json()["error"]["code"] == "unauthorized"
 
@@ -1634,3 +1646,205 @@ async def test_comment_update_service_rolls_back_partial_repository_failure(
         assert persisted is not None
         assert persisted.comment == "Original reflection"
         assert persisted.updated_at == original_updated_at
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("stored_status", "submitted_comment", "expected_comment"),
+    [
+        (EntryStatus.SAVED, "  I borrowed one instead.  ", "I borrowed one instead."),
+        (EntryStatus.PURCHASED, "   ", None),
+    ],
+)
+async def test_comment_update_api_returns_complete_server_confirmed_entry(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+    stored_status: EntryStatus,
+    submitted_comment: str,
+    expected_comment: str | None,
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("92000000-0000-4000-8000-000000000001")
+    checked_in_at = NOW - timedelta(hours=1)
+    async with factory() as db:
+        user = make_user()
+        entry = make_entry(
+            entry_id=entry_id,
+            status=stored_status,
+            created_at=NOW - timedelta(days=3),
+            checked_in_at=checked_in_at,
+        )
+        entry.comment = "Original reflection"
+        db.add_all([user, entry])
+        await db.commit()
+        original_core = (
+            entry.item_name,
+            entry.price_cents,
+            entry.reason_wanted,
+            entry.status,
+            entry.created_at,
+            entry.checked_in_at,
+        )
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            response = await client.patch(
+                f"/api/entries/{entry_id}/comment",
+                json={"comment": submitted_comment},
+            )
+
+        assert response.status_code == 200
+        body = response.json()["entry"]
+        assert set(body) == {
+            "id",
+            "item_name",
+            "price_cents",
+            "reason_wanted",
+            "status",
+            "dashboard_bucket",
+            "comment",
+            "created_at",
+            "eligible_for_check_in_at",
+            "checked_in_at",
+            "updated_at",
+        }
+        assert body["comment"] == expected_comment
+        assert body["status"] == body["dashboard_bucket"] == stored_status.value
+        assert body["checked_in_at"] == "2026-07-30T11:00:00Z"
+        assert body["updated_at"] == "2026-07-30T12:00:00Z"
+        assert "user_id" not in response.text
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert (
+            persisted.item_name,
+            persisted.price_cents,
+            persisted.reason_wanted,
+            persisted.status,
+            persisted.created_at,
+            persisted.checked_in_at,
+        ) == original_core
+
+
+@pytest.mark.asyncio
+async def test_comment_update_api_returns_waiting_conflict_without_mutation(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("92000000-0000-4000-8000-000000000002")
+    async with factory() as db:
+        user = make_user()
+        entry = make_entry(entry_id=entry_id, created_at=NOW - timedelta(days=3))
+        db.add_all([user, entry])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            response = await client.patch(
+                f"/api/entries/{entry_id}/comment",
+                json={"comment": "Not resolved"},
+            )
+
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "invalid_entry_status"
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.comment is None
+        assert persisted.updated_at == entry.created_at
+
+
+@pytest.mark.asyncio
+async def test_comment_update_api_distinguishes_forbidden_from_not_found_safely(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    other_entry_id = UUID("92000000-0000-4000-8000-000000000003")
+    missing_entry_id = UUID("92000000-0000-4000-8000-000000000099")
+    async with factory() as db:
+        user = make_user()
+        other_user = make_user(user_id=OTHER_USER_ID, email="private-comment@example.com")
+        other_entry = make_entry(
+            entry_id=other_entry_id,
+            user_id=OTHER_USER_ID,
+            status=EntryStatus.SAVED,
+            created_at=NOW - timedelta(days=3),
+            checked_in_at=NOW - timedelta(hours=1),
+        )
+        db.add_all([user, other_user, other_entry])
+        await db.commit()
+        app = entry_app(db=db, user=user)
+
+        async with api_client(app) as client:
+            forbidden = await client.patch(
+                f"/api/entries/{other_entry_id}/comment",
+                json={"comment": "Forbidden reflection"},
+            )
+            missing = await client.patch(
+                f"/api/entries/{missing_entry_id}/comment",
+                json={"comment": "Missing reflection"},
+            )
+
+        assert (forbidden.status_code, forbidden.json()["error"]["code"]) == (
+            403,
+            "forbidden",
+        )
+        assert (missing.status_code, missing.json()["error"]["code"]) == (404, "not_found")
+        persisted = await db.get(ImpulsePurchaseEntry, other_entry_id)
+        assert persisted is not None
+        assert persisted.comment is None
+
+
+@pytest.mark.asyncio
+async def test_comment_update_api_rejects_invalid_input_and_untrusted_origin(
+    entry_database: tuple[AsyncEngine, async_sessionmaker[AsyncSession]],
+) -> None:
+    _, factory = entry_database
+    entry_id = UUID("92000000-0000-4000-8000-000000000004")
+    async with factory() as db:
+        user = make_user()
+        entry = make_entry(
+            entry_id=entry_id,
+            status=EntryStatus.PURCHASED,
+            created_at=NOW - timedelta(days=3),
+            checked_in_at=NOW - timedelta(hours=1),
+        )
+        db.add_all([user, entry])
+        await db.commit()
+        app = entry_app(
+            db=db,
+            user=user,
+            frontend_origin="https://penny-saved.example",
+        )
+
+        async with api_client(app) as client:
+            malformed_uuid = await client.patch(
+                "/api/entries/not-a-uuid/comment",
+                json={"comment": "Reflection"},
+            )
+            missing_comment = await client.patch(
+                f"/api/entries/{entry_id}/comment",
+                json={},
+            )
+            protected_field = await client.patch(
+                f"/api/entries/{entry_id}/comment",
+                json={"comment": "Reflection", "status": "saved"},
+            )
+            malformed_json = await client.patch(
+                f"/api/entries/{entry_id}/comment",
+                content=b'{"comment":',
+                headers={"Content-Type": "application/json"},
+            )
+            untrusted = await client.patch(
+                f"/api/entries/{entry_id}/comment",
+                headers={"Origin": "https://evil.example"},
+                json={"comment": "Reflection"},
+            )
+
+        for response in (malformed_uuid, missing_comment, protected_field):
+            assert response.status_code == 422
+            assert response.json()["error"]["code"] == "validation_error"
+        assert malformed_json.status_code == 400
+        assert malformed_json.json()["error"]["code"] == "malformed_json"
+        assert untrusted.status_code == 403
+        assert untrusted.json()["error"]["code"] == "forbidden"
+        persisted = await db.get(ImpulsePurchaseEntry, entry_id)
+        assert persisted is not None
+        assert persisted.comment is None

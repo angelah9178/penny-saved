@@ -13,6 +13,7 @@ from app.schemas.common import ErrorResponse
 from app.schemas.entry import (
     DashboardEntriesResponse,
     EntryCheckInRequest,
+    EntryCommentUpdateRequest,
     EntryCreateRequest,
     EntryEnvelope,
     EntryUpdateRequest,
@@ -24,6 +25,7 @@ from app.services.entries import (
     get_entry_detail,
     list_dashboard_entries,
     update_entry,
+    update_entry_comment,
 )
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -172,6 +174,41 @@ async def check_in_user_entry(
     """Resolve one eligible owned waiting entry as saved or purchased."""
     del trusted_origin
     entry = await check_in_entry(
+        db,
+        user=user,
+        entry_id=entry_id,
+        payload=payload,
+        clock=clock,
+    )
+    return EntryEnvelope(entry=entry)
+
+
+@router.patch(
+    "/{entry_id}/comment",
+    operation_id="update_entry_comment",
+    response_model=EntryEnvelope,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorResponse},
+        status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse},
+        status.HTTP_403_FORBIDDEN: {"model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+        status.HTTP_409_CONFLICT: {"model": ErrorResponse},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorResponse},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponse},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {"model": ErrorResponse},
+    },
+)
+async def update_user_entry_comment(
+    entry_id: UUID,
+    payload: EntryCommentUpdateRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    clock: Annotated[Clock, Depends(get_clock)],
+    trusted_origin: Annotated[None, Depends(enforce_trusted_origin)],
+) -> EntryEnvelope:
+    """Revise or clear only the comment on one owned resolved entry."""
+    del trusted_origin
+    entry = await update_entry_comment(
         db,
         user=user,
         entry_id=entry_id,

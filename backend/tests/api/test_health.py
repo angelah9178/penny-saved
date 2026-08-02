@@ -240,12 +240,14 @@ async def test_openapi_documents_complete_entry_crud_contract(settings: Settings
     collection = paths["/api/entries"]
     detail = paths["/api/entries/{entry_id}"]
     check_in = paths["/api/entries/{entry_id}/check-in"]["post"]
+    comment_update = paths["/api/entries/{entry_id}/comment"]["patch"]
     assert collection["post"]["operationId"] == "create_entry"
     assert collection["get"]["operationId"] == "list_dashboard_entries"
     assert detail["get"]["operationId"] == "get_entry_detail"
     assert detail["patch"]["operationId"] == "update_entry"
     assert detail["delete"]["operationId"] == "delete_entry"
     assert check_in["operationId"] == "check_in_entry"
+    assert comment_update["operationId"] == "update_entry_comment"
     assert set(collection["post"]["responses"]) >= {"201", "401", "403", "422"}
     assert set(collection["get"]["responses"]) >= {"200", "401"}
     assert set(detail["get"]["responses"]) >= {"200", "401", "403", "404", "422"}
@@ -266,6 +268,17 @@ async def test_openapi_documents_complete_entry_crud_contract(settings: Settings
         "422",
     }
     assert set(check_in["responses"]) >= {"200", "401", "403", "404", "409", "422"}
+    assert set(comment_update["responses"]) >= {
+        "200",
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+        "500",
+        "503",
+    }
     schemas = document["components"]["schemas"]
     assert set(schemas["EntryCreateRequest"]["properties"]) == {
         "item_name",
@@ -278,8 +291,13 @@ async def test_openapi_documents_complete_entry_crud_contract(settings: Settings
         "reason_wanted",
     }
     assert set(schemas["EntryCheckInRequest"]["properties"]) == {"result", "comment"}
+    assert set(schemas["EntryCommentUpdateRequest"]["properties"]) == {"comment"}
+    assert schemas["EntryCommentUpdateRequest"]["required"] == ["comment"]
     assert schemas["EntryCheckInResult"]["enum"] == ["saved", "purchased"]
     assert check_in["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/EntryEnvelope"
+    }
+    assert comment_update["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/EntryEnvelope"
     }
     assert set(schemas["EntryResponse"]["properties"]) == {
