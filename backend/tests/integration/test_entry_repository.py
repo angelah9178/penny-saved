@@ -17,6 +17,7 @@ from app.repositories.entries import (
     get_entry_by_id,
     get_entry_for_update,
     list_entries_by_user,
+    update_owned_entry_comment,
     update_owned_entry_details,
 )
 from sqlalchemy import inspect, select, text
@@ -331,6 +332,71 @@ def test_check_in_helper_rejects_waiting_as_a_result_without_mutation() -> None:
             result=EntryStatus.WAITING,
             comment="Not a resolved result",
             checked_in_at=NOW,
+        )
+
+    assert entry.__dict__ == original_values
+
+
+@pytest.mark.parametrize("comment", ["Updated reflection", None])
+def test_comment_update_helper_changes_only_owned_comment_metadata(
+    comment: str | None,
+) -> None:
+    checked_in_at = NOW - timedelta(hours=1)
+    entry = make_entry(
+        entry_id=SAVED_LOW_ID,
+        status=EntryStatus.SAVED,
+        created_at=NOW - timedelta(days=3),
+        checked_in_at=checked_in_at,
+    )
+    entry.comment = "Original reflection"
+    original_protected_fields = (
+        entry.id,
+        entry.user_id,
+        entry.item_name,
+        entry.price_cents,
+        entry.reason_wanted,
+        entry.status,
+        entry.created_at,
+        entry.checked_in_at,
+    )
+
+    update_owned_entry_comment(
+        entry=entry,
+        user_id=USER_ID,
+        comment=comment,
+        updated_at=NOW,
+    )
+
+    assert entry.comment == comment
+    assert entry.updated_at == NOW
+    assert (
+        entry.id,
+        entry.user_id,
+        entry.item_name,
+        entry.price_cents,
+        entry.reason_wanted,
+        entry.status,
+        entry.created_at,
+        entry.checked_in_at,
+    ) == original_protected_fields
+    assert inspect(entry).modified is True
+
+
+def test_comment_update_helper_rejects_an_entry_owned_by_another_user() -> None:
+    entry = make_entry(
+        entry_id=OTHER_ENTRY_ID,
+        user_id=OTHER_USER_ID,
+        status=EntryStatus.PURCHASED,
+        checked_in_at=NOW - timedelta(hours=1),
+    )
+    original_values = dict(entry.__dict__)
+
+    with pytest.raises(ValueError, match="does not belong"):
+        update_owned_entry_comment(
+            entry=entry,
+            user_id=USER_ID,
+            comment="Forbidden reflection",
+            updated_at=NOW,
         )
 
     assert entry.__dict__ == original_values

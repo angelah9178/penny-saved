@@ -23,7 +23,7 @@ complete.
 |                  | Commit                                                                  | Title                                    | Depends on  |
 | ---------------- | ----------------------------------------------------------------------- | ---------------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--define-the-comment-update-contract)                      | Define the comment update contract       | DEV-013     |
-| &#91;&#160;&#93; | [2](#commit-2--add-the-locked-comment-update)                           | Add the locked comment update            | Commit 1    |
+| &#91;x&#93;      | [2](#commit-2--add-the-locked-comment-update)                           | Add the locked comment update            | Commit 1    |
 | &#91;&#160;&#93; | [3](#commit-3--expose-the-protected-comment-api)                        | Expose the protected comment API         | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--connect-comment-editing-to-the-frontend)                 | Connect comment editing to the frontend  | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--build-the-resolved-comment-editor)                       | Build the resolved comment editor        | Commit 4    |
@@ -186,7 +186,7 @@ make backend-test
 
 ## Commit 2 — Add the Locked Comment Update
 
-**Status:** Not started.
+**Status:** Complete.
 
 Commit 2 implements the repository mutation and service transaction. It keeps the
 database operation narrow and verifies the lifecycle rule against the current locked
@@ -196,6 +196,31 @@ In plain English, this commit is the safety mechanism. Before changing the comme
 the backend reserves the row for the duration of the transaction and looks at its
 current status. Only saved and purchased rows pass. This prevents a request from
 using stale information while another operation is changing the same entry.
+
+The transaction follows these steps:
+
+1. Find the entry using both the authenticated user ID and entry ID.
+2. Lock that row with `SELECT ... FOR UPDATE`.
+3. If no owned row is found, return the established safe `403` or `404` error.
+4. Check the current stored status while the lock is held.
+5. Allow only `saved` or `purchased`; reject `waiting`.
+6. Update only `comment` and `updated_at`.
+7. Commit the transaction and release the lock.
+8. Roll back every staged change if validation or persistence fails.
+
+If two updates arrive together, the lock makes the second request wait. After the
+first request commits, the second request acquires the lock and operates on the
+latest stored row rather than stale state.
+
+```text
+Request A locks the entry
+        ↓
+Request B waits
+        ↓
+Request A verifies, updates, and commits
+        ↓
+Request B locks and reads the latest stored entry
+```
 
 The update is deliberately smaller than ordinary entry editing:
 
@@ -474,6 +499,14 @@ and frontend editor remain intentionally unimplemented until Commits 2 through 5
   updates trim and clear text identically.
 - Added focused schema coverage for valid normalization, Unicode length boundaries,
   omitted input, wrong types, over-limit values, and protected extra fields.
+- Added an ownership-defensive repository helper that changes only `comment` and
+  `updated_at` after the caller has locked and validated the entry.
+- Added the locked comment-update service transaction using the existing owned
+  `SELECT ... FOR UPDATE` query, safe `403`/`404` distinction, resolved-status check,
+  one injected clock reading, commit, and rollback behavior.
+- Added repository and PostgreSQL service tests for saved and purchased updates,
+  clearing, waiting rejection, ownership, access errors, rollback, timestamps, and
+  preservation of protected fields.
 - Documented the complete Commit 1 contract rules and corrected backend commit gates
   to use targets that exist in the repository Makefile.
 
@@ -483,18 +516,25 @@ Later backend layers now have one validated request type that can express either
 normalized replacement reflection or an explicit `null` clear operation without
 accepting lifecycle or core-entry fields.
 
+The backend can now safely perform that update as one transaction. Concurrent entry
+mutations serialize through the row lock, and only a currently saved or purchased
+owned entry can reach the narrow repository mutation.
+
 ### Usage and Safety Notes
 
 The schema validates request shape only. It does not establish ownership, inspect the
-stored status, or update a row. Those safety rules belong to the locked service
-transaction in Commit 2 and the authenticated route in Commit 3.
+stored status, or update a row. Commit 2 now supplies those safety rules in the
+service layer. The operation is not externally callable until Commit 3 adds the
+authenticated, origin-protected HTTP route.
 
 ### Verification
 
 - Focused schema suite: 56 passed.
 - Backend Ruff formatting: passed.
 - Backend Ruff lint: passed.
-- Complete backend suite against PostgreSQL: 345 passed.
+- Commit 1 complete backend suite against PostgreSQL: 345 passed.
+- Commit 2 focused repository and service suite: 65 passed.
+- Commit 2 complete backend suite against PostgreSQL: 354 passed.
 
 ### Limitations and Follow-Up
 

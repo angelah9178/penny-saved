@@ -16,6 +16,7 @@ from app.repositories.entries import (
     get_entry_by_id,
     get_entry_for_update,
     list_entries_by_user,
+    update_owned_entry_comment,
     update_owned_entry_details,
 )
 from app.schemas.entry import (
@@ -23,6 +24,7 @@ from app.schemas.entry import (
     DashboardBucket,
     DashboardEntriesResponse,
     EntryCheckInRequest,
+    EntryCommentUpdateRequest,
     EntryCreateRequest,
     EntryResponse,
     EntryUpdateRequest,
@@ -36,6 +38,7 @@ ENTRY_FORBIDDEN_MESSAGE = "You do not have access to this entry."
 INVALID_ENTRY_STATUS_MESSAGE = "Only waiting entries can be edited."
 INVALID_DELETE_STATUS_MESSAGE = "Only waiting entries can be deleted."
 INVALID_CHECK_IN_STATUS_MESSAGE = "Only waiting entries can be checked in."
+INVALID_COMMENT_UPDATE_STATUS_MESSAGE = "Only saved or purchased entry comments can be edited."
 EARLY_CHECK_IN_MESSAGE = "This entry is not eligible for check-in yet."
 
 
@@ -187,6 +190,36 @@ async def check_in_entry(
         raise
 
 
+async def update_entry_comment(
+    db: AsyncSession,
+    *,
+    user: User,
+    entry_id: UUID,
+    payload: EntryCommentUpdateRequest,
+    clock: Clock,
+) -> EntryResponse:
+    """Lock and revise only the comment on one owned resolved entry."""
+    try:
+        entry = await get_entry_for_update(db, user_id=user.id, entry_id=entry_id)
+        if entry is None:
+            await _raise_entry_access_error(db, entry_id=entry_id)
+        if entry.status not in (EntryStatus.SAVED, EntryStatus.PURCHASED):
+            raise _invalid_comment_update_status_error()
+
+        now = normalize_utc(clock.now())
+        update_owned_entry_comment(
+            entry=entry,
+            user_id=user.id,
+            comment=payload.comment,
+            updated_at=now,
+        )
+        await db.commit()
+        return to_entry_response(entry, now)
+    except BaseException:
+        await db.rollback()
+        raise
+
+
 async def _raise_entry_access_error(db: AsyncSession, *, entry_id: UUID) -> None:
     if await entry_id_exists(db, entry_id=entry_id):
         raise ApplicationError(
@@ -222,6 +255,14 @@ def _invalid_check_in_status_error() -> ApplicationError:
         status_code=status.HTTP_409_CONFLICT,
         code="invalid_entry_status",
         message=INVALID_CHECK_IN_STATUS_MESSAGE,
+    )
+
+
+def _invalid_comment_update_status_error() -> ApplicationError:
+    return ApplicationError(
+        status_code=status.HTTP_409_CONFLICT,
+        code="invalid_entry_status",
+        message=INVALID_COMMENT_UPDATE_STATUS_MESSAGE,
     )
 
 
