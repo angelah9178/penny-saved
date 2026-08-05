@@ -22,7 +22,7 @@ passes.
 | ----------- | ------------------------------------------------------------- | ---------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--define-statistics-ranges-and-contracts)        | Define ranges and contracts        | DEV-013     |
 | &#91;x&#93; | [2](#commit-2--calculate-statistics-in-postgresql)            | Calculate statistics in PostgreSQL | Commit 1    |
-| &#91; &#93; | [3](#commit-3--build-the-statistics-summary-service)          | Build the summary service          | Commit 2    |
+| &#91;x&#93; | [3](#commit-3--build-the-statistics-summary-service)          | Build the summary service          | Commit 2    |
 | &#91; &#93; | [4](#commit-4--expose-the-statistics-api)                     | Expose the statistics API          | Commit 3    |
 | &#91; &#93; | [5](#commit-5--complete-verification-and-documentation)       | Complete verification and docs     | Commits 1–4 |
 
@@ -199,7 +199,7 @@ make backend-test
 
 ## Commit 3 — Build the Statistics Summary Service
 
-**Status:** Implemented and verified; pending Git commit.
+**Status:** Complete.
 
 ### In Plain English
 
@@ -265,9 +265,13 @@ make backend-test
 
 ## Commit 4 — Expose the Statistics API
 
-**Status:** Planned.
+**Status:** Implemented and verified; pending Git commit.
 
 ### In Plain English
+
+“Expose the API” means adding a URL that authorized clients can call. Before Commit
+4, the statistics workflow exists only as an internal Python function, and the
+frontend cannot call that function directly.
 
 Commit 4 adds the actual API endpoint:
 
@@ -275,10 +279,22 @@ Commit 4 adds the actual API endpoint:
 GET /api/stats/summary?range=this_month
 ```
 
-Before this commit, Commit 3's service exists only inside the backend's Python code.
-Commit 4 gives authorized clients, including the future frontend, a URL they can call.
-The backend confirms the user is logged in, validates the range, calls the Commit 3
-service, and returns its result as JSON.
+When the frontend calls it, the backend:
+
+1. Confirms the user is logged in.
+2. Validates the requested range.
+3. Calls Commit 3's statistics service.
+4. Returns the calculated statistics as JSON.
+
+```json
+{
+  "range": "this_month",
+  "total_saved_cents": 25000,
+  "avoided_purchase_count": 4,
+  "purchased_count": 1,
+  "opportunity_costs": []
+}
+```
 
 The route is a safe doorway. It does not contain SQL, date arithmetic, or aggregation
 logic. DEV-018 later calls this endpoint from the frontend and renders the cards and
@@ -369,7 +385,7 @@ make check
 
 - Commit 1: `df6f815` (`Commit 1: Define statistics ranges and UTC boundaries`).
 - Commit 2: `678170c` (`Commit 2: Add the user-scoped statistics aggregate`).
-- Commit 3: Pending.
+- Commit 3: `17432de` (`Commit 3: Build the statistics summary service`).
 - Commit 4: Pending.
 - Commit 5: Pending.
 
@@ -383,6 +399,9 @@ make check
 - Commit 3 added the internal summary service that reads the clock once, calculates
   the selected interval, calls the Commit 2 aggregate, and maps its values into the
   Commit 1 response contract.
+- Commit 4 added the protected statistics router and summary endpoint, strict range
+  parsing, safe response documentation, router registration, and focused API/OpenAPI
+  coverage.
 
 ### What It Achieved
 
@@ -393,13 +412,14 @@ Commit 2 calculates saved cents, avoided decisions, and purchased decisions in o
 database query without materializing entry rows in Python.
 
 Commit 3 connects those earlier pieces into one reusable backend workflow. Commit 4
-still owns the HTTP endpoint that will make the workflow callable by clients.
+now makes that workflow callable by authenticated clients through one read-only HTTP
+endpoint.
 
 ### Usage and Safety Notes
 
-The aggregate is scoped by authenticated user, includes only resolved statuses, and
-performs no commit. The service remains an internal Python function; no API route or
-frontend has been added.
+The endpoint delegates all date and aggregate work to the service, does not require
+mutation-only origin validation, and returns only safe error envelopes. No frontend
+has been added.
 
 ### Verification
 
@@ -407,7 +427,8 @@ frontend has been added.
 - Backend Ruff formatting and lint: passed.
 - Commit 2 focused PostgreSQL repository suite: 4 passed.
 - Commit 3 focused unit/schema/service suite: 31 passed.
-- Full backend suite against PostgreSQL: 394 passed.
+- Commit 4 focused API/service suite: 19 passed.
+- Full backend suite against PostgreSQL: 406 passed.
 
 ### Limitations and Follow-Up
 
