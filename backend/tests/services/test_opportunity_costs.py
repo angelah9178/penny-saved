@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -11,6 +12,7 @@ from uuid import UUID
 import httpx
 import pytest
 from app.api.dependencies import get_current_user
+from app.api.routes import opportunity_costs as opportunity_cost_routes
 from app.core.config import AppEnvironment, Settings
 from app.core.time import FixedClock, get_clock
 from app.db.session import get_db_session
@@ -28,6 +30,7 @@ from app.services.opportunity_costs import (
 from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.engine import URL
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 USER_ID = UUID("70000000-0000-4000-8000-000000000001")
@@ -449,3 +452,152 @@ async def test_update_service_rolls_back_failed_commit(monkeypatch: pytest.Monke
         )
 
     db.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_complete_create_list_update_delete_api_flow(
+    opportunity_cost_database: async_sessionmaker[AsyncSession],
+) -> None:
+    async with opportunity_cost_database() as db:
+        user = make_user()
+        db.add(user)
+        await db.commit()
+        async with api_client(opportunity_cost_app(db=db, user=user)) as client:
+            created = await client.post(
+                "/api/opportunity-cost-examples",
+                headers={"origin": FRONTEND_ORIGIN},
+                json={"label": "Coffee", "unit_name": "cups", "dollar_value_cents": 500},
+            )
+            example_id = created.json()["example"]["id"]
+            listed = await client.get("/api/opportunity-cost-examples")
+            updated = await client.patch(
+                f"/api/opportunity-cost-examples/{example_id}",
+                headers={"origin": FRONTEND_ORIGIN},
+                json={"label": "Lunch", "unit_name": "meals", "dollar_value_cents": 1_500},
+            )
+            deleted = await client.delete(
+                f"/api/opportunity-cost-examples/{example_id}",
+                headers={"origin": FRONTEND_ORIGIN},
+            )
+            final_list = await client.get("/api/opportunity-cost-examples")
+
+    assert created.status_code == 201
+    assert [item["id"] for item in listed.json()["examples"]] == [example_id]
+    assert updated.status_code == 200
+    assert updated.json()["example"]["label"] == "Lunch"
+    assert deleted.status_code == 204
+    assert deleted.content == b""
+    assert final_list.json() == {"examples": []}
+
+
+@pytest.mark.asyncio
+async def test_concurrent_deletes_produce_one_delete_and_one_not_found(
+    opportunity_cost_database: async_sessionmaker[AsyncSession],
+) -> None:
+    async with opportunity_cost_database() as setup_db:
+        setup_db.add_all([make_user(), make_example(example_id=OLDER_ID)])
+        await setup_db.commit()
+
+    async with opportunity_cost_database() as first_db, opportunity_cost_database() as second_db:
+        first_user = await first_db.get(User, USER_ID)
+        second_user = await second_db.get(User, USER_ID)
+        assert first_user is not None and second_user is not None
+        async with (
+            api_client(opportunity_cost_app(db=first_db, user=first_user)) as first_client,
+            api_client(opportunity_cost_app(db=second_db, user=second_user)) as second_client,
+        ):
+            responses = await asyncio.gather(
+                first_client.delete(
+                    f"/api/opportunity-cost-examples/{OLDER_ID}",
+                    headers={"origin": FRONTEND_ORIGIN},
+                ),
+                second_client.delete(
+                    f"/api/opportunity-cost-examples/{OLDER_ID}",
+                    headers={"origin": FRONTEND_ORIGIN},
+                ),
+            )
+
+    assert sorted(response.status_code for response in responses) == [204, 404]
+    not_found = next(response for response in responses if response.status_code == 404)
+    assert not_found.json()["error"]["code"] == "not_found"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("failure", "status_code", "code"),
+    [
+        (
+            OperationalError("SELECT secret", {"secret": "value"}, RuntimeError("driver")),
+            503,
+            "service_unavailable",
+        ),
+        (RuntimeError("private implementation detail"), 500, "internal_error"),
+    ],
+)
+async def test_list_endpoint_returns_safe_failure_envelopes(
+    failure: Exception,
+    status_code: int,
+    code: str,
+    opportunity_cost_database: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with opportunity_cost_database() as db:
+        user = make_user()
+        service = AsyncMock(side_effect=failure)
+        monkeypatch.setattr(
+            opportunity_cost_routes,
+            "list_opportunity_cost_examples",
+            service,
+        )
+        app = opportunity_cost_app(db=db, user=user)
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/opportunity-cost-examples")
+
+    assert response.status_code == status_code
+    assert response.json()["error"]["code"] == code
+    assert "secret" not in response.text
+    assert "private implementation detail" not in response.text
+
+
+def test_openapi_documents_complete_opportunity_cost_contract() -> None:
+    settings = Settings(
+        _env_file=None,
+        app_env=AppEnvironment.TEST,
+        database_url="postgresql+psycopg://app:secret@localhost/penny_saved_test",
+    )
+    document = create_app(settings, lifespan=no_database_lifespan).openapi()
+    paths = document["paths"]
+    collection = paths["/api/opportunity-cost-examples"]
+    detail = paths["/api/opportunity-cost-examples/{example_id}"]
+
+    assert collection["post"]["operationId"] == "create_opportunity_cost_example"
+    assert collection["get"]["operationId"] == "list_opportunity_cost_examples"
+    assert detail["patch"]["operationId"] == "update_opportunity_cost_example"
+    assert detail["delete"]["operationId"] == "delete_opportunity_cost_example"
+    assert set(collection["post"]["responses"]) >= {"201", "401", "403", "422", "500", "503"}
+    assert set(collection["get"]["responses"]) >= {"200", "401", "500", "503"}
+    assert set(detail["patch"]["responses"]) >= {
+        "200",
+        "401",
+        "403",
+        "404",
+        "422",
+        "500",
+        "503",
+    }
+    assert set(detail["delete"]["responses"]) >= {
+        "204",
+        "401",
+        "403",
+        "404",
+        "422",
+        "500",
+        "503",
+    }
+    schemas = document["components"]["schemas"]
+    mutable_fields = {"label", "unit_name", "dollar_value_cents"}
+    assert set(schemas["OpportunityCostCreateRequest"]["properties"]) == mutable_fields
+    assert set(schemas["OpportunityCostUpdateRequest"]["properties"]) == mutable_fields
+    assert "user_id" not in schemas["OpportunityCostExampleResponse"]["properties"]
+    assert detail["delete"]["responses"]["204"] == {"description": "Successful Response"}

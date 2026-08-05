@@ -25,7 +25,7 @@ passes.
 | &#91;x&#93; | [2](#commit-2--add-owned-example-repositories)                | Add owned repositories         | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--create-and-list-opportunity-cost-examples)     | Create and list examples       | Commit 2    |
 | &#91;x&#93; | [4](#commit-4--update-and-delete-opportunity-cost-examples)   | Update and delete examples     | Commit 3    |
-| &#91; &#93; | [5](#commit-5--complete-security-and-verification)            | Complete security and quality  | Commits 1–4 |
+| &#91;x&#93; | [5](#commit-5--complete-security-and-verification)            | Complete security and quality  | Commits 1–4 |
 
 ## Objective
 
@@ -352,7 +352,7 @@ make backend-test
 
 ## Commit 5 — Complete Security and Verification
 
-**Status:** Planned.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -405,29 +405,57 @@ make check
 
 ### Commit Hashes
 
-- Commit 1: Pending.
-- Commit 2: Pending.
-- Commit 3: Pending.
-- Commit 4: Pending.
-- Commit 5: Pending.
+- Commit 1: `7bbc508` (`Commit 1: Define opportunity-cost example contracts`).
+- Commit 2: `720c916` (`Commit 2: Add owned opportunity-cost repositories`).
+- Commit 3: `c80ecb2` (`Commit 3: Create and list opportunity-cost examples`).
+- Commit 4: `da1d0f8` (`Commit 4: Update and delete opportunity-cost examples`).
+- Commit 5: Implemented and verified in the working tree; commit hash pending.
 
 ### What Changed
 
-Pending implementation.
+DEV-017 added strict opportunity-cost request and response contracts, authenticated
+user-scoped SQLAlchemy repositories, service-owned transactions, and protected CRUD
+routes under `/api/opportunity-cost-examples`.
+
+The final verification pass added a complete create/list/update/delete API journey,
+deterministic concurrent-delete coverage, endpoint-specific safe `500` and `503`
+checks, and OpenAPI assertions for paths, operation IDs, schemas, status codes, and
+the empty `204` response.
 
 ### What It Achieved
 
-Pending implementation.
+Authenticated users can create, list, update, and delete their own opportunity-cost
+examples. Text is normalized, cents remain strict bounded integers, duplicate labels
+are allowed, list order is stable, and public responses never expose ownership or ORM
+internals.
 
 ### Usage and Safety Notes
 
-Pending implementation.
+- All four endpoints require authentication.
+- POST, PATCH, and DELETE require the established trusted-origin protection.
+- Every database lookup is scoped to the authenticated user.
+- Updates and deletes lock the owned row before mutation.
+- Other-owner IDs return a safe `403`; absent IDs return `404` after an ID-only check.
+- Services own commit and rollback; repositories only stage database work.
+- Concurrent deletes deterministically produce one successful `204` and one safe
+  `404`, without a partial or duplicate deletion.
 
 ### Verification
 
-Pending implementation.
+`make check` passed on August 5, 2026:
+
+- frontend formatting, ESLint, and TypeScript checks passed;
+- backend Ruff formatting and lint checks passed;
+- all 308 frontend tests passed across 37 test files;
+- all 458 backend tests passed, including PostgreSQL integration tests;
+- the frontend production build passed; and
+- backend application construction passed.
 
 ### Limitations and Follow-Up
 
 DEV-018 integrates examples into statistics and calculates equivalents. DEV-019 adds
 the settings UI. DEV-020 through DEV-024 complete hardening and release work.
+
+DEV-017 intentionally does not calculate opportunity-cost equivalents or add frontend
+management screens. It exposes and secures the backend CRUD API those later DEV items
+will consume.
