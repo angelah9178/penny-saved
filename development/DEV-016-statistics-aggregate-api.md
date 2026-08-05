@@ -91,7 +91,7 @@ after the request clock.
 
 ## Commit 1 — Define Statistics Ranges and Contracts
 
-**Status:** Planned.
+**Status:** Implemented; pending the PostgreSQL-backed full gate and Git commit.
 
 ### In Plain English
 
@@ -365,23 +365,28 @@ make check
 
 ### What Changed
 
-Pending implementation.
+- Commit 1 added the five-value range enum, immutable UTC half-open interval,
+  calendar-month boundary calculation, strict response contract, and focused tests.
 
 ### What It Achieved
 
-Pending implementation.
+Later commits now have one tested definition of every range and one strict response
+shape for exact integer statistics.
 
 ### Usage and Safety Notes
 
-Pending implementation.
+Commit 1 performs no database access and exposes no route. The response keeps
+`opportunity_costs` empty until DEV-018.
 
 ### Verification
 
-Pending implementation.
+- Commit 1 focused unit/schema suite: 24 passed.
+- Backend Ruff formatting and lint: passed.
+- The PostgreSQL-backed full backend gate remains pending because the configured local
+  test database is unavailable.
 
 ### Limitations and Follow-Up
 
 DEV-017 adds opportunity-cost examples. DEV-018 calculates equivalents and builds the
 statistics UI. DEV-019 adds settings management. DEV-020 through DEV-024 complete
 hardening and release work.
-
