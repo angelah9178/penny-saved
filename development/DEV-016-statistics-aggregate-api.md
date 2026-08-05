@@ -21,7 +21,7 @@ passes.
 |             | Commit                                                        | Title                              | Depends on  |
 | ----------- | ------------------------------------------------------------- | ---------------------------------- | ----------- |
 | &#91;x&#93; | [1](#commit-1--define-statistics-ranges-and-contracts)        | Define ranges and contracts        | DEV-013     |
-| &#91; &#93; | [2](#commit-2--calculate-statistics-in-postgresql)            | Calculate statistics in PostgreSQL | Commit 1    |
+| &#91;x&#93; | [2](#commit-2--calculate-statistics-in-postgresql)            | Calculate statistics in PostgreSQL | Commit 1    |
 | &#91; &#93; | [3](#commit-3--build-the-statistics-summary-service)          | Build the summary service          | Commit 2    |
 | &#91; &#93; | [4](#commit-4--expose-the-statistics-api)                     | Expose the statistics API          | Commit 3    |
 | &#91; &#93; | [5](#commit-5--complete-verification-and-documentation)       | Complete verification and docs     | Commits 1–4 |
@@ -141,7 +141,7 @@ make backend-test
 
 ## Commit 2 — Calculate Statistics in PostgreSQL
 
-**Status:** Implemented and verified; pending Git commit.
+**Status:** Complete.
 
 ### In Plain English
 
@@ -199,7 +199,7 @@ make backend-test
 
 ## Commit 3 — Build the Statistics Summary Service
 
-**Status:** Planned.
+**Status:** Implemented and verified; pending Git commit.
 
 ### In Plain English
 
@@ -209,6 +209,16 @@ Commit 3 connects the internal backend pieces. It:
 2. Calculates the exact dates for the selected filter.
 3. Calls Commit 2's PostgreSQL statistics calculation.
 4. Converts the results into the response format defined in Commit 1.
+
+The first two commits give Commit 3 its inputs and outputs:
+
+- Commit 1 provides the supported range names, the pure function that converts a
+  range into exact UTC boundaries, and the strict response format.
+- Commit 2 provides the user-scoped database function that accepts those boundaries
+  and returns the three calculated values.
+- Commit 3 coordinates them: it reads the clock, asks Commit 1 for the boundaries,
+  sends those boundaries to Commit 2, and maps Commit 2's result back into Commit 1's
+  response format.
 
 The service is still an internal Python function. It connects the backend workflow,
 but a browser or frontend cannot call it directly because there is no HTTP endpoint.
@@ -358,7 +368,7 @@ make check
 ### Commit Hashes
 
 - Commit 1: `df6f815` (`Commit 1: Define statistics ranges and UTC boundaries`).
-- Commit 2: Pending.
+- Commit 2: `678170c` (`Commit 2: Add the user-scoped statistics aggregate`).
 - Commit 3: Pending.
 - Commit 4: Pending.
 - Commit 5: Pending.
@@ -370,6 +380,9 @@ make check
 - Commit 2 added the single user-scoped PostgreSQL conditional aggregate, typed result,
   half-open `checked_in_at` filtering, empty-result zeros, and repository integration
   coverage.
+- Commit 3 added the internal summary service that reads the clock once, calculates
+  the selected interval, calls the Commit 2 aggregate, and maps its values into the
+  Commit 1 response contract.
 
 ### What It Achieved
 
@@ -379,17 +392,22 @@ shape for exact integer statistics.
 Commit 2 calculates saved cents, avoided decisions, and purchased decisions in one
 database query without materializing entry rows in Python.
 
+Commit 3 connects those earlier pieces into one reusable backend workflow. Commit 4
+still owns the HTTP endpoint that will make the workflow callable by clients.
+
 ### Usage and Safety Notes
 
 The aggregate is scoped by authenticated user, includes only resolved statuses, and
-performs no commit. No summary service, API route, or frontend has been added.
+performs no commit. The service remains an internal Python function; no API route or
+frontend has been added.
 
 ### Verification
 
 - Commit 1 focused unit/schema suite: 24 passed.
 - Backend Ruff formatting and lint: passed.
 - Commit 2 focused PostgreSQL repository suite: 4 passed.
-- Full backend suite against PostgreSQL: 387 passed.
+- Commit 3 focused unit/schema/service suite: 31 passed.
+- Full backend suite against PostgreSQL: 394 passed.
 
 ### Limitations and Follow-Up
 
