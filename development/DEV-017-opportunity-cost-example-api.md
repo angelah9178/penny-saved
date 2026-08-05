@@ -23,7 +23,7 @@ passes.
 | ----------- | ----------------------------------------------------------------- | ------------------------------ | ----------- |
 | &#91;x&#93; | [1](#commit-1--define-opportunity-cost-contracts)             | Define contracts               | DEV-005     |
 | &#91;x&#93; | [2](#commit-2--add-owned-example-repositories)                | Add owned repositories         | Commit 1    |
-| &#91; &#93; | [3](#commit-3--create-and-list-opportunity-cost-examples)     | Create and list examples       | Commit 2    |
+| &#91;x&#93; | [3](#commit-3--create-and-list-opportunity-cost-examples)     | Create and list examples       | Commit 2    |
 | &#91; &#93; | [4](#commit-4--update-and-delete-opportunity-cost-examples)   | Update and delete examples     | Commit 3    |
 | &#91; &#93; | [5](#commit-5--complete-security-and-verification)            | Complete security and quality  | Commits 1–4 |
 
@@ -230,7 +230,7 @@ make backend-test
 
 ## Commit 3 — Create and List Opportunity-Cost Examples
 
-**Status:** Planned.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -241,6 +241,27 @@ user's examples and preserves their stable order.
 
 This commit also adds the protected POST and GET URLs. Other users' records never
 appear, duplicate labels are accepted, and a failed create rolls back completely.
+
+The first two commits connect to Commit 3 like this:
+
+- Commit 1 supplies the validation rules and safe JSON response shape.
+- Commit 2 supplies the SQLAlchemy functions that interact with PostgreSQL.
+- Commit 3 adds the service and API layers that use both pieces, making create and
+  list behavior available to the frontend over HTTP.
+
+The two endpoints have separate jobs:
+
+- `POST /api/opportunity-cost-examples` creates an example. It confirms the user is
+  logged in and the browser origin is trusted, validates and normalizes the body,
+  stages the PostgreSQL row, commits the transaction, and returns the saved example
+  with `201 Created`.
+- `GET /api/opportunity-cost-examples` lists examples. It confirms the user is logged
+  in, loads only that user's rows from PostgreSQL in stable creation order, and
+  returns them with `200 OK`. As a read-only request, it does not require the
+  mutation-only trusted-origin check.
+
+Commit 3 exposes only create and list functionality. Updating and deleting examples
+remain unavailable until Commit 4.
 
 Suggested commit message:
 
