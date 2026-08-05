@@ -20,7 +20,7 @@ passes.
 
 |             | Commit                                                        | Title                              | Depends on  |
 | ----------- | ------------------------------------------------------------- | ---------------------------------- | ----------- |
-| &#91; &#93; | [1](#commit-1--define-statistics-ranges-and-contracts)        | Define ranges and contracts        | DEV-013     |
+| &#91;x&#93; | [1](#commit-1--define-statistics-ranges-and-contracts)        | Define ranges and contracts        | DEV-013     |
 | &#91; &#93; | [2](#commit-2--calculate-statistics-in-postgresql)            | Calculate statistics in PostgreSQL | Commit 1    |
 | &#91; &#93; | [3](#commit-3--build-the-statistics-summary-service)          | Build the summary service          | Commit 2    |
 | &#91; &#93; | [4](#commit-4--expose-the-statistics-api)                     | Expose the statistics API          | Commit 3    |
@@ -91,7 +91,7 @@ after the request clock.
 
 ## Commit 1 — Define Statistics Ranges and Contracts
 
-**Status:** Implemented; pending the PostgreSQL-backed full gate and Git commit.
+**Status:** Complete.
 
 ### In Plain English
 
@@ -141,7 +141,7 @@ make backend-test
 
 ## Commit 2 — Calculate Statistics in PostgreSQL
 
-**Status:** Planned.
+**Status:** Implemented and verified; pending Git commit.
 
 ### In Plain English
 
@@ -357,7 +357,7 @@ make check
 
 ### Commit Hashes
 
-- Commit 1: Pending.
+- Commit 1: `df6f815` (`Commit 1: Define statistics ranges and UTC boundaries`).
 - Commit 2: Pending.
 - Commit 3: Pending.
 - Commit 4: Pending.
@@ -367,23 +367,29 @@ make check
 
 - Commit 1 added the five-value range enum, immutable UTC half-open interval,
   calendar-month boundary calculation, strict response contract, and focused tests.
+- Commit 2 added the single user-scoped PostgreSQL conditional aggregate, typed result,
+  half-open `checked_in_at` filtering, empty-result zeros, and repository integration
+  coverage.
 
 ### What It Achieved
 
 Later commits now have one tested definition of every range and one strict response
 shape for exact integer statistics.
 
+Commit 2 calculates saved cents, avoided decisions, and purchased decisions in one
+database query without materializing entry rows in Python.
+
 ### Usage and Safety Notes
 
-Commit 1 performs no database access and exposes no route. The response keeps
-`opportunity_costs` empty until DEV-018.
+The aggregate is scoped by authenticated user, includes only resolved statuses, and
+performs no commit. No summary service, API route, or frontend has been added.
 
 ### Verification
 
 - Commit 1 focused unit/schema suite: 24 passed.
 - Backend Ruff formatting and lint: passed.
-- The PostgreSQL-backed full backend gate remains pending because the configured local
-  test database is unavailable.
+- Commit 2 focused PostgreSQL repository suite: 4 passed.
+- Full backend suite against PostgreSQL: 387 passed.
 
 ### Limitations and Follow-Up
 
