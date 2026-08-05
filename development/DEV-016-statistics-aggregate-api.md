@@ -227,11 +227,19 @@ make backend-test
 
 ## Commit 2 — Add the Conditional Statistics Aggregate
 
-**Status:** Planned.
+**Status:** Implemented; pending the PostgreSQL-backed full commit gate and Git commit.
 
 Commit 2 adds the only statistics database query. It must aggregate in PostgreSQL and
 return one small result object; it must not select resolved entries for Python to sum
 or count.
+
+In plain English, this commit calculates the statistics in the database. It looks
+only at the authenticated user's resolved entries in the selected date range, adds
+the prices of saved entries, counts saved and purchased decisions separately, and
+returns zeros when nothing matches. Waiting entries and other users' entries never
+contribute. PostgreSQL performs the work in one query instead of sending every entry
+to Python. This is backend preparation only; it does not expose an API or build any
+frontend.
 
 The query is equivalent to:
 
@@ -293,7 +301,7 @@ make backend-test
 
 ## Commit 3 — Build the Statistics Summary Service
 
-**Status:** Planned.
+**Status:** Implemented; pending the PostgreSQL-backed full commit gate and Git commit.
 
 Commit 3 connects the request clock, boundary calculation, repository aggregate, and
 response mapper. The service is the use-case boundary; the router in Commit 4 remains
@@ -441,7 +449,7 @@ make check
 
 ### Commit Hashes
 
-- Commit 1: Pending.
+- Commit 1: `fbff018` (`Commit 1: Define statistics ranges and UTC boundaries`).
 - Commit 2: Pending.
 - Commit 3: Pending.
 - Commit 4: Pending.
@@ -453,6 +461,12 @@ make check
   pure UTC boundary calculation, strict aggregate response schema, and focused unit
   tests. The API and database aggregate remain intentionally absent until later
   commits.
+- Commit 2 added the single user-scoped PostgreSQL conditional aggregate, typed result,
+  half-open `checked_in_at` filtering, empty-result zeros, and repository integration
+  coverage.
+- Commit 3 added the summary service that reads the injected clock once, calculates
+  the selected interval, calls the aggregate, and maps exact integer results into the
+  response contract.
 
 ### What It Achieved
 
@@ -460,15 +474,22 @@ Commit 1 gives later statistics layers one tested definition of every range, inc
 calendar-month clamping, leap-year behavior, UTC normalization, and exact integer
 response fields.
 
+Commits 2 and 3 now calculate those statistics efficiently and connect the calculation
+to a reusable backend use case. Commit 4 can expose that use case without adding SQL or
+date arithmetic to the route.
+
 ### Usage and Safety Notes
 
-The response keeps `opportunity_costs` empty until DEV-018. Commit 1 performs no
-database access and exposes no route.
+The response keeps `opportunity_costs` empty until DEV-018. The aggregate is always
+scoped by user and resolved status and never materializes entry rows. No statistics
+route or frontend has been added yet.
 
 ### Verification
 
-- Commit 1 focused unit/schema suite: 24 passed.
+- Commits 1 and 3 focused unit/schema/service suite: 31 passed.
 - Backend Ruff formatting and lint: passed.
+- Commit 2 PostgreSQL integration tests were added but could not run while the local
+  PostgreSQL server remained unavailable.
 - Full backend suite: 231 non-database tests passed; 152 PostgreSQL-backed tests could
   not start because the configured local PostgreSQL server at port 5433 was
   unavailable. The tracker remains unchecked until the complete gate passes and the

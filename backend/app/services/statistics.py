@@ -5,9 +5,12 @@ from __future__ import annotations
 from calendar import monthrange
 from dataclasses import dataclass
 from datetime import datetime
+from uuid import UUID
 
-from app.core.time import normalize_utc
-from app.schemas.statistics import StatisticsRange
+from app.core.time import Clock, normalize_utc
+from app.repositories.statistics import aggregate_statistics
+from app.schemas.statistics import StatisticsRange, StatisticsSummaryResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +43,30 @@ def statistics_interval_for(
         raise ValueError(f"Unsupported statistics range: {selected_range!r}")
 
     return StatisticsInterval(start=start, end=end)
+
+
+async def get_statistics_summary(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    selected_range: StatisticsRange,
+    clock: Clock,
+) -> StatisticsSummaryResponse:
+    """Return one user's aggregate summary using one request-scoped clock read."""
+    interval = statistics_interval_for(selected_range, now=clock.now())
+    aggregate = await aggregate_statistics(
+        db,
+        user_id=user_id,
+        range_start=interval.start,
+        range_end=interval.end,
+    )
+    return StatisticsSummaryResponse(
+        range=selected_range,
+        total_saved_cents=aggregate.total_saved_cents,
+        avoided_purchase_count=aggregate.avoided_purchase_count,
+        purchased_count=aggregate.purchased_count,
+        opportunity_costs=[],
+    )
 
 
 def _subtract_calendar_months(value: datetime, months: int) -> datetime:
