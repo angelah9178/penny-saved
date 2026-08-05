@@ -21,7 +21,7 @@ passes.
 
 |             | Commit                                                            | Title                          | Depends on  |
 | ----------- | ----------------------------------------------------------------- | ------------------------------ | ----------- |
-| &#91; &#93; | [1](#commit-1--define-opportunity-cost-contracts)             | Define contracts               | DEV-005     |
+| &#91;x&#93; | [1](#commit-1--define-opportunity-cost-contracts)             | Define contracts               | DEV-005     |
 | &#91; &#93; | [2](#commit-2--add-owned-example-repositories)                | Add owned repositories         | Commit 1    |
 | &#91; &#93; | [3](#commit-3--create-and-list-opportunity-cost-examples)     | Create and list examples       | Commit 2    |
 | &#91; &#93; | [4](#commit-4--update-and-delete-opportunity-cost-examples)   | Update and delete examples     | Commit 3    |
@@ -128,7 +128,7 @@ is read-only and does not require that mutation-only dependency.
 
 ## Commit 1 — Define Opportunity-Cost Contracts
 
-**Status:** Planned.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -139,6 +139,17 @@ and requires a positive whole-number cent value.
 It also defines the JSON returned to clients. It does not read or change the database
 and does not add an API URL yet. Later commits use these contracts as their shared
 rulebook.
+
+Put another way, this commit tells the backend:
+
+- what the frontend may send: a `label`, `unit_name`, and `dollar_value_cents`;
+- which fields are required for create and update requests;
+- how to clean and validate those fields without silently converting invalid money;
+- which database-owned fields clients are forbidden from setting; and
+- the exact safe example shape the backend will eventually return to the frontend.
+
+This is the shared vocabulary for the feature, not working CRUD behavior. Nothing is
+saved and there are no opportunity-cost API routes until later commits.
 
 Suggested commit message:
 
