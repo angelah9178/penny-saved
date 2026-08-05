@@ -91,7 +91,7 @@ after the request clock.
 
 ## Commit 1 — Define Statistics Ranges and Contracts
 
-**Status:** Implemented; pending the PostgreSQL-backed full gate and Git commit.
+**Status:** Implemented and committed; PostgreSQL-backed full gate pending.
 
 ### In Plain English
 
@@ -141,17 +141,21 @@ make backend-test
 
 ## Commit 2 — Calculate Statistics in PostgreSQL
 
-**Status:** Planned.
+**Status:** Implemented; pending the PostgreSQL-backed full gate and Git commit.
 
 ### In Plain English
 
-Commit 2 calculates the statistics in the database. It looks only at the logged-in
-user's resolved entries within the selected date range, adds the prices of saved
-entries, and counts saved and purchased decisions separately.
+Commit 2 only adds the database calculation for statistics. It:
 
-Waiting entries and other users' entries are ignored. An empty range returns zeros.
-PostgreSQL performs everything in one query instead of sending every entry to Python.
-This is backend preparation only: it does not expose an API or build any frontend.
+- Totals the prices of saved entries.
+- Counts saved entries.
+- Counts purchased entries.
+- Filters by the authenticated user and selected date range.
+- Ignores waiting entries and other users' data.
+- Returns zeros when nothing matches.
+- Performs everything in one PostgreSQL query.
+
+It does not add the service, API endpoint, or frontend.
 
 Suggested commit message:
 
@@ -195,16 +199,20 @@ make backend-test
 
 ## Commit 3 — Build the Statistics Summary Service
 
-**Status:** Planned.
+**Status:** Implemented; pending the full backend gate and Git commit.
 
 ### In Plain English
 
-Commit 3 connects the internal backend pieces. It reads the clock once, turns the
-selected filter into exact dates, asks Commit 2's database query to calculate the
-statistics, and places the results into the response format from Commit 1.
+Commit 3 connects the internal backend pieces. It:
 
-The service is still an internal Python function. A browser or frontend cannot call
-it yet because there is no HTTP endpoint; Commit 4 adds that doorway.
+1. Reads the current time once.
+2. Calculates the exact dates for the selected filter.
+3. Calls Commit 2's PostgreSQL statistics calculation.
+4. Converts the results into the response format defined in Commit 1.
+
+The service is still an internal Python function. It connects the backend workflow,
+but a browser or frontend cannot call it directly because there is no HTTP endpoint.
+Commit 4 adds that doorway.
 
 ```text
 authenticated user + selected range
@@ -351,7 +359,7 @@ make check
 
 ### Commit Hashes
 
-- Commit 1: Pending.
+- Commit 1: `a81bc9a` (`Commit 1: Define statistics ranges and UTC boundaries`).
 - Commit 2: Pending.
 - Commit 3: Pending.
 - Commit 4: Pending.
@@ -361,21 +369,37 @@ make check
 
 - Commit 1 added the five-value range enum, immutable UTC half-open interval,
   calendar-month boundary calculation, strict response contract, and focused tests.
+- Commit 2 added one user-scoped PostgreSQL conditional aggregate, its typed result,
+  half-open `checked_in_at` filtering, empty-result zeros, and repository integration
+  coverage.
+- Commit 3 added the internal summary service that reads the injected clock once,
+  calculates the selected interval, calls the Commit 2 aggregate, and maps the result
+  into the Commit 1 response contract.
 
 ### What It Achieved
 
 Later commits now have one tested definition of every range and one strict response
 shape for exact integer statistics.
 
+Commit 2 can now calculate saved cents, avoided decisions, and purchased decisions in
+one database query without materializing entry rows in Python.
+
+Commit 3 now connects the internal backend workflow. Commit 4 still owns the HTTP
+endpoint that will make this workflow callable by authorized clients.
+
 ### Usage and Safety Notes
 
-Commit 1 performs no database access and exposes no route. The response keeps
-`opportunity_costs` empty until DEV-018.
+The aggregate is scoped by authenticated user, includes only resolved statuses, and
+performs no commit. The summary service remains an internal Python function; no API
+route or frontend has been added.
 
 ### Verification
 
 - Commit 1 focused unit/schema suite: 24 passed.
+- Commits 1 and 3 focused unit/schema/service suite: 31 passed.
 - Backend Ruff formatting and lint: passed.
+- Commit 2 repository suite: 4 PostgreSQL tests added; all four were unable to start
+  because the configured server at port 5433 was unavailable.
 - Full backend suite: 220 non-database tests passed; 138 PostgreSQL-backed tests could
   not start because the configured local PostgreSQL server at port 5433 was
   unavailable. The tracker remains unchecked until the complete gate passes and the
