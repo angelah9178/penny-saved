@@ -164,10 +164,23 @@ safe error envelopes, and OpenAPI response documentation.
 
 ## Commit 1 — Define Statistics Ranges and Boundaries
 
-**Status:** Planned.
+**Status:** Implemented; pending the PostgreSQL-backed full commit gate and Git commit.
 
 Commit 1 defines the public vocabulary and pure time calculation used by every later
 layer. It does not query PostgreSQL or register a route.
+
+In plain English, this commit:
+
+- Names the five supported filters: this month, last 3 months, last 6 months, last
+  year, and all time.
+- Calculates the exact UTC start and end time for each filter.
+- Handles tricky calendar dates correctly—for example, three months before May 31
+  becomes February 28 in a non-leap year.
+- Defines the statistics response format, including saved money and purchase counts.
+- Adds tests for month boundaries, leap years, time zones, and invalid dates.
+
+It does not access the database or expose an API yet. It creates the reliable
+date-calculation and data-contract foundation the later commits use.
 
 Suggested commit message:
 
@@ -436,19 +449,30 @@ make check
 
 ### What Changed
 
-Pending implementation.
+- Commit 1 added the supported statistics range enum, immutable half-open interval,
+  pure UTC boundary calculation, strict aggregate response schema, and focused unit
+  tests. The API and database aggregate remain intentionally absent until later
+  commits.
 
 ### What It Achieved
 
-Pending implementation.
+Commit 1 gives later statistics layers one tested definition of every range, including
+calendar-month clamping, leap-year behavior, UTC normalization, and exact integer
+response fields.
 
 ### Usage and Safety Notes
 
-Pending implementation.
+The response keeps `opportunity_costs` empty until DEV-018. Commit 1 performs no
+database access and exposes no route.
 
 ### Verification
 
-Pending implementation.
+- Commit 1 focused unit/schema suite: 24 passed.
+- Backend Ruff formatting and lint: passed.
+- Full backend suite: 231 non-database tests passed; 152 PostgreSQL-backed tests could
+  not start because the configured local PostgreSQL server at port 5433 was
+  unavailable. The tracker remains unchecked until the complete gate passes and the
+  implementation is committed.
 
 ### Limitations and Follow-Up
 
