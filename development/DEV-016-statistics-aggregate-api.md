@@ -23,7 +23,7 @@ passes.
 | &#91;x&#93; | [1](#commit-1--define-statistics-ranges-and-contracts)        | Define ranges and contracts        | DEV-013     |
 | &#91;x&#93; | [2](#commit-2--calculate-statistics-in-postgresql)            | Calculate statistics in PostgreSQL | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--build-the-statistics-summary-service)          | Build the summary service          | Commit 2    |
-| &#91; &#93; | [4](#commit-4--expose-the-statistics-api)                     | Expose the statistics API          | Commit 3    |
+| &#91;x&#93; | [4](#commit-4--expose-the-statistics-api)                     | Expose the statistics API          | Commit 3    |
 | &#91; &#93; | [5](#commit-5--complete-verification-and-documentation)       | Complete verification and docs     | Commits 1–4 |
 
 ## Objective
@@ -265,7 +265,7 @@ make backend-test
 
 ## Commit 4 — Expose the Statistics API
 
-**Status:** Implemented and verified; pending Git commit.
+**Status:** Complete.
 
 ### In Plain English
 
@@ -330,7 +330,7 @@ make backend-test
 
 ## Commit 5 — Complete Verification and Documentation
 
-**Status:** Planned.
+**Status:** Implemented and verified; pending Git commit.
 
 ### In Plain English
 
@@ -386,7 +386,7 @@ make check
 - Commit 1: `df6f815` (`Commit 1: Define statistics ranges and UTC boundaries`).
 - Commit 2: `678170c` (`Commit 2: Add the user-scoped statistics aggregate`).
 - Commit 3: `17432de` (`Commit 3: Build the statistics summary service`).
-- Commit 4: Pending.
+- Commit 4: `04ba148` (`Commit 4: Expose the protected statistics summary API`).
 - Commit 5: Pending.
 
 ### What Changed
@@ -402,6 +402,9 @@ make check
 - Commit 4 added the protected statistics router and summary endpoint, strict range
   parsing, safe response documentation, router registration, and focused API/OpenAPI
   coverage.
+- Commit 5 added PostgreSQL-backed cross-layer API coverage for exact boundaries,
+  mixed statuses, ownership isolation, future timestamps, large totals, empty JSON
+  zeros, and the single aggregate-query shape.
 
 ### What It Achieved
 
@@ -414,6 +417,9 @@ database query without materializing entry rows in Python.
 Commit 3 connects those earlier pieces into one reusable backend workflow. Commit 4
 now makes that workflow callable by authenticated clients through one read-only HTTP
 endpoint.
+
+Commit 5 proves the complete request path preserves the approved range, ownership,
+status, money, and query-efficiency rules.
 
 ### Usage and Safety Notes
 
@@ -428,7 +434,13 @@ has been added.
 - Commit 2 focused PostgreSQL repository suite: 4 passed.
 - Commit 3 focused unit/schema/service suite: 31 passed.
 - Commit 4 focused API/service suite: 19 passed.
-- Full backend suite against PostgreSQL: 406 passed.
+- Commit 5 cross-layer PostgreSQL API suite: 2 passed.
+- Final backend suite against PostgreSQL: 408 passed.
+- Final frontend suite: 308 passed across 37 test files.
+- Final frontend/backend formatting and lint: passed.
+- Final frontend typecheck: passed.
+- Final frontend production build and backend application construction: passed.
+- Final `make check`: passed.
 
 ### Limitations and Follow-Up
 
