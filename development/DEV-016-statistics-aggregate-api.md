@@ -91,13 +91,20 @@ after the request clock.
 
 ## Commit 1 — Define Statistics Ranges and Contracts
 
-**Status:** Planned.
+**Status:** Implemented; pending the PostgreSQL-backed full gate and Git commit.
 
 ### In Plain English
 
-Commit 1 defines what each time filter means and what a statistics response looks
-like. It handles calendar details such as month boundaries, leap years, and May 31
-minus three months becoming February 28 in a non-leap year.
+Commit 1 defines the rules and format for statistics. It:
+
+- Defines the five filters: this month, last 3 months, last 6 months, last year, and
+  all time.
+- Calculates the exact UTC start and end dates for each filter.
+- Handles tricky dates correctly, such as leap years and subtracting three months
+  from May 31.
+- Defines the response fields for saved money and saved/purchased counts.
+- Ensures money and counts are nonnegative whole numbers.
+- Adds tests for all these rules.
 
 It does not access the database or provide an API endpoint. It creates the date
 calculation and data-contract foundation used by later commits.
@@ -352,19 +359,27 @@ make check
 
 ### What Changed
 
-Pending implementation.
+- Commit 1 added the five-value range enum, immutable UTC half-open interval,
+  calendar-month boundary calculation, strict response contract, and focused tests.
 
 ### What It Achieved
 
-Pending implementation.
+Later commits now have one tested definition of every range and one strict response
+shape for exact integer statistics.
 
 ### Usage and Safety Notes
 
-Pending implementation.
+Commit 1 performs no database access and exposes no route. The response keeps
+`opportunity_costs` empty until DEV-018.
 
 ### Verification
 
-Pending implementation.
+- Commit 1 focused unit/schema suite: 24 passed.
+- Backend Ruff formatting and lint: passed.
+- Full backend suite: 220 non-database tests passed; 138 PostgreSQL-backed tests could
+  not start because the configured local PostgreSQL server at port 5433 was
+  unavailable. The tracker remains unchecked until the complete gate passes and the
+  implementation is committed.
 
 ### Limitations and Follow-Up
 
