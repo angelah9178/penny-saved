@@ -24,7 +24,7 @@ passes.
 | &#91;x&#93; | [1](#commit-1--define-opportunity-cost-contracts)             | Define contracts               | DEV-005     |
 | &#91;x&#93; | [2](#commit-2--add-owned-example-repositories)                | Add owned repositories         | Commit 1    |
 | &#91;x&#93; | [3](#commit-3--create-and-list-opportunity-cost-examples)     | Create and list examples       | Commit 2    |
-| &#91; &#93; | [4](#commit-4--update-and-delete-opportunity-cost-examples)   | Update and delete examples     | Commit 3    |
+| &#91;x&#93; | [4](#commit-4--update-and-delete-opportunity-cost-examples)   | Update and delete examples     | Commit 3    |
 | &#91; &#93; | [5](#commit-5--complete-security-and-verification)            | Complete security and quality  | Commits 1–4 |
 
 ## Objective
@@ -291,7 +291,7 @@ make backend-test
 
 ## Commit 4 — Update and Delete Opportunity-Cost Examples
 
-**Status:** Planned.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -303,6 +303,24 @@ and returns no response body.
 If the owned lookup misses, the backend safely distinguishes an existing other-user
 ID (`403`) from a truly missing ID (`404`) without returning private example data.
 Every failure rolls back the transaction.
+
+Commit 4 adds the two remaining CRUD endpoints:
+
+- `PATCH /api/opportunity-cost-examples/{example_id}` updates an existing example's
+  label, unit name, and cent value. It preserves the example ID, owner, and creation
+  time, assigns a new update time, commits the PostgreSQL transaction, and returns
+  the updated example with `200 OK`.
+- `DELETE /api/opportunity-cost-examples/{example_id}` permanently deletes an owned
+  example, commits the PostgreSQL transaction, and returns an empty `204 No Content`
+  response.
+
+Both endpoints require authentication and a trusted browser origin. Both use Commit
+2's locked owned lookup so simultaneous mutations cannot silently overwrite each
+other. If the lookup misses, an ID-only database check returns `403` for another
+user's example or `404` when the ID does not exist, without exposing private fields.
+
+Together, Commit 3's create/list endpoints and Commit 4's update/delete endpoints
+complete the opportunity-cost CRUD API.
 
 Suggested commit message:
 

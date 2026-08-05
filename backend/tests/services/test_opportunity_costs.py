@@ -17,8 +17,14 @@ from app.db.session import get_db_session
 from app.main import create_app
 from app.models.opportunity_cost_example import OpportunityCostExample
 from app.models.user import User
-from app.schemas.opportunity_cost import OpportunityCostCreateRequest
-from app.services.opportunity_costs import create_opportunity_cost_example
+from app.schemas.opportunity_cost import (
+    OpportunityCostCreateRequest,
+    OpportunityCostUpdateRequest,
+)
+from app.services.opportunity_costs import (
+    create_opportunity_cost_example,
+    update_opportunity_cost_example,
+)
 from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.engine import URL
@@ -278,6 +284,167 @@ async def test_create_service_rolls_back_failed_commit() -> None:
             db,
             user=user,
             payload=payload,
+            clock=FixedClock(NOW),
+        )
+
+    db.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_patch_normalizes_updates_and_preserves_protected_fields(
+    opportunity_cost_database: async_sessionmaker[AsyncSession],
+) -> None:
+    async with opportunity_cost_database() as db:
+        user = make_user()
+        example = make_example(example_id=OLDER_ID, created_at=NOW - timedelta(days=1))
+        db.add_all([user, example])
+        await db.commit()
+        protected = (example.id, example.user_id, example.created_at)
+
+        async with api_client(opportunity_cost_app(db=db, user=user)) as client:
+            response = await client.patch(
+                f"/api/opportunity-cost-examples/{OLDER_ID}",
+                headers={"origin": FRONTEND_ORIGIN},
+                json={
+                    "label": "  Lunch out ",
+                    "unit_name": " meals\n",
+                    "dollar_value_cents": 1_500,
+                },
+            )
+        await db.refresh(example)
+
+    assert response.status_code == 200
+    assert (example.label, example.unit_name, example.dollar_value_cents) == (
+        "Lunch out",
+        "meals",
+        1_500,
+    )
+    assert example.updated_at == NOW
+    assert (example.id, example.user_id, example.created_at) == protected
+    assert response.json()["example"]["label"] == "Lunch out"
+
+
+@pytest.mark.asyncio
+async def test_delete_removes_owned_example_and_returns_empty_204(
+    opportunity_cost_database: async_sessionmaker[AsyncSession],
+) -> None:
+    async with opportunity_cost_database() as db:
+        user = make_user()
+        db.add_all([user, make_example(example_id=OLDER_ID)])
+        await db.commit()
+
+        async with api_client(opportunity_cost_app(db=db, user=user)) as client:
+            response = await client.delete(
+                f"/api/opportunity-cost-examples/{OLDER_ID}",
+                headers={"origin": FRONTEND_ORIGIN},
+            )
+        persisted = await db.get(OpportunityCostExample, OLDER_ID)
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert persisted is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["patch", "delete"])
+async def test_mutations_distinguish_other_owner_from_missing_id(
+    method: str,
+    opportunity_cost_database: async_sessionmaker[AsyncSession],
+) -> None:
+    async with opportunity_cost_database() as db:
+        user = make_user()
+        db.add_all(
+            [
+                user,
+                make_user(user_id=OTHER_USER_ID, email="other-examples@example.com"),
+                make_example(example_id=OTHER_ID, user_id=OTHER_USER_ID),
+            ]
+        )
+        await db.commit()
+        async with api_client(opportunity_cost_app(db=db, user=user)) as client:
+            kwargs: dict[str, object] = {"headers": {"origin": FRONTEND_ORIGIN}}
+            if method == "patch":
+                kwargs["json"] = {
+                    "label": "Lunch",
+                    "unit_name": "meals",
+                    "dollar_value_cents": 1_500,
+                }
+            forbidden = await client.request(
+                method,
+                f"/api/opportunity-cost-examples/{OTHER_ID}",
+                **kwargs,
+            )
+            await db.refresh(user)
+            missing = await client.request(
+                method,
+                f"/api/opportunity-cost-examples/{TIE_HIGH_ID}",
+                **kwargs,
+            )
+
+    assert forbidden.status_code == 403
+    assert forbidden.json()["error"]["code"] == "forbidden"
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "not_found"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["patch", "delete"])
+async def test_mutations_reject_malformed_id_and_untrusted_origin(
+    method: str,
+    opportunity_cost_database: async_sessionmaker[AsyncSession],
+) -> None:
+    async with opportunity_cost_database() as db:
+        user = make_user()
+        db.add_all([user, make_example(example_id=OLDER_ID)])
+        await db.commit()
+        async with api_client(opportunity_cost_app(db=db, user=user)) as client:
+            kwargs: dict[str, object] = {"headers": {"origin": FRONTEND_ORIGIN}}
+            if method == "patch":
+                kwargs["json"] = {
+                    "label": "Lunch",
+                    "unit_name": "meals",
+                    "dollar_value_cents": 1_500,
+                }
+            malformed = await client.request(
+                method,
+                "/api/opportunity-cost-examples/not-a-uuid",
+                **kwargs,
+            )
+            kwargs["headers"] = {"origin": "http://untrusted.test"}
+            untrusted = await client.request(
+                method,
+                f"/api/opportunity-cost-examples/{OLDER_ID}",
+                **kwargs,
+            )
+
+    assert malformed.status_code == 422
+    assert malformed.json()["error"]["code"] == "validation_error"
+    assert untrusted.status_code == 403
+    assert untrusted.json()["error"]["code"] == "forbidden"
+
+
+@pytest.mark.asyncio
+async def test_update_service_rolls_back_failed_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = AsyncMock(spec=AsyncSession)
+    db.commit.side_effect = RuntimeError("database write failed")
+    user = make_user()
+    example = make_example(example_id=OLDER_ID)
+    locked_lookup = AsyncMock(return_value=example)
+    monkeypatch.setattr(
+        "app.services.opportunity_costs.get_opportunity_cost_example_for_update",
+        locked_lookup,
+    )
+
+    with pytest.raises(RuntimeError, match="database write failed"):
+        await update_opportunity_cost_example(
+            db,
+            user=user,
+            example_id=OLDER_ID,
+            payload=OpportunityCostUpdateRequest(
+                label="Lunch",
+                unit_name="meals",
+                dollar_value_cents=1_500,
+            ),
             clock=FixedClock(NOW),
         )
 
