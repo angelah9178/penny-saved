@@ -22,7 +22,7 @@ passes.
 |             | Commit                                                            | Title                          | Depends on  |
 | ----------- | ----------------------------------------------------------------- | ------------------------------ | ----------- |
 | &#91;x&#93; | [1](#commit-1--define-opportunity-cost-contracts)             | Define contracts               | DEV-005     |
-| &#91; &#93; | [2](#commit-2--add-owned-example-repositories)                | Add owned repositories         | Commit 1    |
+| &#91;x&#93; | [2](#commit-2--add-owned-example-repositories)                | Add owned repositories         | Commit 1    |
 | &#91; &#93; | [3](#commit-3--create-and-list-opportunity-cost-examples)     | Create and list examples       | Commit 2    |
 | &#91; &#93; | [4](#commit-4--update-and-delete-opportunity-cost-examples)   | Update and delete examples     | Commit 3    |
 | &#91; &#93; | [5](#commit-5--complete-security-and-verification)            | Complete security and quality  | Commits 1–4 |
@@ -181,7 +181,7 @@ make backend-test
 
 ## Commit 2 — Add Owned Example Repositories
 
-**Status:** Planned.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -192,6 +192,14 @@ It can stage a new example, list examples in a predictable order, find and lock 
 owned example, update its allowed values, and stage deletion. It does not commit
 transactions or expose API endpoints; later services decide when work commits or
 rolls back.
+
+In other words, this is the code that directly interacts with PostgreSQL through
+SQLAlchemy. It prepares safe functions for adding, reading, updating, and deleting
+rows in the `opportunity_cost_examples` table.
+
+This commit is only the database layer. The functions are not available to the
+frontend yet because there are no opportunity-cost API routes. Commits 3 and 4 add
+the service and API layers that call these database functions.
 
 Suggested commit message:
 
