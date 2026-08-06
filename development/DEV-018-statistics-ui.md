@@ -23,7 +23,7 @@ passes.
 |                  | Commit                                                                  | Title                                  | Depends on  |
 | ---------------- | ----------------------------------------------------------------------- | -------------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--define-opportunity-cost-equivalent-contracts)            | Define equivalent contracts            | DEV-016–017 |
-| &#91;&#160;&#93; | [2](#commit-2--calculate-equivalents-in-the-statistics-service)         | Calculate equivalents                  | Commit 1    |
+| &#91;x&#93;      | [2](#commit-2--calculate-equivalents-in-the-statistics-service)         | Calculate equivalents                  | Commit 1    |
 | &#91;&#160;&#93; | [3](#commit-3--complete-backend-equivalent-verification)                | Verify backend equivalents             | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--connect-the-frontend-to-statistics)                      | Connect frontend statistics            | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--build-the-statistics-and-equivalents-experience)         | Build statistics experience            | Commit 4    |
@@ -257,7 +257,7 @@ make backend-test
 
 ## Commit 3 — Complete Backend Equivalent Verification
 
-**Status:** Planned.
+**Status:** Implemented and verified; pending manual Git commit.
 
 ### In Plain English
 
@@ -269,6 +269,29 @@ sync and remain isolated between users.
 It also checks rounding edges, stable ordering, safe database failures, and the
 published API documentation. This finishes the backend portion before the frontend
 starts depending on it.
+
+The first three commits therefore have separate responsibilities:
+
+```text
+Commit 1: define the equivalent response contract
+Commit 2: calculate equivalent values in the service
+Commit 3: prove the complete PostgreSQL → service → HTTP response path
+```
+
+For example, an integration test can persist 25,000 cents of in-range saved entries
+and two owned examples worth 1,000 and 3,000 cents. It then calls the real protected
+`GET /api/stats/summary` endpoint and expects `25` and `8.3` equivalent units in the
+nested response.
+
+These tests also persist purchased, waiting, out-of-range, and other-user records to
+prove none of them incorrectly change the saved total or leak into the comparisons.
+They exercise stable example ordering, duplicate labels, exact half-up rounding,
+zero totals, large values, authentication and validation errors, safe backend failure
+envelopes, and the published nested OpenAPI schema.
+
+Commit 3 should not normally add new production behavior. Its job is to catch any
+gap between the contract from Commit 1, the service from Commit 2, PostgreSQL, and the
+actual API response before the frontend begins relying on that behavior.
 
 Suggested commit message:
 
@@ -449,8 +472,8 @@ Complete this section as the commit series is implemented.
 ### Commit Hashes
 
 - Commit 1: `2b4f773` (`Commit 1: Define opportunity-cost equivalent contracts`).
-- Commit 2: Implemented and verified in the working tree; commit hash pending.
-- Commit 3: Pending.
+- Commit 2: `c301c8b` (`Commit 2: Add opportunity-cost equivalents to statistics`).
+- Commit 3: Implemented and verified in the working tree; commit hash pending.
 - Commit 4: Pending.
 - Commit 5: Pending.
 - Commit 6: Pending.
@@ -469,11 +492,18 @@ saved total into equivalent units with `Decimal` and `ROUND_HALF_UP`. It returns
 integers for whole results, one-decimal numbers for fractional results, zero for a
 zero saved total, and safely skips and logs an impossible zero divisor.
 
+Commit 3 added PostgreSQL-backed API journeys that prove filtered saved totals and
+owned examples produce the expected nested equivalents through the real HTTP route.
+The coverage includes stable ordering, duplicate labels, excluded statuses and
+boundaries, other-user isolation, whole and fractional values, exact half-up rounding,
+zero totals, defensive zero-example logging, and safe public serialization.
+
 ### What It Achieved
 
-The backend and frontend now have one explicit interface for the equivalent results
-that Commit 2 will calculate. The public schema cannot expose ownership or arbitrary
-ORM data and no longer requires opportunity-cost results to remain empty.
+The backend and frontend now have one explicit, implemented, and cross-layer verified
+interface for opportunity-cost equivalents. The public schema cannot expose ownership
+or arbitrary ORM data, and the complete PostgreSQL-to-HTTP path preserves the approved
+range, ownership, ordering, precision, and failure-safety rules.
 
 ### Usage and Safety Notes
 
@@ -495,6 +525,14 @@ Commit 2 verification passed on August 6, 2026:
 - backend Ruff lint passed;
 - all 12 focused statistics service tests passed; and
 - all 483 backend tests passed against the configured PostgreSQL test database.
+
+Commit 3 verification passed on August 6, 2026:
+
+- backend Ruff formatting passed;
+- backend Ruff lint passed;
+- all 5 PostgreSQL-backed statistics API tests passed within the full suite;
+- all 12 focused statistics API contract tests passed; and
+- all 486 backend tests passed against the configured PostgreSQL test database.
 
 Record later focused gates after each commit and the final `make check` result after
 Commit 6.
