@@ -20,14 +20,14 @@
 Change `[ ]` to `[x]` only after that commit is implemented, committed, and its gate
 passes.
 
-|                  | Commit                                                               | Title                               | Depends on  |
-| ---------------- | -------------------------------------------------------------------- | ----------------------------------- | ----------- |
-| &#91;&#160;&#93; | [1](#commit-1--connect-the-frontend-to-the-opportunity-cost-api)      | Connect opportunity-cost data       | DEV-017–018 |
-| &#91;&#160;&#93; | [2](#commit-2--build-the-protected-settings-list)                    | Build protected settings list       | Commit 1    |
-| &#91;&#160;&#93; | [3](#commit-3--build-the-shared-example-form)                        | Build shared form and money rules   | Commit 2    |
-| &#91;&#160;&#93; | [4](#commit-4--add-create-and-edit-workflows)                        | Add create and edit workflows       | Commit 3    |
-| &#91;&#160;&#93; | [5](#commit-5--add-safe-example-deletion)                            | Add safe deletion                   | Commit 4    |
-| &#91;&#160;&#93; | [6](#commit-6--complete-states-cache-refresh-and-verification)       | Complete states, refresh, and quality | Commits 1–5 |
+|                  | Commit                                                           | Title                                 | Depends on  |
+| ---------------- | ---------------------------------------------------------------- | ------------------------------------- | ----------- |
+| &#91;&#160;&#93; | [1](#commit-1--connect-the-frontend-to-the-opportunity-cost-api) | Connect opportunity-cost data         | DEV-017–018 |
+| &#91;&#160;&#93; | [2](#commit-2--build-the-protected-settings-list)                | Build protected settings list         | Commit 1    |
+| &#91;&#160;&#93; | [3](#commit-3--build-the-shared-example-form)                    | Build shared form and money rules     | Commit 2    |
+| &#91;&#160;&#93; | [4](#commit-4--add-create-and-edit-workflows)                    | Add create and edit workflows         | Commit 3    |
+| &#91;&#160;&#93; | [5](#commit-5--add-safe-example-deletion)                        | Add safe deletion                     | Commit 4    |
+| &#91;&#160;&#93; | [6](#commit-6--complete-states-cache-refresh-and-verification)   | Complete states, refresh, and quality | Commits 1–5 |
 
 ## Objective
 
@@ -57,11 +57,11 @@ backend capabilities.
 
 Each example contains three user-editable values:
 
-| Field          | Display input | Submitted value                              |
-| -------------- | ------------- | -------------------------------------------- |
-| Label          | Text          | Trimmed nonblank string, at most 120 chars   |
-| Unit name      | Text          | Trimmed nonblank string, at most 80 chars    |
-| Dollar value   | USD text      | Integer cents from 1 to 999,999,999,999      |
+| Field        | Display input | Submitted value                            |
+| ------------ | ------------- | ------------------------------------------ |
+| Label        | Text          | Trimmed nonblank string, at most 120 chars |
+| Unit name    | Text          | Trimmed nonblank string, at most 80 chars  |
+| Dollar value | USD text      | Integer cents from 1 to 999,999,999,999    |
 
 Money parsing follows the same exact rules as entry prices:
 
@@ -132,13 +132,19 @@ changed example affects the settings screen and dashboard equivalents immediatel
 
 ## Commit 1 — Connect the Frontend to the Opportunity-Cost API
 
-**Status:** Planned.
+**Status:** Implemented and verified; awaiting manual commit.
 
 ### In Plain English
 
 Commit 1 teaches the frontend how to call the four opportunity-cost endpoints. It
 adds functions for listing, creating, updating, and deleting examples and wraps them
 in TanStack Query options and mutation options.
+
+In other words, this commit connects the frontend data layer to the existing backend
+API. `GET` retrieves the user's examples, `POST` creates one, `PATCH` updates the
+example identified by its ID, and `DELETE` removes that identified example. The
+frontend sends and receives the DEV-017 contracts; it does not recalculate statistics
+or replace backend validation and ownership checks.
 
 Nothing is visible yet. This commit is the data connection between the existing
 DEV-017 backend and the settings components built later. It also establishes the
@@ -431,11 +437,22 @@ Complete this section as the commit series is implemented.
 
 ### What Changed
 
-Pending implementation.
+Commit 1 added the opportunity-cost API module and reusable TanStack Query data
+layer. The frontend can now list, create, update, and delete examples through the
+DEV-017 endpoints. Requests use the protected settings return path, GET cancellation
+and shared retry behavior, mutation retries are disabled, IDs are safely encoded,
+and every successful mutation invalidates both the example list and all statistics
+ranges.
+
+Focused API and query tests cover request methods, URLs, bodies, credentials,
+response handling, cancellation, cache keys, invalidation, session expiry, and retry
+behavior.
 
 ### What It Achieved
 
-Pending implementation.
+The frontend now has a tested connection to the backend opportunity-cost API that
+later commits can use without duplicating request, authentication, or cache-refresh
+logic. This commit intentionally does not render user-visible settings UI.
 
 ### Usage and Safety Notes
 
@@ -448,6 +465,15 @@ statistics data.
 
 Record each focused gate after its commit and the final `make check` result after
 Commit 6.
+
+Commit 1 passed on 2026-08-06:
+
+```text
+make frontend-format-check — passed
+make frontend-lint         — passed
+make frontend-typecheck    — passed
+make frontend-test         — passed (43 files, 349 tests)
+```
 
 ### Limitations and Follow-Up
 
