@@ -155,6 +155,17 @@ export function OpportunityCostSettingsPage() {
             setNotice(undefined);
             setActiveForm({ mode: "edit", example });
           }}
+          onDeleted={(example) => {
+            setActiveForm(undefined);
+            setNotice(`${example.label} was deleted.`);
+          }}
+          onDeleteStale={async () => {
+            await examples.refetch();
+            setActiveForm(undefined);
+            setNotice(
+              "That example is no longer available. The list has been refreshed.",
+            );
+          }}
         />
       ) : null}
     </div>

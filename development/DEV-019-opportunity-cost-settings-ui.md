@@ -25,7 +25,7 @@ passes.
 | &#91;x&#93;      | [1](#commit-1--connect-the-frontend-to-the-opportunity-cost-api) | Connect opportunity-cost data         | DEV-017–018 |
 | &#91;x&#93;      | [2](#commit-2--build-the-protected-settings-list)                | Build protected settings list         | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--build-the-shared-example-form)                    | Build shared form and money rules     | Commit 2    |
-| &#91;&#160;&#93; | [4](#commit-4--add-create-and-edit-workflows)                    | Add create and edit workflows         | Commit 3    |
+| &#91;x&#93;      | [4](#commit-4--add-create-and-edit-workflows)                    | Add create and edit workflows         | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--add-safe-example-deletion)                        | Add safe deletion                     | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-states-cache-refresh-and-verification)   | Complete states, refresh, and quality | Commits 1–5 |
 
@@ -289,7 +289,7 @@ make frontend-test
 
 ## Commit 4 — Add Create and Edit Workflows
 
-**Status:** Implemented and verified; awaiting manual commit.
+**Status:** Complete — `a0a7d50`.
 
 ### In Plain English
 
@@ -346,13 +346,23 @@ make frontend-build
 
 ## Commit 5 — Add Safe Example Deletion
 
-**Status:** Planned.
+**Status:** Implemented and verified; awaiting manual commit.
 
 ### In Plain English
 
 Commit 5 lets the user delete an example, but only after an explicit confirmation
 that names the selected comparison. The dialog traps keyboard focus, closes on Escape
 or Cancel, and returns focus to the original delete button.
+
+This commit connects the visible Delete action to
+`DELETE /api/opportunity-cost-examples/{example_id}`. Selecting Delete only opens the
+confirmation; the request is not sent until the user activates the clearly labeled
+destructive confirmation button.
+
+While the request is pending, repeat confirmation is disabled. A recoverable failure
+keeps both the example and dialog available with safe feedback. Only a confirmed
+`204 No Content` closes the dialog and allows refreshed server data to remove the
+example.
 
 The example remains visible while deletion is pending or if the request fails. It is
 removed only after the backend returns `204`. A successful deletion refreshes both
@@ -456,7 +466,7 @@ Complete this section as the commit series is implemented.
 - Commit 1: `4ff2100` — `Commit 1: Connect the frontend to opportunity-cost examples`.
 - Commit 2: `cc56758` — `Commit 2: Build the opportunity-cost settings list`.
 - Commit 3: `e4ed1bd` — `Commit 3: Build the shared opportunity-cost form`.
-- Commit 4: Pending.
+- Commit 4: `a0a7d50` — `Commit 4: Add opportunity-cost create and edit workflows`.
 - Commit 5: Pending.
 - Commit 6: Pending.
 
@@ -506,6 +516,18 @@ results, safe validation and service errors, stale edits, pending controls, and
 duplicate-submit prevention. Session expiry and cache invalidation remain covered by
 the Commit 1 mutation tests.
 
+Commit 5 added an accessible deletion confirmation that names the selected example,
+traps keyboard focus, supports Cancel and Escape, restores focus to the trigger, and
+disables repeat confirmation while DELETE is pending. Recoverable errors retain the
+example and dialog with safe feedback; stale ownership or missing responses refresh
+server truth without exposing private details.
+
+The dialog closes after the server confirms `204 No Content`, then the shared
+mutation invalidates the example list and every statistics range. Component and page
+tests cover cancellation, focus behavior, Escape, duplicate clicks, confirmed
+success, recoverable failure, stale `403`/`404` responses, and server-driven removal.
+Session expiry and cache refresh remain covered by the Commit 1 mutation tests.
+
 ### What It Achieved
 
 The frontend now has a tested connection to the backend opportunity-cost API that
@@ -516,8 +538,8 @@ Authenticated users can open a dedicated management screen and see their current
 examples and management actions.
 
 Create and edit now share one tested form that produces the exact three-field API
-payload, and both workflows are connected to the backend. Deletion remains for
-Commit 5.
+payload, and both workflows are connected to the backend. Users can also safely
+delete an example through an explicit, server-confirmed workflow.
 
 ### Usage and Safety Notes
 
@@ -547,6 +569,16 @@ make frontend-format-check — passed
 make frontend-lint         — passed
 make frontend-typecheck    — passed
 make frontend-test         — passed (45 files, 357 tests)
+make frontend-build        — passed
+```
+
+Commit 5 passed on 2026-08-06:
+
+```text
+make frontend-format-check — passed
+make frontend-lint         — passed
+make frontend-typecheck    — passed
+make frontend-test         — passed (48 files, 398 tests)
 make frontend-build        — passed
 ```
 

@@ -1,14 +1,21 @@
 import { formatUsd } from "../../lib/currency";
 import type { OpportunityCostExample } from "../../types/api";
+import { DeleteOpportunityCostExampleButton } from "./DeleteOpportunityCostExampleButton";
 
 export type OpportunityCostExampleListProps = {
   examples: OpportunityCostExample[];
   onEdit?: ((example: OpportunityCostExample) => void) | undefined;
+  onDeleted?: ((example: OpportunityCostExample) => void) | undefined;
+  onDeleteStale?:
+    | ((example: OpportunityCostExample) => Promise<void> | void)
+    | undefined;
 };
 
 export function OpportunityCostExampleList({
   examples,
   onEdit,
+  onDeleted,
+  onDeleteStale,
 }: OpportunityCostExampleListProps) {
   return (
     <ul
@@ -28,9 +35,11 @@ export function OpportunityCostExampleList({
             <button type="button" onClick={() => onEdit?.(example)}>
               Edit {example.label}
             </button>
-            <button type="button" className="button--danger">
-              Delete {example.label}
-            </button>
+            <DeleteOpportunityCostExampleButton
+              example={example}
+              onDeleted={onDeleted}
+              onStale={onDeleteStale}
+            />
           </div>
         </li>
       ))}

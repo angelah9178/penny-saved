@@ -1,7 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { OpportunityCostExample } from "../../types/api";
+import { renderWithApp } from "../../test/render";
 import { OpportunityCostExampleList } from "./OpportunityCostExampleList";
 
 describe("OpportunityCostExampleList", () => {
@@ -11,7 +12,7 @@ describe("OpportunityCostExampleList", () => {
       makeExample("second-id", "Hours worked", "shifts", 999_999_999_999),
     ];
 
-    render(<OpportunityCostExampleList examples={examples} />);
+    renderWithApp(<OpportunityCostExampleList examples={examples} />);
 
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(2);
@@ -33,7 +34,7 @@ describe("OpportunityCostExampleList", () => {
     const label = "A very long comparison label ".repeat(8).trim();
     const unit = "especially descriptive units ".repeat(6).trim();
 
-    render(
+    renderWithApp(
       <OpportunityCostExampleList
         examples={[makeExample("long-id", label, unit, 1)]}
       />,

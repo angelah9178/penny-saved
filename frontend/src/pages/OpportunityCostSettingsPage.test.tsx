@@ -239,6 +239,35 @@ describe("OpportunityCostSettingsPage", () => {
     expect(screen.queryByText("Private detail.")).toBeNull();
     expect(screen.queryByLabelText("Dollar value")).toBeNull();
   });
+
+  it("removes an example only after a confirmed 204 and refreshes the list", async () => {
+    const user = userEvent.setup();
+    let examples = [makeExample("delete-id", "Hours worked", "hours", 1_000)];
+    server.use(
+      http.get("/api/opportunity-cost-examples", () =>
+        HttpResponse.json({ examples }),
+      ),
+      http.delete("/api/opportunity-cost-examples/delete-id", () => {
+        examples = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithApp(<OpportunityCostSettingsPage />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Delete Hours worked" }),
+    );
+    expect(screen.getByRole("heading", { name: "Hours worked" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Delete example" }));
+
+    expect(
+      await screen.findByText("Hours worked was deleted."),
+    ).toHaveAttribute("role", "status");
+    expect(
+      await screen.findByText("No opportunity-cost examples yet"),
+    ).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Hours worked" })).toBeNull();
+  });
 });
 
 function makeExample(
