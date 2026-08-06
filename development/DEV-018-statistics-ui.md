@@ -24,7 +24,7 @@ passes.
 | ---------------- | ----------------------------------------------------------------------- | -------------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--define-opportunity-cost-equivalent-contracts)            | Define equivalent contracts            | DEV-016–017 |
 | &#91;x&#93;      | [2](#commit-2--calculate-equivalents-in-the-statistics-service)         | Calculate equivalents                  | Commit 1    |
-| &#91;&#160;&#93; | [3](#commit-3--complete-backend-equivalent-verification)                | Verify backend equivalents             | Commit 2    |
+| &#91;x&#93;      | [3](#commit-3--complete-backend-equivalent-verification)                | Verify backend equivalents             | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--connect-the-frontend-to-statistics)                      | Connect frontend statistics            | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--build-the-statistics-and-equivalents-experience)         | Build statistics experience            | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-states-cache-refresh-and-verification)          | Complete states, refresh, and quality  | Commits 1–5 |
@@ -197,7 +197,7 @@ make backend-test
 
 ## Commit 2 — Calculate Equivalents in the Statistics Service
 
-**Status:** Implemented and verified; pending manual Git commit.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -257,7 +257,7 @@ make backend-test
 
 ## Commit 3 — Complete Backend Equivalent Verification
 
-**Status:** Implemented and verified; pending manual Git commit.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -322,7 +322,7 @@ make backend-test
 
 ## Commit 4 — Connect the Frontend to Statistics
 
-**Status:** Planned.
+**Status:** Implemented and verified; pending manual Git commit.
 
 ### In Plain English
 
@@ -330,14 +330,27 @@ Commit 4 teaches the frontend how to request a statistics summary and understand
 enriched response. It adds a small API function and a TanStack Query hook whose cache
 key includes the selected range, so each filter has the correct cached result.
 
+Specifically, the frontend data layer calls the existing protected endpoint with
+exactly one supported range:
+
+```http
+GET /api/stats/summary?range=this_month
+```
+
+The response supplies the saved total, avoided and purchased counts, and the
+server-calculated opportunity-cost equivalents. Commit 4 stores that response under
+a range-specific TanStack Query key and preserves previous data while another range
+loads.
+
 This is data plumbing only. It does not yet build the visible statistics cards or
 range selector. It makes the server response safely available to the UI added by the
-next commit.
+next commit. A user will not see the statistics until Commit 5 renders this query's
+data on the dashboard.
 
 Suggested commit message:
 
 ```text
-Commit 4: Connect the frontend to statistics summaries
+Commit 4: Add frontend statistics data access
 ```
 
 Implement:
@@ -473,8 +486,8 @@ Complete this section as the commit series is implemented.
 
 - Commit 1: `2b4f773` (`Commit 1: Define opportunity-cost equivalent contracts`).
 - Commit 2: `c301c8b` (`Commit 2: Add opportunity-cost equivalents to statistics`).
-- Commit 3: Implemented and verified in the working tree; commit hash pending.
-- Commit 4: Pending.
+- Commit 3: `31af07a` (`Commit 3: Verify statistics opportunity-cost equivalents`).
+- Commit 4: Implemented and verified in the working tree; commit hash pending.
 - Commit 5: Pending.
 - Commit 6: Pending.
 
@@ -498,12 +511,22 @@ The coverage includes stable ordering, duplicate labels, excluded statuses and
 boundaries, other-user isolation, whole and fractional values, exact half-up rounding,
 zero totals, defensive zero-example logging, and safe public serialization.
 
+Commit 4 added the frontend statistics API operation and range-aware TanStack Query
+options and hook. Each request calls `GET /api/stats/summary` with exactly one encoded
+range, uses the established credentialed client and session-expiry flow, forwards
+cancellation, separates cached summaries by range, applies the shared retry policy,
+and retains previous summary data during a range transition.
+
 ### What It Achieved
 
 The backend and frontend now have one explicit, implemented, and cross-layer verified
 interface for opportunity-cost equivalents. The public schema cannot expose ownership
 or arbitrary ORM data, and the complete PostgreSQL-to-HTTP path preserves the approved
 range, ownership, ordering, precision, and failure-safety rules.
+
+The frontend can now fetch and cache that interface safely. No statistics are rendered
+yet; Commit 5 will turn the data supplied by the Commit 4 hook into the visible
+dashboard experience.
 
 ### Usage and Safety Notes
 
@@ -533,6 +556,14 @@ Commit 3 verification passed on August 6, 2026:
 - all 5 PostgreSQL-backed statistics API tests passed within the full suite;
 - all 12 focused statistics API contract tests passed; and
 - all 486 backend tests passed against the configured PostgreSQL test database.
+
+Commit 4 verification passed on August 6, 2026:
+
+- frontend Prettier formatting passed;
+- frontend ESLint passed;
+- frontend TypeScript checking passed;
+- all 15 focused statistics API and query tests passed; and
+- all 323 frontend tests passed across 39 test files.
 
 Record later focused gates after each commit and the final `make check` result after
 Commit 6.
