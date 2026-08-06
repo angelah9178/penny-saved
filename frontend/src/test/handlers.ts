@@ -26,6 +26,9 @@ export const handlers = [
       opportunity_costs: [],
     });
   }),
+  http.get("/api/opportunity-cost-examples", () => {
+    return HttpResponse.json({ examples: [] });
+  }),
   http.get("/api/auth/me", () => {
     return HttpResponse.json(
       {

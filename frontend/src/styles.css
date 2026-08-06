@@ -386,6 +386,7 @@ button {
 }
 
 .dashboard-add-link,
+.dashboard-settings-link,
 .entry-card a {
   display: inline-flex;
   align-items: center;
@@ -396,6 +397,85 @@ button {
   background: #1d4ed8;
   font-weight: 700;
   text-decoration: none;
+}
+
+.dashboard-settings-link {
+  color: #1d4ed8;
+  border: 1px solid #1d4ed8;
+  background: #ffffff;
+}
+
+.opportunity-cost-settings {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.opportunity-cost-settings > * {
+  min-width: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.opportunity-cost-settings__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.opportunity-cost-settings__header h1,
+.opportunity-cost-settings__header p {
+  margin-top: 0;
+}
+
+.opportunity-cost-settings__header p {
+  margin-bottom: 0;
+}
+
+.opportunity-cost-settings__updating {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  color: #1e3a8a;
+  background: #dbeafe;
+}
+
+.opportunity-cost-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.opportunity-cost-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.25rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  overflow-wrap: anywhere;
+  background: #ffffff;
+}
+
+.opportunity-cost-card__details h2,
+.opportunity-cost-card__details p {
+  margin-top: 0;
+}
+
+.opportunity-cost-card__details p {
+  margin-bottom: 0;
+}
+
+.opportunity-cost-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .dashboard-updating {

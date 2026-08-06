@@ -65,6 +65,12 @@ export function DashboardPage() {
         <Link className="dashboard-add-link" to="/entries/new">
           Add new impulse purchase
         </Link>
+        <Link
+          className="dashboard-settings-link"
+          to="/settings/opportunity-costs"
+        >
+          Manage opportunity-cost examples
+        </Link>
       </p>
 
       <StatisticsSection />

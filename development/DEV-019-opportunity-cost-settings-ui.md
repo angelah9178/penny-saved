@@ -22,7 +22,7 @@ passes.
 
 |                  | Commit                                                           | Title                                 | Depends on  |
 | ---------------- | ---------------------------------------------------------------- | ------------------------------------- | ----------- |
-| &#91;&#160;&#93; | [1](#commit-1--connect-the-frontend-to-the-opportunity-cost-api) | Connect opportunity-cost data         | DEV-017–018 |
+| &#91;x&#93;      | [1](#commit-1--connect-the-frontend-to-the-opportunity-cost-api) | Connect opportunity-cost data         | DEV-017–018 |
 | &#91;&#160;&#93; | [2](#commit-2--build-the-protected-settings-list)                | Build protected settings list         | Commit 1    |
 | &#91;&#160;&#93; | [3](#commit-3--build-the-shared-example-form)                    | Build shared form and money rules     | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--add-create-and-edit-workflows)                    | Add create and edit workflows         | Commit 3    |
@@ -132,7 +132,7 @@ changed example affects the settings screen and dashboard equivalents immediatel
 
 ## Commit 1 — Connect the Frontend to the Opportunity-Cost API
 
-**Status:** Implemented and verified; awaiting manual commit.
+**Status:** Complete — `4ff2100`.
 
 ### In Plain English
 
@@ -184,13 +184,18 @@ make frontend-test
 
 ## Commit 2 — Build the Protected Settings List
 
-**Status:** Planned.
+**Status:** Implemented and verified; awaiting manual commit.
 
 ### In Plain English
 
 Commit 2 creates the page a user visits to manage examples. It registers the protected
 `/settings/opportunity-costs` route, adds a dashboard/settings navigation path, and
 renders the examples returned by Commit 1 in the server's stable order.
+
+This is a separate management page rather than another section of the dashboard.
+Authenticated users can navigate to it to see their opportunity-cost examples and
+the create, edit, and delete actions associated with managing them, then return to
+the dashboard through a clear link.
 
 At this point the user can see existing examples but cannot change them yet. The page
 shows what each unit costs, explains an empty list, and exposes clear actions that
@@ -428,7 +433,7 @@ Complete this section as the commit series is implemented.
 
 ### Commit Hashes
 
-- Commit 1: Pending.
+- Commit 1: `4ff2100` — `Commit 1: Connect the frontend to opportunity-cost examples`.
 - Commit 2: Pending.
 - Commit 3: Pending.
 - Commit 4: Pending.
@@ -448,11 +453,25 @@ Focused API and query tests cover request methods, URLs, bodies, credentials,
 response handling, cancellation, cache keys, invalidation, session expiry, and retry
 behavior.
 
+Commit 2 added the separate protected `/settings/opportunity-costs` management page,
+a discoverable dashboard link, and a clear return path to the dashboard. The page
+renders examples in server order with formatted dollar values and stable IDs, exposes
+create/edit/delete triggers for later workflows, and distinguishes initial loading,
+recoverable errors, background refreshes, and a genuine empty list.
+
+Page, component, dashboard, and router tests cover route protection, navigation,
+empty and populated states, duplicate labels, ordering, long content, large values,
+keyboard order, retry behavior, and background refreshes.
+
 ### What It Achieved
 
 The frontend now has a tested connection to the backend opportunity-cost API that
 later commits can use without duplicating request, authentication, or cache-refresh
 logic. This commit intentionally does not render user-visible settings UI.
+
+Authenticated users can now open a dedicated management screen and see their current
+examples and management actions. The actions are not functional yet: Commit 3 builds
+their shared form, Commit 4 connects create/edit, and Commit 5 connects deletion.
 
 ### Usage and Safety Notes
 
@@ -473,6 +492,16 @@ make frontend-format-check — passed
 make frontend-lint         — passed
 make frontend-typecheck    — passed
 make frontend-test         — passed (43 files, 349 tests)
+```
+
+Commit 2 passed on 2026-08-06:
+
+```text
+make frontend-format-check — passed
+make frontend-lint         — passed
+make frontend-typecheck    — passed
+make frontend-test         — passed (45 files, 357 tests)
+make frontend-build        — passed
 ```
 
 ### Limitations and Follow-Up

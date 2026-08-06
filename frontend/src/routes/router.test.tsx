@@ -65,6 +65,31 @@ describe("authentication routes", () => {
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   });
 
+  it("renders opportunity-cost settings for an authenticated user", async () => {
+    useAuthenticatedSession();
+    renderRoute("/settings/opportunity-costs");
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Opportunity-cost examples",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText("person@example.com")).toBeInTheDocument();
+  });
+
+  it("protects opportunity-cost settings and preserves its return path", async () => {
+    const { router } = renderRoute("/settings/opportunity-costs");
+
+    expect(
+      await screen.findByRole("heading", { name: "Log in" }),
+    ).toBeInTheDocument();
+    expect(router.state.location).toMatchObject({
+      pathname: "/login",
+      state: { returnTo: "/settings/opportunity-costs" },
+    });
+  });
+
   it("creates a new entry through the protected route and shows it in Waiting", async () => {
     const user = userEvent.setup();
     const createdEntry = {

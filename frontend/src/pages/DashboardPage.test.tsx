@@ -33,6 +33,11 @@ describe("DashboardPage", () => {
     expect(
       await screen.findByRole("link", { name: "Add new impulse purchase" }),
     ).toHaveAttribute("href", "/entries/new");
+    expect(
+      screen.getByRole("link", {
+        name: "Manage opportunity-cost examples",
+      }),
+    ).toHaveAttribute("href", "/settings/opportunity-costs");
     expect(screen.getByText("Headphones")).toBeInTheDocument();
     expect(screen.getByText("Desk lamp")).toBeInTheDocument();
     expect(screen.getByText("Running shoes")).toBeInTheDocument();
@@ -263,6 +268,10 @@ describe("DashboardPage", () => {
     await user.tab();
     expect(
       screen.getByRole("link", { name: "Add new impulse purchase" }),
+    ).toHaveFocus();
+    await user.tab();
+    expect(
+      screen.getByRole("link", { name: "Manage opportunity-cost examples" }),
     ).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("combobox", { name: "Time range" })).toHaveFocus();
