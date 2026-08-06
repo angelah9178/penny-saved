@@ -442,6 +442,23 @@ button {
   background: #dbeafe;
 }
 
+.opportunity-cost-settings__form {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: #ffffff;
+}
+
+.opportunity-cost-settings__form > h2 {
+  margin-top: 0;
+}
+
+.opportunity-cost-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .opportunity-cost-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));

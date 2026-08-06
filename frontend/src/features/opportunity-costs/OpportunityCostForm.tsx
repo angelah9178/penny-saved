@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
+import { ApiError } from "../../api/errors";
 import type { CreateOpportunityCostExampleRequest } from "../../types/api";
 import {
   EMPTY_OPPORTUNITY_COST_FORM_VALUES,
@@ -12,6 +13,7 @@ export type OpportunityCostFormProps = {
   mode: "create" | "edit";
   initialValues?: OpportunityCostFormValues;
   isPending?: boolean;
+  onCancel?: (() => void) | undefined;
   onSubmit: (
     payload: CreateOpportunityCostExampleRequest,
   ) => Promise<void> | void;
@@ -21,11 +23,13 @@ export function OpportunityCostForm({
   mode,
   initialValues,
   isPending = false,
+  onCancel,
   onSubmit,
 }: OpportunityCostFormProps) {
   const formId = useId();
   const summaryRef = useRef<HTMLDivElement>(null);
   const [validationSummary, setValidationSummary] = useState(false);
+  const [globalError, setGlobalError] = useState<string>();
   const {
     clearErrors,
     handleSubmit,
@@ -37,12 +41,15 @@ export function OpportunityCostForm({
   });
 
   useEffect(() => {
-    if (validationSummary) summaryRef.current?.focus();
-  }, [validationSummary]);
+    if (validationSummary || globalError !== undefined) {
+      summaryRef.current?.focus();
+    }
+  }, [globalError, validationSummary]);
 
   const submit = handleSubmit(async (values) => {
     clearErrors();
     setValidationSummary(false);
+    setGlobalError(undefined);
     const parsed = opportunityCostFormSchema.safeParse(values);
 
     if (!parsed.success) {
@@ -60,11 +67,20 @@ export function OpportunityCostForm({
       return;
     }
 
-    await onSubmit({
-      label: parsed.data.label,
-      unit_name: parsed.data.unit_name,
-      dollar_value_cents: parsed.data.dollar_value,
-    });
+    try {
+      await onSubmit({
+        label: parsed.data.label,
+        unit_name: parsed.data.unit_name,
+        dollar_value_cents: parsed.data.dollar_value,
+      });
+    } catch (error) {
+      applySubmissionError(
+        error,
+        setError,
+        setValidationSummary,
+        setGlobalError,
+      );
+    }
   });
 
   const disabled = isPending || isSubmitting;
@@ -83,14 +99,16 @@ export function OpportunityCostForm({
         void submit(event);
       }}
     >
-      {validationSummary ? (
+      {validationSummary || globalError !== undefined ? (
         <div
           className="request-state request-state--error"
           ref={summaryRef}
           role="alert"
           tabIndex={-1}
         >
-          Please correct the highlighted fields.
+          {validationSummary
+            ? "Please correct the highlighted fields."
+            : globalError}
         </div>
       ) : null}
 
@@ -144,11 +162,56 @@ export function OpportunityCostForm({
         <FieldError id={valueErrorId} message={errors.dollar_value?.message} />
       </div>
 
-      <button type="submit" disabled={disabled}>
-        {mode === "create" ? "Create example" : "Save changes"}
-      </button>
+      <div className="opportunity-cost-form__actions">
+        <button type="submit" disabled={disabled}>
+          {disabled
+            ? mode === "create"
+              ? "Creating example…"
+              : "Saving changes…"
+            : mode === "create"
+              ? "Create example"
+              : "Save changes"}
+        </button>
+        {onCancel === undefined ? null : (
+          <button type="button" disabled={disabled} onClick={onCancel}>
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   );
+}
+
+type SetFieldError = ReturnType<
+  typeof useForm<OpportunityCostFormValues>
+>["setError"];
+
+function applySubmissionError(
+  error: unknown,
+  setFieldError: SetFieldError,
+  setValidationSummary: (visible: boolean) => void,
+  setGlobalError: (message: string) => void,
+): void {
+  if (error instanceof ApiError) {
+    let knownFieldFound = false;
+    for (const [field, message] of Object.entries(error.fields ?? {})) {
+      const formField = field === "dollar_value_cents" ? "dollar_value" : field;
+      if (
+        formField === "label" ||
+        formField === "unit_name" ||
+        formField === "dollar_value"
+      ) {
+        knownFieldFound = true;
+        setFieldError(formField, { type: "server", message });
+      }
+    }
+    if (knownFieldFound) {
+      setValidationSummary(true);
+      return;
+    }
+  }
+
+  setGlobalError("We could not save the example. Please try again.");
 }
 
 function FieldError({

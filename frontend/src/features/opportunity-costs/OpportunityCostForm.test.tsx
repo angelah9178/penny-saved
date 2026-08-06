@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "../../api/errors";
 import { renderWithApp } from "../../test/render";
 import { OpportunityCostForm } from "./OpportunityCostForm";
 import { formatCentsForOpportunityCostForm } from "./formValidation";
@@ -88,7 +89,9 @@ describe("OpportunityCostForm", () => {
     expect(screen.getByLabelText("Label")).toBeDisabled();
     expect(screen.getByLabelText("Unit name")).toBeDisabled();
     expect(screen.getByLabelText("Dollar value")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Saving changes…" }),
+    ).toBeDisabled();
   });
 
   it("prevents another submission while an async callback is pending", async () => {
@@ -102,8 +105,51 @@ describe("OpportunityCostForm", () => {
     await user.dblClick(screen.getByRole("button", { name: "Create example" }));
 
     expect(
-      screen.getByRole("button", { name: "Create example" }),
+      screen.getByRole("button", { name: "Creating example…" }),
     ).toBeDisabled();
     expect(submit).toHaveBeenCalledOnce();
   });
+
+  it("maps server fields to visible controls and preserves input", async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn().mockRejectedValue(
+      new ApiError(422, "validation_error", "Invalid example.", {
+        label: "Choose a shorter label.",
+        dollar_value_cents: "Choose a different dollar value.",
+      }),
+    );
+    renderWithApp(<OpportunityCostForm mode="create" onSubmit={submit} />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: "Create example" }));
+
+    expect(await screen.findByRole("alert")).toHaveFocus();
+    expect(screen.getByText("Choose a shorter label.")).toBeVisible();
+    expect(screen.getByText("Choose a different dollar value.")).toBeVisible();
+    expect(screen.getByLabelText("Label")).toHaveValue("Hours worked");
+  });
+
+  it("uses safe global feedback instead of exposing an unexpected server message", async () => {
+    const user = userEvent.setup();
+    const submit = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiError(503, "unavailable", "Private upstream detail."),
+      );
+    renderWithApp(<OpportunityCostForm mode="edit" onSubmit={submit} />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We could not save the example. Please try again.",
+    );
+    expect(screen.queryByText("Private upstream detail.")).toBeNull();
+  });
 });
+
+async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText("Label"), "Hours worked");
+  await user.type(screen.getByLabelText("Unit name"), "hours");
+  await user.type(screen.getByLabelText("Dollar value"), "10.00");
+}

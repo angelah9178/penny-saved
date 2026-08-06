@@ -24,7 +24,7 @@ passes.
 | ---------------- | ---------------------------------------------------------------- | ------------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--connect-the-frontend-to-the-opportunity-cost-api) | Connect opportunity-cost data         | DEV-017–018 |
 | &#91;x&#93;      | [2](#commit-2--build-the-protected-settings-list)                | Build protected settings list         | Commit 1    |
-| &#91;&#160;&#93; | [3](#commit-3--build-the-shared-example-form)                    | Build shared form and money rules     | Commit 2    |
+| &#91;x&#93;      | [3](#commit-3--build-the-shared-example-form)                    | Build shared form and money rules     | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--add-create-and-edit-workflows)                    | Add create and edit workflows         | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--add-safe-example-deletion)                        | Add safe deletion                     | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-states-cache-refresh-and-verification)   | Complete states, refresh, and quality | Commits 1–5 |
@@ -233,7 +233,7 @@ make frontend-build
 
 ## Commit 3 — Build the Shared Example Form
 
-**Status:** Implemented and verified; awaiting manual commit.
+**Status:** Complete — `e4ed1bd`.
 
 ### In Plain English
 
@@ -289,13 +289,23 @@ make frontend-test
 
 ## Commit 4 — Add Create and Edit Workflows
 
-**Status:** Planned.
+**Status:** Implemented and verified; awaiting manual commit.
 
 ### In Plain English
 
 Commit 4 lets the user create a new example and edit an existing one. The shared form
 from Commit 3 converts user-friendly dollar input into the exact request body, then
 Commit 1's mutations send it to the protected API.
+
+This is the commit where the page's Create and Edit controls become functional.
+Create opens an empty form and calls `POST /api/opportunity-cost-examples`; Edit opens
+the same form with the selected server values and calls
+`PATCH /api/opportunity-cost-examples/{example_id}`.
+
+After the backend accepts either request, the user sees a success confirmation, the
+form closes, the example list refreshes, and cached dashboard statistics refresh so
+the changed comparisons are used there too. Failed requests keep the user's input
+available and show safe field-level or global feedback.
 
 The interface changes only after the server confirms success. It prevents duplicate
 submissions, displays field or global server errors, announces the result, refreshes
@@ -445,7 +455,7 @@ Complete this section as the commit series is implemented.
 
 - Commit 1: `4ff2100` — `Commit 1: Connect the frontend to opportunity-cost examples`.
 - Commit 2: `cc56758` — `Commit 2: Build the opportunity-cost settings list`.
-- Commit 3: Pending.
+- Commit 3: `e4ed1bd` — `Commit 3: Build the shared opportunity-cost form`.
 - Commit 4: Pending.
 - Commit 5: Pending.
 - Commit 6: Pending.
@@ -483,19 +493,31 @@ Validation and component tests cover normalization, exact money boundaries,
 unsupported money syntax, Unicode-aware text limits, edit formatting, keyboard
 submission, accessible errors, and pending-state duplicate-submit prevention.
 
+Commit 4 connected the page's create and edit controls to the shared form and the
+POST/PATCH mutations. It opens empty or server-prefilled values as appropriate,
+submits only the three mutable fields, keeps input available after recoverable
+failures, maps backend field errors safely, announces confirmed success, and closes
+the form only after server confirmation. Successful mutations refresh the list and
+all statistics ranges through the existing cache helper.
+
+Stale edit responses refresh server truth and show an ownership-safe explanation.
+Integration tests cover exact normalized payloads, server-confirmed create/edit
+results, safe validation and service errors, stale edits, pending controls, and
+duplicate-submit prevention. Session expiry and cache invalidation remain covered by
+the Commit 1 mutation tests.
+
 ### What It Achieved
 
 The frontend now has a tested connection to the backend opportunity-cost API that
 later commits can use without duplicating request, authentication, or cache-refresh
 logic. This commit intentionally does not render user-visible settings UI.
 
-Authenticated users can now open a dedicated management screen and see their current
-examples and management actions. The actions are not functional yet: Commit 3 builds
-their shared form, Commit 4 connects create/edit, and Commit 5 connects deletion.
+Authenticated users can open a dedicated management screen and see their current
+examples and management actions.
 
 Create and edit now share one tested form that produces the exact three-field API
-payload. It remains deliberately disconnected from the settings page and mutations
-until Commit 4.
+payload, and both workflows are connected to the backend. Deletion remains for
+Commit 5.
 
 ### Usage and Safety Notes
 
@@ -535,6 +557,16 @@ make frontend-format-check — passed
 make frontend-lint         — passed
 make frontend-typecheck    — passed
 make frontend-test         — passed (47 files, 386 tests)
+```
+
+Commit 4 passed on 2026-08-06:
+
+```text
+make frontend-format-check — passed
+make frontend-lint         — passed
+make frontend-typecheck    — passed
+make frontend-test         — passed (47 files, 391 tests)
+make frontend-build        — passed
 ```
 
 ### Limitations and Follow-Up

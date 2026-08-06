@@ -3,10 +3,12 @@ import type { OpportunityCostExample } from "../../types/api";
 
 export type OpportunityCostExampleListProps = {
   examples: OpportunityCostExample[];
+  onEdit?: ((example: OpportunityCostExample) => void) | undefined;
 };
 
 export function OpportunityCostExampleList({
   examples,
+  onEdit,
 }: OpportunityCostExampleListProps) {
   return (
     <ul
@@ -23,7 +25,9 @@ export function OpportunityCostExampleList({
             </p>
           </div>
           <div className="opportunity-cost-card__actions">
-            <button type="button">Edit {example.label}</button>
+            <button type="button" onClick={() => onEdit?.(example)}>
+              Edit {example.label}
+            </button>
             <button type="button" className="button--danger">
               Delete {example.label}
             </button>
