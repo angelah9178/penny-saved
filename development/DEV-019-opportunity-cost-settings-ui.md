@@ -23,7 +23,7 @@ passes.
 |                  | Commit                                                           | Title                                 | Depends on  |
 | ---------------- | ---------------------------------------------------------------- | ------------------------------------- | ----------- |
 | &#91;x&#93;      | [1](#commit-1--connect-the-frontend-to-the-opportunity-cost-api) | Connect opportunity-cost data         | DEV-017–018 |
-| &#91;&#160;&#93; | [2](#commit-2--build-the-protected-settings-list)                | Build protected settings list         | Commit 1    |
+| &#91;x&#93;      | [2](#commit-2--build-the-protected-settings-list)                | Build protected settings list         | Commit 1    |
 | &#91;&#160;&#93; | [3](#commit-3--build-the-shared-example-form)                    | Build shared form and money rules     | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--add-create-and-edit-workflows)                    | Add create and edit workflows         | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--add-safe-example-deletion)                        | Add safe deletion                     | Commit 4    |
@@ -184,7 +184,7 @@ make frontend-test
 
 ## Commit 2 — Build the Protected Settings List
 
-**Status:** Implemented and verified; awaiting manual commit.
+**Status:** Complete — `cc56758`.
 
 ### In Plain English
 
@@ -233,13 +233,23 @@ make frontend-build
 
 ## Commit 3 — Build the Shared Example Form
 
-**Status:** Planned.
+**Status:** Implemented and verified; awaiting manual commit.
 
 ### In Plain English
 
 Commit 3 builds one accessible form that both create and edit workflows will share.
 It validates and trims the label and unit, parses a dollar string into exact integer
 cents, and converts existing cents back into a two-decimal edit value.
+
+The form contains a label, a unit name, and a dollar value. It rejects blank or
+overlong text and invalid money formats such as commas, signs, exponent notation,
+negative values, and more than two decimal places. Valid dollar input is converted
+to integer cents using string parsing, so `$10.00` becomes `1,000` without
+floating-point rounding.
+
+Create mode starts empty, while edit mode can display server-confirmed values with
+exactly two decimal places. Both modes use the same validation and return the same
+three-field API payload to their parent component.
 
 The form is still presentation and validation infrastructure. It can report valid
 data through a callback, but it does not send create or update requests until Commit
@@ -434,7 +444,7 @@ Complete this section as the commit series is implemented.
 ### Commit Hashes
 
 - Commit 1: `4ff2100` — `Commit 1: Connect the frontend to opportunity-cost examples`.
-- Commit 2: Pending.
+- Commit 2: `cc56758` — `Commit 2: Build the opportunity-cost settings list`.
 - Commit 3: Pending.
 - Commit 4: Pending.
 - Commit 5: Pending.
@@ -463,6 +473,16 @@ Page, component, dashboard, and router tests cover route protection, navigation,
 empty and populated states, duplicate labels, ordering, long content, large values,
 keyboard order, retry behavior, and background refreshes.
 
+Commit 3 added a shared accessible form for create and edit modes plus focused
+validation and conversion helpers. It trims label and unit values, enforces their
+120- and 80-character limits, reuses the established exact dollar parser, formats
+server cents for editing, associates help and errors with their controls, focuses
+the validation summary, and disables controls while submission is pending.
+
+Validation and component tests cover normalization, exact money boundaries,
+unsupported money syntax, Unicode-aware text limits, edit formatting, keyboard
+submission, accessible errors, and pending-state duplicate-submit prevention.
+
 ### What It Achieved
 
 The frontend now has a tested connection to the backend opportunity-cost API that
@@ -472,6 +492,10 @@ logic. This commit intentionally does not render user-visible settings UI.
 Authenticated users can now open a dedicated management screen and see their current
 examples and management actions. The actions are not functional yet: Commit 3 builds
 their shared form, Commit 4 connects create/edit, and Commit 5 connects deletion.
+
+Create and edit now share one tested form that produces the exact three-field API
+payload. It remains deliberately disconnected from the settings page and mutations
+until Commit 4.
 
 ### Usage and Safety Notes
 
@@ -502,6 +526,15 @@ make frontend-lint         — passed
 make frontend-typecheck    — passed
 make frontend-test         — passed (45 files, 357 tests)
 make frontend-build        — passed
+```
+
+Commit 3 passed on 2026-08-06:
+
+```text
+make frontend-format-check — passed
+make frontend-lint         — passed
+make frontend-typecheck    — passed
+make frontend-test         — passed (47 files, 386 tests)
 ```
 
 ### Limitations and Follow-Up
