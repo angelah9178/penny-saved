@@ -406,6 +406,119 @@ button {
   background: #dbeafe;
 }
 
+.statistics {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: #f8fafc;
+}
+
+.statistics__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.statistics__header h2,
+.statistics__header p,
+.statistics__equivalents h3 {
+  margin-top: 0;
+}
+
+.statistics__header p,
+.statistics__equivalents > :last-child {
+  margin-bottom: 0;
+}
+
+.statistics__filter {
+  display: grid;
+  gap: 0.375rem;
+  min-width: min(100%, 13rem);
+}
+
+.statistics__filter label {
+  font-weight: 700;
+}
+
+.statistics__filter select {
+  min-height: 2.75rem;
+  border: 1px solid #6b7280;
+  border-radius: 0.375rem;
+  padding: 0.625rem;
+  background: #ffffff;
+  font: inherit;
+}
+
+.statistics__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+
+.statistics__card {
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.statistics__card dt {
+  color: #4b5563;
+  font-weight: 700;
+}
+
+.statistics__card dd {
+  margin: 0.375rem 0 0;
+  color: #0f172a;
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.statistics__equivalents {
+  min-width: 0;
+}
+
+.statistics__equivalent-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.statistics__equivalent-list li {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  border-left: 0.25rem solid #15803d;
+  border-radius: 0.375rem;
+  padding: 0.875rem 1rem;
+  overflow-wrap: anywhere;
+  background: #ffffff;
+}
+
+.statistics__equivalent-value {
+  color: #14532d;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.statistics__empty {
+  border-radius: 0.5rem;
+  padding: 1rem;
+  color: #4b5563;
+  background: #ffffff;
+}
+
 .entry-section {
   min-width: 0;
   border: 1px solid #d1d5db;

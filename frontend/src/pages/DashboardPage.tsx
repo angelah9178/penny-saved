@@ -6,6 +6,7 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { EntrySection } from "../features/entries/EntrySection";
 import { useDashboardEntries } from "../features/entries/queries";
+import { StatisticsSection } from "../features/stats/StatisticsSection";
 
 export function DashboardPage() {
   const dashboard = useDashboardEntries();
@@ -65,6 +66,8 @@ export function DashboardPage() {
           Add new impulse purchase
         </Link>
       </p>
+
+      <StatisticsSection />
 
       <EntrySection
         title="Needs check-in"

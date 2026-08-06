@@ -134,8 +134,9 @@ describe("DashboardPage", () => {
       });
     });
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Updating dashboard…",
+    expect(await screen.findByText("Updating dashboard…")).toHaveAttribute(
+      "role",
+      "status",
     );
     expect(screen.getByText("Visible while updating")).toBeVisible();
   });
@@ -263,6 +264,8 @@ describe("DashboardPage", () => {
     expect(
       screen.getByRole("link", { name: "Add new impulse purchase" }),
     ).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("combobox", { name: "Time range" })).toHaveFocus();
     await user.tab();
     const summary = screen.getByText("Purchased (0)");
     expect(summary).toHaveFocus();

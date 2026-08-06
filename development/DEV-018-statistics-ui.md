@@ -25,7 +25,7 @@ passes.
 | &#91;x&#93;      | [1](#commit-1--define-opportunity-cost-equivalent-contracts)            | Define equivalent contracts            | DEV-016–017 |
 | &#91;x&#93;      | [2](#commit-2--calculate-equivalents-in-the-statistics-service)         | Calculate equivalents                  | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--complete-backend-equivalent-verification)                | Verify backend equivalents             | Commit 2    |
-| &#91;&#160;&#93; | [4](#commit-4--connect-the-frontend-to-statistics)                      | Connect frontend statistics            | Commit 3    |
+| &#91;x&#93;      | [4](#commit-4--connect-the-frontend-to-statistics)                      | Connect frontend statistics            | Commit 3    |
 | &#91;&#160;&#93; | [5](#commit-5--build-the-statistics-and-equivalents-experience)         | Build statistics experience            | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-states-cache-refresh-and-verification)          | Complete states, refresh, and quality  | Commits 1–5 |
 
@@ -322,7 +322,7 @@ make backend-test
 
 ## Commit 4 — Connect the Frontend to Statistics
 
-**Status:** Implemented and verified; pending manual Git commit.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -376,13 +376,35 @@ make frontend-test
 
 ## Commit 5 — Build the Statistics and Equivalents Experience
 
-**Status:** Planned.
+**Status:** Implemented and verified; pending manual Git commit.
 
 ### In Plain English
 
 Commit 5 builds what the user sees on the dashboard. It adds the five-option range
 control, three summary cards, and a readable list showing what the saved amount means
 in each of the user's chosen units.
+
+This is the first commit where the user can see and interact with statistics. It uses
+Commit 4's query hook to render total money saved, purchases avoided, items purchased,
+and every server-calculated opportunity-cost equivalent. The range selector offers
+This month, Last 3 months, Last 6 months, Last year, and All time.
+
+Changing the selector updates `?range=` in the URL and causes Commit 4's data layer to
+call the matching GET endpoint:
+
+```text
+User selects “Last 3 months”
+          ↓
+URL becomes ?range=last_3_months
+          ↓
+GET /api/stats/summary?range=last_3_months
+          ↓
+Commit 5 displays the returned totals and equivalents
+```
+
+Reload and browser back/forward navigation preserve the selected range. Missing or
+invalid URL values safely use `this_month`. The browser formats cents and counts for
+display but never recalculates totals or equivalent units.
 
 The UI formats cents as dollars and numbers for display, but trusts the backend's
 totals and `equivalent_units`. Changing the filter updates the URL and requests the
@@ -487,8 +509,8 @@ Complete this section as the commit series is implemented.
 - Commit 1: `2b4f773` (`Commit 1: Define opportunity-cost equivalent contracts`).
 - Commit 2: `c301c8b` (`Commit 2: Add opportunity-cost equivalents to statistics`).
 - Commit 3: `31af07a` (`Commit 3: Verify statistics opportunity-cost equivalents`).
-- Commit 4: Implemented and verified in the working tree; commit hash pending.
-- Commit 5: Pending.
+- Commit 4: `a963048` (`Commit 4: Connect the frontend to statistics summaries`).
+- Commit 5: Implemented and verified in the working tree; commit hash pending.
 - Commit 6: Pending.
 
 ### What Changed
@@ -517,6 +539,12 @@ range, uses the established credentialed client and session-expiry flow, forward
 cancellation, separates cached summaries by range, applies the shared retry policy,
 and retains previous summary data during a range transition.
 
+Commit 5 added the visible statistics dashboard section, its responsive cards and
+equivalent list, and the URL-backed five-range selector. It formats integer cents and
+counts for display, renders server-provided equivalent units without recalculation,
+uses example IDs for stable list identity, and safely falls back to `this_month` for
+missing or unsupported URL values.
+
 ### What It Achieved
 
 The backend and frontend now have one explicit, implemented, and cross-layer verified
@@ -524,9 +552,10 @@ interface for opportunity-cost equivalents. The public schema cannot expose owne
 or arbitrary ORM data, and the complete PostgreSQL-to-HTTP path preserves the approved
 range, ownership, ordering, precision, and failure-safety rules.
 
-The frontend can now fetch and cache that interface safely. No statistics are rendered
-yet; Commit 5 will turn the data supplied by the Commit 4 hook into the visible
-dashboard experience.
+The frontend can now fetch, cache, display, and filter statistics without a full-page
+reload. Reloads and browser history preserve supported selections, and users can read
+saved totals, decision counts, and whole or fractional opportunity-cost equivalents
+directly on the dashboard.
 
 ### Usage and Safety Notes
 
@@ -564,6 +593,15 @@ Commit 4 verification passed on August 6, 2026:
 - frontend TypeScript checking passed;
 - all 15 focused statistics API and query tests passed; and
 - all 323 frontend tests passed across 39 test files.
+
+Commit 5 verification passed on August 6, 2026:
+
+- frontend Prettier formatting passed;
+- frontend ESLint passed;
+- frontend TypeScript checking passed;
+- all 21 focused statistics and dashboard tests passed;
+- all 329 frontend tests passed across 40 test files; and
+- the frontend production build passed.
 
 Record later focused gates after each commit and the final `make check` result after
 Commit 6.

@@ -12,6 +12,7 @@ import type {
   DashboardEntries,
   EntryResponse,
   EntryStatus,
+  StatsSummary,
 } from "../types/api";
 import { DashboardPage } from "./DashboardPage";
 import { EntryDetailPage } from "./EntryDetailPage";
@@ -132,10 +133,13 @@ describe("EntryDetailPage", () => {
       saved: [initial.entry],
     } satisfies DashboardEntries);
     queryClient.setQueryData(queryKeys.entries.detail(entryId), initial);
-    queryClient.setQueryData(
-      queryKeys.stats.summary("this_month"),
-      "cached statistics",
-    );
+    queryClient.setQueryData(queryKeys.stats.summary("this_month"), {
+      range: "this_month",
+      total_saved_cents: 25_000,
+      avoided_purchase_count: 4,
+      purchased_count: 1,
+      opportunity_costs: [],
+    } satisfies StatsSummary);
     const router = createMemoryRouter(
       [
         { path: "/dashboard", element: <DashboardPage /> },
