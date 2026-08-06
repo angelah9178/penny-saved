@@ -16,6 +16,7 @@ import type {
   UpdateEntryRequest,
 } from "../../types/api";
 import { runProtectedRequest } from "../auth/sessionExpiry";
+import { invalidateStatsQueries } from "../stats/cache";
 import {
   checkInEntry,
   createEntry,
@@ -154,9 +155,7 @@ export function checkInEntryMutationOptions(
         queryClient.invalidateQueries({
           queryKey: queryKeys.entries.dashboard(),
         }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.stats.all(),
-        }),
+        invalidateStatsQueries(queryClient),
       ]);
     },
     retry: false,

@@ -41,14 +41,14 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 | &#91;x&#93;      | [DEV-008](#dev-008--implement-authentication-and-session-api)                   | Implement authentication and session API                   | Authentication | DEV-005                            |
 | &#91;x&#93;      | [DEV-009](#dev-009--implement-authentication-ui-and-route-guards)               | Implement authentication UI and route guards               | Authentication | DEV-004, DEV-008                   |
 | &#91;x&#93;      | [DEV-010](#dev-010--implement-entry-crud-and-dashboard-api)                     | Implement entry CRUD and dashboard API                     | Entries        | DEV-005, DEV-008                   |
-| &#91;&#160;&#93; | [DEV-011](#dev-011--build-dashboard-entry-lists)                                | Build dashboard entry lists                                | Entries        | DEV-009, DEV-010                   |
-| &#91;&#160;&#93; | [DEV-012](#dev-012--build-entry-create-edit-and-delete-flows)                   | Build entry create, edit, and delete flows                 | Entries        | DEV-010, DEV-011                   |
-| &#91;&#160;&#93; | [DEV-013](#dev-013--implement-atomic-entry-check-in-api)                        | Implement atomic entry check-in API                        | Check-in       | DEV-010                            |
-| &#91;&#160;&#93; | [DEV-014](#dev-014--build-the-check-in-experience)                              | Build the check-in experience                              | Check-in       | DEV-011, DEV-013                   |
-| &#91;&#160;&#93; | [DEV-015](#dev-015--add-resolved-entry-comment-editing)                         | Add resolved-entry comment editing                         | Check-in       | DEV-013, DEV-014                   |
-| &#91;&#160;&#93; | [DEV-016](#dev-016--implement-statistics-aggregate-api)                         | Implement statistics aggregate API                         | Statistics     | DEV-013                            |
-| &#91;&#160;&#93; | [DEV-017](#dev-017--implement-opportunity-cost-example-api)                     | Implement opportunity-cost example API                     | Statistics     | DEV-005, DEV-008                   |
-| &#91;&#160;&#93; | [DEV-018](#dev-018--build-statistics-and-equivalents-ui)                        | Build statistics and equivalents UI                        | Statistics     | DEV-016, DEV-017                   |
+| &#91;x&#93;      | [DEV-011](#dev-011--build-dashboard-entry-lists)                                | Build dashboard entry lists                                | Entries        | DEV-009, DEV-010                   |
+| &#91;x&#93;      | [DEV-012](#dev-012--build-entry-create-edit-and-delete-flows)                   | Build entry create, edit, and delete flows                 | Entries        | DEV-010, DEV-011                   |
+| &#91;x&#93;      | [DEV-013](#dev-013--implement-atomic-entry-check-in-api)                        | Implement atomic entry check-in API                        | Check-in       | DEV-010                            |
+| &#91;x&#93;      | [DEV-014](#dev-014--build-the-check-in-experience)                              | Build the check-in experience                              | Check-in       | DEV-011, DEV-013                   |
+| &#91;x&#93;      | [DEV-015](#dev-015--add-resolved-entry-comment-editing)                         | Add resolved-entry comment editing                         | Check-in       | DEV-013, DEV-014                   |
+| &#91;x&#93;      | [DEV-016](#dev-016--implement-statistics-aggregate-api)                         | Implement statistics aggregate API                         | Statistics     | DEV-013                            |
+| &#91;x&#93;      | [DEV-017](#dev-017--implement-opportunity-cost-example-api)                     | Implement opportunity-cost example API                     | Statistics     | DEV-005, DEV-008                   |
+| &#91;x&#93;      | [DEV-018](#dev-018--build-statistics-and-equivalents-ui)                        | Build statistics and equivalents UI                        | Statistics     | DEV-016, DEV-017                   |
 | &#91;&#160;&#93; | [DEV-019](#dev-019--build-opportunity-cost-settings-ui)                         | Build opportunity-cost settings UI                         | Statistics     | DEV-017, DEV-018                   |
 | &#91;&#160;&#93; | [DEV-020](#dev-020--complete-shared-ux-accessibility-and-responsive-behavior)   | Complete shared UX, accessibility, and responsive behavior | Hardening      | DEV-012, DEV-015, DEV-018, DEV-019 |
 | &#91;&#160;&#93; | [DEV-021](#dev-021--add-security-and-abuse-protections)                         | Add security and abuse protections                         | Hardening      | DEV-008, DEV-010, DEV-017          |
@@ -62,9 +62,9 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 | ---------------------- | --------------- | ------------------------------------------------------------------------------------ | ----------- |
 | M1 — Foundation        | DEV-001–DEV-007 | Clean install, healthy app, reproducible migration, seed data, and green baseline CI | Complete    |
 | M2 — Accounts          | DEV-008–DEV-009 | Signup/login/logout/session restoration pass API and UI tests                        | Complete    |
-| M3 — Entry management  | DEV-010–DEV-012 | Owned CRUD and all dashboard buckets work without full-page reloads                  | Not started |
-| M4 — Check-in          | DEV-013–DEV-015 | Exact 48-hour and concurrent-transition tests pass; resolved comments are editable   | Not started |
-| M5 — Insights          | DEV-016–DEV-019 | Date-boundary aggregates, equivalents, and example management pass                   | Not started |
+| M3 — Entry management  | DEV-010–DEV-012 | Owned CRUD and all dashboard buckets work without full-page reloads                  | Complete    |
+| M4 — Check-in          | DEV-013–DEV-015 | Exact 48-hour and concurrent-transition tests pass; resolved comments are editable   | Complete    |
+| M5 — Insights          | DEV-016–DEV-019 | Date-boundary aggregates, equivalents, and example management pass                   | In progress |
 | M6 — Release candidate | DEV-020–DEV-024 | Full CI and smoke suite pass; migration and release checklists are complete          | Not started |
 
 ## Recommended Merge Order

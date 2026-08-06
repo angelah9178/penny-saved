@@ -1,8 +1,17 @@
 """Tests for statistics API response contracts."""
 
+from uuid import UUID
+
 import pytest
-from app.schemas.statistics import StatisticsRange, StatisticsSummaryResponse
+from app.models.opportunity_cost_example import MAX_DOLLAR_VALUE_CENTS
+from app.schemas.statistics import (
+    OpportunityCostEquivalentResponse,
+    StatisticsRange,
+    StatisticsSummaryResponse,
+)
 from pydantic import ValidationError
+
+EXAMPLE_ID = UUID("10000000-0000-4000-8000-000000000001")
 
 
 def test_statistics_range_exposes_only_supported_values() -> None:
@@ -21,6 +30,15 @@ def test_statistics_summary_serializes_exact_contract() -> None:
         total_saved_cents=25_000,
         avoided_purchase_count=4,
         purchased_count=1,
+        opportunity_costs=[
+            OpportunityCostEquivalentResponse(
+                example_id=EXAMPLE_ID,
+                label="hours worked",
+                unit_name="hours",
+                dollar_value_cents=1_000,
+                equivalent_units=25,
+            )
+        ],
     )
 
     assert response.model_dump(mode="json") == {
@@ -28,7 +46,15 @@ def test_statistics_summary_serializes_exact_contract() -> None:
         "total_saved_cents": 25_000,
         "avoided_purchase_count": 4,
         "purchased_count": 1,
-        "opportunity_costs": [],
+        "opportunity_costs": [
+            {
+                "example_id": str(EXAMPLE_ID),
+                "label": "hours worked",
+                "unit_name": "hours",
+                "dollar_value_cents": 1_000,
+                "equivalent_units": 25,
+            }
+        ],
     }
 
 
@@ -81,12 +107,89 @@ def test_statistics_summary_rejects_unknown_fields() -> None:
         )
 
 
-def test_opportunity_costs_remain_empty_until_dev_018() -> None:
+@pytest.mark.parametrize("equivalent_units", [0, 25, 8.3])
+def test_opportunity_cost_equivalent_accepts_nonnegative_numeric_results(
+    equivalent_units: int | float,
+) -> None:
+    equivalent = OpportunityCostEquivalentResponse(
+        example_id=EXAMPLE_ID,
+        label="hours worked",
+        unit_name="hours",
+        dollar_value_cents=1_000,
+        equivalent_units=equivalent_units,
+    )
+
+    assert equivalent.model_dump(mode="json")["equivalent_units"] == equivalent_units
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("example_id", "not-a-uuid"),
+        ("label", ""),
+        ("label", " hours worked "),
+        ("label", "x" * 121),
+        ("unit_name", ""),
+        ("unit_name", " hours "),
+        ("unit_name", "x" * 81),
+        ("dollar_value_cents", 0),
+        ("dollar_value_cents", MAX_DOLLAR_VALUE_CENTS + 1),
+        ("dollar_value_cents", 1.5),
+        ("equivalent_units", -0.1),
+        ("equivalent_units", 1.25),
+        ("equivalent_units", "8.3"),
+        ("equivalent_units", True),
+        ("equivalent_units", float("inf")),
+    ],
+)
+def test_opportunity_cost_equivalent_rejects_invalid_fields(field: str, value: object) -> None:
+    payload = {
+        "example_id": str(EXAMPLE_ID),
+        "label": "hours worked",
+        "unit_name": "hours",
+        "dollar_value_cents": 1_000,
+        "equivalent_units": 25,
+        field: value,
+    }
+
     with pytest.raises(ValidationError):
-        StatisticsSummaryResponse(
-            range=StatisticsRange.THIS_MONTH,
-            total_saved_cents=0,
-            avoided_purchase_count=0,
-            purchased_count=0,
-            opportunity_costs=[{"label": "hours worked"}],
+        OpportunityCostEquivalentResponse.model_validate(payload)
+
+
+def test_opportunity_cost_equivalent_accepts_exact_field_limits() -> None:
+    equivalent = OpportunityCostEquivalentResponse(
+        example_id=EXAMPLE_ID,
+        label="x" * 120,
+        unit_name="x" * 80,
+        dollar_value_cents=MAX_DOLLAR_VALUE_CENTS,
+        equivalent_units=0,
+    )
+
+    assert equivalent.dollar_value_cents == MAX_DOLLAR_VALUE_CENTS
+
+
+def test_opportunity_cost_equivalent_rejects_unknown_and_internal_fields() -> None:
+    with pytest.raises(ValidationError):
+        OpportunityCostEquivalentResponse.model_validate(
+            {
+                "example_id": str(EXAMPLE_ID),
+                "label": "hours worked",
+                "unit_name": "hours",
+                "dollar_value_cents": 1_000,
+                "equivalent_units": 25,
+                "user_id": "20000000-0000-4000-8000-000000000001",
+            }
+        )
+
+
+def test_statistics_summary_rejects_incomplete_opportunity_costs() -> None:
+    with pytest.raises(ValidationError):
+        StatisticsSummaryResponse.model_validate(
+            {
+                "range": StatisticsRange.THIS_MONTH,
+                "total_saved_cents": 0,
+                "avoided_purchase_count": 0,
+                "purchased_count": 0,
+                "opportunity_costs": [{"label": "hours worked"}],
+            }
         )

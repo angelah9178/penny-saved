@@ -15,6 +15,20 @@ export const handlers = [
       purchased: [],
     });
   }),
+  http.get("/api/stats/summary", ({ request }) => {
+    const range =
+      new URL(request.url).searchParams.get("range") ?? "this_month";
+    return HttpResponse.json({
+      range,
+      total_saved_cents: 0,
+      avoided_purchase_count: 0,
+      purchased_count: 0,
+      opportunity_costs: [],
+    });
+  }),
+  http.get("/api/opportunity-cost-examples", () => {
+    return HttpResponse.json({ examples: [] });
+  }),
   http.get("/api/auth/me", () => {
     return HttpResponse.json(
       {

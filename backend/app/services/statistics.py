@@ -2,15 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 from calendar import monthrange
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 from app.core.time import Clock, normalize_utc
+from app.models.opportunity_cost_example import OpportunityCostExample
+from app.repositories.opportunity_costs import list_opportunity_cost_examples_by_user
 from app.repositories.statistics import aggregate_statistics
-from app.schemas.statistics import StatisticsRange, StatisticsSummaryResponse
+from app.schemas.statistics import (
+    OpportunityCostEquivalentResponse,
+    StatisticsRange,
+    StatisticsSummaryResponse,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger("penny_saved.statistics")
+ONE_DECIMAL_PLACE = Decimal("0.1")
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,13 +71,57 @@ async def get_statistics_summary(
         range_start=interval.start,
         range_end=interval.end,
     )
+    examples = await list_opportunity_cost_examples_by_user(db, user_id=user_id)
     return StatisticsSummaryResponse(
         range=selected_range,
         total_saved_cents=aggregate.total_saved_cents,
         avoided_purchase_count=aggregate.avoided_purchase_count,
         purchased_count=aggregate.purchased_count,
-        opportunity_costs=[],
+        opportunity_costs=_calculate_opportunity_cost_equivalents(
+            examples,
+            total_saved_cents=aggregate.total_saved_cents,
+            user_id=user_id,
+        ),
     )
+
+
+def _calculate_opportunity_cost_equivalents(
+    examples: list[OpportunityCostExample],
+    *,
+    total_saved_cents: int,
+    user_id: UUID,
+) -> list[OpportunityCostEquivalentResponse]:
+    """Calculate ordered display equivalents without binary floating-point division."""
+    equivalents: list[OpportunityCostEquivalentResponse] = []
+    saved_total = Decimal(total_saved_cents)
+
+    for example in examples:
+        if example.dollar_value_cents == 0:
+            logger.warning(
+                "statistics.invalid_zero_opportunity_cost_skipped",
+                extra={"user_id": str(user_id)},
+            )
+            continue
+
+        rounded = (saved_total / Decimal(example.dollar_value_cents)).quantize(
+            ONE_DECIMAL_PLACE,
+            rounding=ROUND_HALF_UP,
+        )
+        numeric_result: int | float = (
+            int(rounded) if rounded == rounded.to_integral_value() else float(rounded)
+        )
+
+        equivalents.append(
+            OpportunityCostEquivalentResponse(
+                example_id=example.id,
+                label=example.label,
+                unit_name=example.unit_name,
+                dollar_value_cents=example.dollar_value_cents,
+                equivalent_units=numeric_result,
+            )
+        )
+
+    return equivalents
 
 
 def _subtract_calendar_months(value: datetime, months: int) -> datetime:

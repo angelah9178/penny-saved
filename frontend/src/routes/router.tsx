@@ -54,6 +54,14 @@ export const appRoutes = [
             },
           },
           {
+            path: "settings/opportunity-costs",
+            lazy: async () => {
+              const { OpportunityCostSettingsPage } =
+                await import("../pages/OpportunityCostSettingsPage");
+              return { Component: OpportunityCostSettingsPage };
+            },
+          },
+          {
             path: "entries/:entryId",
             lazy: async () => {
               const { EntryDetailPage } =
