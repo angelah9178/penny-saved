@@ -27,7 +27,7 @@ passes.
 | &#91;x&#93;      | [3](#commit-3--complete-backend-equivalent-verification)                | Verify backend equivalents             | Commit 2    |
 | &#91;x&#93;      | [4](#commit-4--connect-the-frontend-to-statistics)                      | Connect frontend statistics            | Commit 3    |
 | &#91;x&#93;      | [5](#commit-5--build-the-statistics-and-equivalents-experience)         | Build statistics experience            | Commit 4    |
-| &#91;&#160;&#93; | [6](#commit-6--complete-states-cache-refresh-and-verification)          | Complete states, refresh, and quality  | Commits 1–5 |
+| &#91;x&#93;      | [6](#commit-6--complete-states-cache-refresh-and-verification)          | Complete states, refresh, and quality  | Commits 1–5 |
 
 ## Objective
 
@@ -443,7 +443,7 @@ make frontend-build
 
 ## Commit 6 — Complete States, Cache Refresh, and Verification
 
-**Status:** Implemented and verified; pending manual Git commit.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -511,7 +511,7 @@ Complete this section as the commit series is implemented.
 - Commit 3: `31af07a` (`Commit 3: Verify statistics opportunity-cost equivalents`).
 - Commit 4: `a963048` (`Commit 4: Connect the frontend to statistics summaries`).
 - Commit 5: `30749f5` (`Commit 5: Build the statistics and equivalents experience`).
-- Commit 6: Implemented and verified in the working tree; commit hash pending.
+- Commit 6: `53902ef` (`Commit 6: Complete statistics UI states and verification`).
 
 ### What Changed
 
