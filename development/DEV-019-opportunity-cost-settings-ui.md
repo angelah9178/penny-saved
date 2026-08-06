@@ -26,7 +26,7 @@ passes.
 | &#91;x&#93;      | [2](#commit-2--build-the-protected-settings-list)                | Build protected settings list         | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--build-the-shared-example-form)                    | Build shared form and money rules     | Commit 2    |
 | &#91;x&#93;      | [4](#commit-4--add-create-and-edit-workflows)                    | Add create and edit workflows         | Commit 3    |
-| &#91;&#160;&#93; | [5](#commit-5--add-safe-example-deletion)                        | Add safe deletion                     | Commit 4    |
+| &#91;x&#93;      | [5](#commit-5--add-safe-example-deletion)                        | Add safe deletion                     | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-states-cache-refresh-and-verification)   | Complete states, refresh, and quality | Commits 1–5 |
 
 ## Objective
@@ -346,7 +346,7 @@ make frontend-build
 
 ## Commit 5 — Add Safe Example Deletion
 
-**Status:** Implemented and verified; awaiting manual commit.
+**Status:** Complete — `3a58381`.
 
 ### In Plain English
 
@@ -403,7 +403,7 @@ make frontend-build
 
 ## Commit 6 — Complete States, Cache Refresh, and Verification
 
-**Status:** Planned.
+**Status:** Implemented and verified; awaiting manual commit.
 
 ### In Plain English
 
@@ -467,7 +467,7 @@ Complete this section as the commit series is implemented.
 - Commit 2: `cc56758` — `Commit 2: Build the opportunity-cost settings list`.
 - Commit 3: `e4ed1bd` — `Commit 3: Build the shared opportunity-cost form`.
 - Commit 4: `a0a7d50` — `Commit 4: Add opportunity-cost create and edit workflows`.
-- Commit 5: Pending.
+- Commit 5: `3a58381` — `Commit 5: Add safe opportunity-cost deletion`.
 - Commit 6: Pending.
 
 ### What Changed
@@ -528,6 +528,17 @@ tests cover cancellation, focus behavior, Escape, duplicate clicks, confirmed
 success, recoverable failure, stale `403`/`404` responses, and server-driven removal.
 Session expiry and cache refresh remain covered by the Commit 1 mutation tests.
 
+Commit 6 added a stateful MSW integration journey that follows duplicate-label
+examples through stable ordered listing, creation, editing, and confirmed deletion.
+It proves every successful mutation invalidates all five cached statistics ranges,
+and proves a failed edit cannot replace the server-confirmed list or expose a raw
+server message. Existing focused coverage completes loading, empty, retry, background
+refresh, stale response, auth expiry, rapid action, keyboard, dialog, long-content,
+and responsive-layout behavior.
+
+The master development plan now marks completed DEV-018. DEV-019 remains unchecked
+until its final manual commit and normal merge/acceptance process are complete.
+
 ### What It Achieved
 
 The frontend now has a tested connection to the backend opportunity-cost API that
@@ -540,6 +551,11 @@ examples and management actions.
 Create and edit now share one tested form that produces the exact three-field API
 payload, and both workflows are connected to the backend. Users can also safely
 delete an example through an explicit, server-confirmed workflow.
+
+The complete opportunity-cost settings experience is now implemented and verified
+as one server-driven feature. Changes refresh both management data and dashboard
+equivalents without a full-page reload, while failed operations preserve confirmed
+data and avoid leaking private backend details.
 
 ### Usage and Safety Notes
 
@@ -572,16 +588,6 @@ make frontend-test         — passed (45 files, 357 tests)
 make frontend-build        — passed
 ```
 
-Commit 5 passed on 2026-08-06:
-
-```text
-make frontend-format-check — passed
-make frontend-lint         — passed
-make frontend-typecheck    — passed
-make frontend-test         — passed (48 files, 398 tests)
-make frontend-build        — passed
-```
-
 Commit 3 passed on 2026-08-06:
 
 ```text
@@ -599,6 +605,26 @@ make frontend-lint         — passed
 make frontend-typecheck    — passed
 make frontend-test         — passed (47 files, 391 tests)
 make frontend-build        — passed
+```
+
+Commit 5 passed on 2026-08-06:
+
+```text
+make frontend-format-check — passed
+make frontend-lint         — passed
+make frontend-typecheck    — passed
+make frontend-test         — passed (48 files, 398 tests)
+make frontend-build        — passed
+```
+
+Commit 6 passed on 2026-08-06:
+
+```text
+make check — passed
+frontend: 49 files, 400 tests passed
+backend:  486 tests passed
+frontend production build passed
+backend application build check passed
 ```
 
 ### Limitations and Follow-Up
