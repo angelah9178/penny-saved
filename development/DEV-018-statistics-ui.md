@@ -22,7 +22,7 @@ passes.
 
 |                  | Commit                                                                  | Title                                  | Depends on  |
 | ---------------- | ----------------------------------------------------------------------- | -------------------------------------- | ----------- |
-| &#91;&#160;&#93; | [1](#commit-1--define-opportunity-cost-equivalent-contracts)            | Define equivalent contracts            | DEV-016–017 |
+| &#91;x&#93;      | [1](#commit-1--define-opportunity-cost-equivalent-contracts)            | Define equivalent contracts            | DEV-016–017 |
 | &#91;&#160;&#93; | [2](#commit-2--calculate-equivalents-in-the-statistics-service)         | Calculate equivalents                  | Commit 1    |
 | &#91;&#160;&#93; | [3](#commit-3--complete-backend-equivalent-verification)                | Verify backend equivalents             | Commit 2    |
 | &#91;&#160;&#93; | [4](#commit-4--connect-the-frontend-to-statistics)                      | Connect frontend statistics            | Commit 3    |
@@ -132,7 +132,7 @@ saved total by the example value.
 
 ## Commit 1 — Define Opportunity-Cost Equivalent Contracts
 
-**Status:** Planned.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -144,6 +144,29 @@ list of those results.
 This commit is the rulebook for data crossing the backend boundary. It does not query
 PostgreSQL, calculate division, or change the frontend. Later commits can rely on one
 strict and tested response shape.
+
+The equivalent object has five deliberate fields:
+
+- `example_id` identifies the source example and gives the frontend a stable list
+  key.
+- `label` carries the user's normalized comparison description, such as “hours
+  worked.”
+- `unit_name` supplies the display unit, such as “hours.”
+- `dollar_value_cents` records the positive integer-cent price of one unit.
+- `equivalent_units` is the server-produced nonnegative result, represented as either
+  a whole number such as `25` or a one-decimal number such as `8.3`.
+
+Before this commit, `opportunity_costs` is intentionally restricted to an empty list.
+Commit 1 changes it to a typed list of complete equivalent objects. The nested model
+rejects missing or unexpected fields, invalid UUIDs, unnormalized or oversized text,
+nonpositive or out-of-range cents, negative equivalents, strings, booleans, nonfinite
+numbers, and results with more than one decimal place. Internal values such as
+`user_id`, timestamps, and ORM state never enter the public response.
+
+This contract supports both `25` and `25.0` as the same numeric meaning. Clients must
+not rely on whether JSON retains a trailing zero. Calculation precision is not owned
+by this schema: Commit 2 will divide integer cents using `Decimal`, round with
+`ROUND_HALF_UP`, and only then construct this response.
 
 Suggested commit message:
 
@@ -409,7 +432,7 @@ Complete this section as the commit series is implemented.
 
 ### Commit Hashes
 
-- Commit 1: Pending.
+- Commit 1: Implemented and verified in the working tree; commit hash pending.
 - Commit 2: Pending.
 - Commit 3: Pending.
 - Commit 4: Pending.
@@ -418,11 +441,17 @@ Complete this section as the commit series is implemented.
 
 ### What Changed
 
-Pending implementation.
+Commit 1 added the strict nested opportunity-cost equivalent response and changed the
+statistics summary's empty placeholder into a typed list. The contract validates the
+source example ID and display fields, bounded integer cents, and nonnegative whole or
+one-decimal numeric results. Schema and OpenAPI tests cover the complete public shape
+and its rejection rules.
 
 ### What It Achieved
 
-Pending implementation.
+The backend and frontend now have one explicit interface for the equivalent results
+that Commit 2 will calculate. The public schema cannot expose ownership or arbitrary
+ORM data and no longer requires opportunity-cost results to remain empty.
 
 ### Usage and Safety Notes
 
@@ -431,8 +460,15 @@ frontend must use authenticated API data and perform display formatting only.
 
 ### Verification
 
-Record the focused gate results after each commit and the final `make check` result
-after Commit 6.
+Commit 1 verification passed on August 6, 2026:
+
+- backend Ruff formatting passed;
+- backend Ruff lint passed;
+- all 43 focused statistics schema and API tests passed; and
+- all 478 backend tests passed against the configured PostgreSQL test database.
+
+Record later focused gates after each commit and the final `make check` result after
+Commit 6.
 
 ### Limitations and Follow-Up
 

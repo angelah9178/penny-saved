@@ -205,13 +205,28 @@ async def test_statistics_api_returns_safe_unexpected_failure(
 def test_statistics_openapi_documents_enum_and_safe_responses(settings: Settings) -> None:
     app = create_app(settings, lifespan=no_database_lifespan)
 
-    operation = app.openapi()["paths"]["/api/stats/summary"]["get"]
+    openapi = app.openapi()
+    operation = openapi["paths"]["/api/stats/summary"]["get"]
     query_parameter = next(
         parameter for parameter in operation["parameters"] if parameter["name"] == "range"
     )
 
     assert operation["operationId"] == "get_statistics_summary"
     assert query_parameter["required"] is True
-    enum_schema = app.openapi()["components"]["schemas"]["StatisticsRange"]
+    schemas = openapi["components"]["schemas"]
+    enum_schema = schemas["StatisticsRange"]
     assert enum_schema["enum"] == [item.value for item in StatisticsRange]
+    summary_schema = schemas["StatisticsSummaryResponse"]
+    assert summary_schema["properties"]["opportunity_costs"]["items"] == {
+        "$ref": "#/components/schemas/OpportunityCostEquivalentResponse"
+    }
+    equivalent_schema = schemas["OpportunityCostEquivalentResponse"]
+    assert set(equivalent_schema["required"]) == {
+        "example_id",
+        "label",
+        "unit_name",
+        "dollar_value_cents",
+        "equivalent_units",
+    }
+    assert equivalent_schema["additionalProperties"] is False
     assert {"200", "401", "422", "500", "503"} <= set(operation["responses"])
