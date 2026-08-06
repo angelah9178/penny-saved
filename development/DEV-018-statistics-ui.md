@@ -197,13 +197,29 @@ make backend-test
 
 ## Commit 2 — Calculate Equivalents in the Statistics Service
 
-**Status:** Planned.
+**Status:** Implemented and verified; pending manual Git commit.
 
 ### In Plain English
 
 Commit 2 performs the actual opportunity-cost calculation. After the service gets the
 saved total for the selected range, it loads only the logged-in user's examples and
 divides the total by each example's cent value using exact decimal arithmetic.
+
+DEV-016 already calculates the core statistics: `total_saved_cents`, the avoided
+purchase count, the purchased count, and the UTC boundaries for the selected range.
+Commit 2 does not repeat or replace that aggregate. It consumes DEV-016's
+`total_saved_cents` and enriches the same response with the comparisons enabled by
+DEV-017's examples:
+
+```text
+DEV-016 aggregate: total_saved_cents = 25,000
+DEV-017 example:   one hour = 1,000 cents
+DEV-018 Commit 2:  25,000 / 1,000 = 25 hours
+```
+
+In short, DEV-016 answers “how much did this user save in this range?” Commit 2
+answers “what does that already-calculated amount equal in each of this user's chosen
+units?”
 
 It rounds halfway values up to one decimal, preserves the examples' stable order,
 and puts the results into Commit 1's response format. A bad zero-value row is skipped
@@ -213,7 +229,7 @@ in this commit.
 Suggested commit message:
 
 ```text
-Commit 2: Add opportunity-cost equivalents to statistics
+Commit 2: Calculate opportunity-cost equivalents
 ```
 
 Implement:
@@ -432,8 +448,8 @@ Complete this section as the commit series is implemented.
 
 ### Commit Hashes
 
-- Commit 1: Implemented and verified in the working tree; commit hash pending.
-- Commit 2: Pending.
+- Commit 1: `2b4f773` (`Commit 1: Define opportunity-cost equivalent contracts`).
+- Commit 2: Implemented and verified in the working tree; commit hash pending.
 - Commit 3: Pending.
 - Commit 4: Pending.
 - Commit 5: Pending.
@@ -446,6 +462,12 @@ statistics summary's empty placeholder into a typed list. The contract validates
 source example ID and display fields, bounded integer cents, and nonnegative whole or
 one-decimal numeric results. Schema and OpenAPI tests cover the complete public shape
 and its rejection rules.
+
+Commit 2 kept DEV-016's aggregate calculation intact, loaded the authenticated user's
+DEV-017 examples in stable repository order, and converted the already-calculated
+saved total into equivalent units with `Decimal` and `ROUND_HALF_UP`. It returns
+integers for whole results, one-decimal numbers for fractional results, zero for a
+zero saved total, and safely skips and logs an impossible zero divisor.
 
 ### What It Achieved
 
@@ -466,6 +488,13 @@ Commit 1 verification passed on August 6, 2026:
 - backend Ruff lint passed;
 - all 43 focused statistics schema and API tests passed; and
 - all 478 backend tests passed against the configured PostgreSQL test database.
+
+Commit 2 verification passed on August 6, 2026:
+
+- backend Ruff formatting passed;
+- backend Ruff lint passed;
+- all 12 focused statistics service tests passed; and
+- all 483 backend tests passed against the configured PostgreSQL test database.
 
 Record later focused gates after each commit and the final `make check` result after
 Commit 6.
