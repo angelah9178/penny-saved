@@ -1,8 +1,10 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { delay, http, HttpResponse } from "msw";
+import { afterEach, describe, expect, it } from "vitest";
 
+import { SessionExpiryCoordinator } from "../auth/SessionExpiryCoordinator";
+import { resetSessionExpiry } from "../auth/sessionExpiry";
 import { renderWithApp } from "../../test/render";
 import { server } from "../../test/server";
 import type { StatsRange, StatsSummary } from "../../types/api";
@@ -39,6 +41,10 @@ const summary: StatsSummary = {
 };
 
 describe("StatisticsSection", () => {
+  afterEach(() => {
+    resetSessionExpiry();
+  });
+
   it("shows the server totals and whole and fractional equivalents in order", async () => {
     useStatsResponse(() => summary);
 
@@ -151,6 +157,154 @@ describe("StatisticsSection", () => {
     expect(statisticValue("Purchases avoided")).toHaveTextContent("12,345");
     expect(statisticValue("Items purchased")).toHaveTextContent("6,789");
     expect(screen.getByText(/9,876,543\.2 hours/)).toBeVisible();
+  });
+
+  it("shows an honest initial loading state without fabricated zero values", () => {
+    server.use(
+      http.get("/api/stats/summary", async () => {
+        await delay("infinite");
+        return HttpResponse.json(summary);
+      }),
+    );
+
+    renderWithApp(<StatisticsSection />, { initialEntry: "/dashboard" });
+
+    expect(
+      screen.getByText("Loading your statistics…").closest("[role='status']"),
+    ).toBeVisible();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    expect(screen.queryByText("Total saved")).not.toBeInTheDocument();
+  });
+
+  it("keeps previous statistics visible while a new range loads", async () => {
+    const user = userEvent.setup();
+    useStatsResponse(() => summary);
+    renderWithApp(<StatisticsSection />, {
+      initialEntry: "/dashboard?range=this_month",
+    });
+    expect(await screen.findByText("$250.00")).toBeVisible();
+    server.use(
+      http.get("/api/stats/summary", async () => {
+        await delay("infinite");
+        return HttpResponse.json(summary);
+      }),
+    );
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Time range" }),
+      "last_3_months",
+    );
+
+    expect(await screen.findByText("Updating statistics…")).toHaveAttribute(
+      "role",
+      "status",
+    );
+    expect(screen.getByText("$250.00")).toBeVisible();
+    expect(
+      screen.queryByText("Loading your statistics…"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("lets the user retry after automatic server retries are exhausted", async () => {
+    const user = userEvent.setup();
+    let requests = 0;
+    server.use(
+      http.get("/api/stats/summary", () => {
+        requests += 1;
+        if (requests <= 3) {
+          return HttpResponse.json(
+            {
+              error: {
+                code: "unavailable",
+                message: "Temporarily unavailable.",
+              },
+            },
+            { status: 503 },
+          );
+        }
+        return HttpResponse.json(summary);
+      }),
+    );
+    renderWithApp(<StatisticsSection />, { initialEntry: "/dashboard" });
+
+    const retry = await screen.findByRole(
+      "button",
+      { name: "Try again" },
+      { timeout: 4_000 },
+    );
+    expect(screen.queryByText("Total saved")).not.toBeInTheDocument();
+    await user.click(retry);
+
+    expect(await screen.findByText("$250.00")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(requests).toBe(4);
+  });
+
+  it("does not let a slower prior range replace the latest selection", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("/api/stats/summary", async ({ request }) => {
+        const range = new URL(request.url).searchParams.get(
+          "range",
+        ) as StatsRange;
+        if (range === "last_3_months") {
+          await delay(100);
+          return HttpResponse.json({
+            ...summary,
+            range,
+            total_saved_cents: 30_000,
+          });
+        }
+        return HttpResponse.json({
+          ...summary,
+          range,
+          total_saved_cents: range === "all_time" ? 50_000 : 25_000,
+        });
+      }),
+    );
+    renderWithApp(<StatisticsSection />, {
+      initialEntry: "/dashboard?range=this_month",
+    });
+    const select = await screen.findByRole("combobox", { name: "Time range" });
+    expect(await screen.findByText("$250.00")).toBeVisible();
+
+    await user.selectOptions(select, "last_3_months");
+    await user.selectOptions(select, "all_time");
+
+    expect(await screen.findByText("$500.00")).toBeVisible();
+    await delay(150);
+    expect(select).toHaveValue("all_time");
+    expect(screen.getByText("$500.00")).toBeVisible();
+    expect(screen.queryByText("$300.00")).not.toBeInTheDocument();
+  });
+
+  it("preserves session-expiry navigation from the statistics request", async () => {
+    server.use(
+      http.get("/api/stats/summary", () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "unauthorized",
+              message: "Authentication is required.",
+            },
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+    const { router } = renderWithApp(
+      <>
+        <SessionExpiryCoordinator />
+        <StatisticsSection />
+      </>,
+      { initialEntry: "/dashboard?range=this_month" },
+    );
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(router.state.location.state).toEqual({
+      returnTo: "/dashboard",
+      sessionExpired: true,
+    });
   });
 });
 

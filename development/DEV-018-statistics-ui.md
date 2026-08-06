@@ -26,7 +26,7 @@ passes.
 | &#91;x&#93;      | [2](#commit-2--calculate-equivalents-in-the-statistics-service)         | Calculate equivalents                  | Commit 1    |
 | &#91;x&#93;      | [3](#commit-3--complete-backend-equivalent-verification)                | Verify backend equivalents             | Commit 2    |
 | &#91;x&#93;      | [4](#commit-4--connect-the-frontend-to-statistics)                      | Connect frontend statistics            | Commit 3    |
-| &#91;&#160;&#93; | [5](#commit-5--build-the-statistics-and-equivalents-experience)         | Build statistics experience            | Commit 4    |
+| &#91;x&#93;      | [5](#commit-5--build-the-statistics-and-equivalents-experience)         | Build statistics experience            | Commit 4    |
 | &#91;&#160;&#93; | [6](#commit-6--complete-states-cache-refresh-and-verification)          | Complete states, refresh, and quality  | Commits 1–5 |
 
 ## Objective
@@ -376,7 +376,7 @@ make frontend-test
 
 ## Commit 5 — Build the Statistics and Equivalents Experience
 
-**Status:** Implemented and verified; pending manual Git commit.
+**Status:** Implemented and verified.
 
 ### In Plain English
 
@@ -443,7 +443,7 @@ make frontend-build
 
 ## Commit 6 — Complete States, Cache Refresh, and Verification
 
-**Status:** Planned.
+**Status:** Implemented and verified; pending manual Git commit.
 
 ### In Plain English
 
@@ -510,8 +510,8 @@ Complete this section as the commit series is implemented.
 - Commit 2: `c301c8b` (`Commit 2: Add opportunity-cost equivalents to statistics`).
 - Commit 3: `31af07a` (`Commit 3: Verify statistics opportunity-cost equivalents`).
 - Commit 4: `a963048` (`Commit 4: Connect the frontend to statistics summaries`).
-- Commit 5: Implemented and verified in the working tree; commit hash pending.
-- Commit 6: Pending.
+- Commit 5: `30749f5` (`Commit 5: Build the statistics and equivalents experience`).
+- Commit 6: Implemented and verified in the working tree; commit hash pending.
 
 ### What Changed
 
@@ -545,6 +545,13 @@ counts for display, renders server-provided equivalent units without recalculati
 uses example IDs for stable list identity, and safely falls back to `this_month` for
 missing or unsupported URL values.
 
+Commit 6 completed the statistics request states and cache-refresh contract. Initial
+loads show no fabricated totals, background and range updates retain prior data with
+a live updating notice, recoverable errors provide retry, rapid range changes cannot
+replace the latest selection with stale data, and session expiry keeps the established
+safe redirect. Shared cache helpers now invalidate every statistics range after either
+check-in result and prepare DEV-019 mutations to invalidate both examples and stats.
+
 ### What It Achieved
 
 The backend and frontend now have one explicit, implemented, and cross-layer verified
@@ -556,6 +563,11 @@ The frontend can now fetch, cache, display, and filter statistics without a full
 reload. Reloads and browser history preserve supported selections, and users can read
 saved totals, decision counts, and whole or fractional opportunity-cost equivalents
 directly on the dashboard.
+
+The experience now remains truthful and usable during loading, failure, retry,
+background refresh, rapid interaction, session expiry, and related mutations. Both
+saved and purchased check-ins refresh statistics, while comment-only changes continue
+to leave the unchanged statistics cache intact.
 
 ### Usage and Safety Notes
 
@@ -603,8 +615,15 @@ Commit 5 verification passed on August 6, 2026:
 - all 329 frontend tests passed across 40 test files; and
 - the frontend production build passed.
 
-Record later focused gates after each commit and the final `make check` result after
-Commit 6.
+Commit 6 verification passed on August 6, 2026:
+
+- all 29 focused statistics-state, cache, and entry-mutation tests passed;
+- all 336 frontend tests passed across 41 test files;
+- all 486 backend tests passed against the configured PostgreSQL test database;
+- frontend and backend formatting and lint passed;
+- frontend TypeScript checking passed;
+- the frontend production build and backend application construction passed; and
+- final `make check` passed.
 
 ### Limitations and Follow-Up
 

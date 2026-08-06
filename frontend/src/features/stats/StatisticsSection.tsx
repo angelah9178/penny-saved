@@ -70,6 +70,11 @@ export function StatisticsSection() {
           }}
         />
       ) : null}
+      {summary.isFetching && !summary.isPending ? (
+        <p className="statistics__updating" role="status" aria-live="polite">
+          Updating statistics…
+        </p>
+      ) : null}
       {summary.data === undefined ? null : (
         <>
           <dl className="statistics__cards">

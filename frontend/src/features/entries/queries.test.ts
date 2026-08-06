@@ -10,6 +10,7 @@ import type {
   CreateEntryRequest,
   DashboardEntries,
   EntryResponse,
+  EntryStatus,
   UpdateEntryCommentRequest,
 } from "../../types/api";
 import {
@@ -289,55 +290,61 @@ describe("entry management query and mutation options", () => {
     unsubscribe();
   });
 
-  it("checks in without retrying and refreshes every affected cache", async () => {
-    const checkInPayload: CheckInEntryRequest = {
-      result: "saved",
-      comment: "I can borrow one.",
-    };
-    const checkedInResponse: EntryResponse = {
-      entry: {
-        ...entryResponse.entry,
-        status: "saved",
-        dashboard_bucket: "saved",
-        comment: checkInPayload.comment,
-        checked_in_at: "2026-08-02T14:00:00Z",
-        updated_at: "2026-08-02T14:00:00Z",
-      },
-    };
-    server.use(
-      http.post(`/api/entries/${entryId}/check-in`, async ({ request }) => {
-        expect(await request.json()).toEqual(checkInPayload);
-        return HttpResponse.json(checkedInResponse);
-      }),
-    );
-    const queryClient = testQueryClient();
-    seedDashboard(queryClient);
-    queryClient.setQueryData(queryKeys.entries.detail(entryId), entryResponse);
-    queryClient.setQueryData(
-      queryKeys.stats.summary("this_month"),
-      "cached statistics",
-    );
-    const options = checkInEntryMutationOptions(queryClient, entryId);
+  it.each(["saved", "purchased"] satisfies EntryStatus[])(
+    "checks in as %s without retrying and refreshes every affected cache",
+    async (result) => {
+      const checkInPayload: CheckInEntryRequest = {
+        result,
+        comment: "I can borrow one.",
+      };
+      const checkedInResponse: EntryResponse = {
+        entry: {
+          ...entryResponse.entry,
+          status: result,
+          dashboard_bucket: result,
+          comment: checkInPayload.comment,
+          checked_in_at: "2026-08-02T14:00:00Z",
+          updated_at: "2026-08-02T14:00:00Z",
+        },
+      };
+      server.use(
+        http.post(`/api/entries/${entryId}/check-in`, async ({ request }) => {
+          expect(await request.json()).toEqual(checkInPayload);
+          return HttpResponse.json(checkedInResponse);
+        }),
+      );
+      const queryClient = testQueryClient();
+      seedDashboard(queryClient);
+      queryClient.setQueryData(
+        queryKeys.entries.detail(entryId),
+        entryResponse,
+      );
+      queryClient.setQueryData(
+        queryKeys.stats.summary("this_month"),
+        "cached statistics",
+      );
+      const options = checkInEntryMutationOptions(queryClient, entryId);
 
-    await expect(
-      queryClient
-        .getMutationCache()
-        .build(queryClient, options)
-        .execute(checkInPayload),
-    ).resolves.toEqual(checkedInResponse);
+      await expect(
+        queryClient
+          .getMutationCache()
+          .build(queryClient, options)
+          .execute(checkInPayload),
+      ).resolves.toEqual(checkedInResponse);
 
-    expect(options.retry).toBe(false);
-    expect(queryClient.getQueryData(queryKeys.entries.detail(entryId))).toEqual(
-      checkedInResponse,
-    );
-    expect(
-      queryClient.getQueryState(queryKeys.entries.dashboard())?.isInvalidated,
-    ).toBe(true);
-    expect(
-      queryClient.getQueryState(queryKeys.stats.summary("this_month"))
-        ?.isInvalidated,
-    ).toBe(true);
-  });
+      expect(options.retry).toBe(false);
+      expect(
+        queryClient.getQueryData(queryKeys.entries.detail(entryId)),
+      ).toEqual(checkedInResponse);
+      expect(
+        queryClient.getQueryState(queryKeys.entries.dashboard())?.isInvalidated,
+      ).toBe(true);
+      expect(
+        queryClient.getQueryState(queryKeys.stats.summary("this_month"))
+          ?.isInvalidated,
+      ).toBe(true);
+    },
+  );
 
   it("reports check-in session expiry with the check-in return path", async () => {
     server.use(
