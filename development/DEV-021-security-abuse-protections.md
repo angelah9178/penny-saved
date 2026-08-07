@@ -21,7 +21,7 @@ passes.
 
 |                  | Commit                                                   | Short title                      | Depends on                |
 | ---------------- | -------------------------------------------------------- | -------------------------------- | ------------------------- |
-| &#91;&#160;&#93; | [1](#commit-1--establish-the-security-baseline)          | Establish security rules         | DEV-008, DEV-010, DEV-017 |
+| &#91;x&#93;      | [1](#commit-1--establish-the-security-baseline)          | Establish security rules         | DEV-008, DEV-010, DEV-017 |
 | &#91;&#160;&#93; | [2](#commit-2--add-the-shared-rate-limit-store)          | Add shared rate-limit storage    | Commit 1                  |
 | &#91;&#160;&#93; | [3](#commit-3--throttle-authentication-attempts)         | Throttle signup and login        | Commit 2                  |
 | &#91;&#160;&#93; | [4](#commit-4--harden-http-and-production-boundaries)    | Harden public request boundaries | Commit 1                  |
@@ -72,7 +72,7 @@ These rules apply throughout the implementation:
 
 ## Commit 1 — Establish the Security Baseline
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `199f400`.
 
 ### In Plain English
 
@@ -144,7 +144,7 @@ git diff --check
 
 ## Commit 2 — Add the Shared Rate-Limit Store
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -157,6 +157,18 @@ The store records an irreversible digest of the limit key, a time window, and a
 count. It does not store submitted passwords or a readable list of attempted email
 addresses. This commit builds and tests the mechanism but does not yet attach it to
 signup or login.
+
+For example, without shared storage, worker A could count eight attempts while
+worker B counts seven. Each worker would think a ten-attempt limit had not been
+reached even though the application received fifteen attempts. Restarting either
+worker could also erase its local count. With PostgreSQL-backed storage, every worker
+atomically reads and updates the same total, so all fifteen attempts are recognized.
+
+In practical terms, a rate limit means allowing only a configured number of actions
+within a period, such as ten login attempts for one account in fifteen minutes.
+Commit 2 creates the trustworthy counting mechanism. Commit 3 will decide which
+signup and login requests consume those counters and will return `429 Too Many
+Requests` when a limit is exceeded.
 
 Suggested commit message:
 
@@ -440,29 +452,29 @@ triage links, and limitations.
 
 ### Commit Evidence
 
-| Commit | Hash | Result                       | Verification                                                                     |
-| ------ | ---- | ---------------------------- | -------------------------------------------------------------------------------- |
-| 1      | —    | Implemented; awaiting commit | Ruff format/lint, 505 backend tests, backend construction, and diff check passed |
-| 2      | —    | Not implemented              | —                                                                                |
-| 3      | —    | Not implemented              | —                                                                                |
-| 4      | —    | Not implemented              | —                                                                                |
-| 5      | —    | Not implemented              | —                                                                                |
-| 6      | —    | Not implemented              | —                                                                                |
+| Commit | Hash      | Result                       | Verification                                                                     |
+| ------ | --------- | ---------------------------- | -------------------------------------------------------------------------------- |
+| 1      | `199f400` | Complete                     | Ruff format/lint, 505 backend tests, backend construction, and diff check passed |
+| 2      | —         | Implemented; awaiting commit | Ruff format/lint, 522 backend tests, migration drift, and diff check passed      |
+| 3      | —         | Not implemented              | —                                                                                |
+| 4      | —         | Not implemented              | —                                                                                |
+| 5      | —         | Not implemented              | —                                                                                |
+| 6      | —         | Not implemented              | —                                                                                |
 
 ### Security Verification Checklist
 
-| Check                                                                    | Result  | Evidence |
-| ------------------------------------------------------------------------ | ------- | -------- |
-| Login and signup enforce IP and normalized-account limits                | Pending | —        |
-| Limit state is shared across workers and safe under concurrency          | Pending | —        |
-| Throttling does not reveal whether an account exists                     | Pending | —        |
-| Untrusted forwarded values cannot change the resolved client identity    | Pending | —        |
-| Unsafe host, origin, cookie, proxy, and production settings are rejected | Pending | —        |
-| Fixed-length and streamed oversized bodies receive safe `413` responses  | Pending | —        |
-| Security headers cover success and applicable error responses            | Pending | —        |
-| Representative logs contain no seeded secret or sensitive derivative     | Pending | —        |
-| Locked dependency scans have no untriaged high-severity finding          | Pending | —        |
-| Full repository quality, build, migration, and security gates pass       | Pending | —        |
+| Check                                                                    | Result  | Evidence                                                                     |
+| ------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------- |
+| Login and signup enforce IP and normalized-account limits                | Pending | —                                                                            |
+| Limit state is shared across workers and safe under concurrency          | Pass    | Atomic PostgreSQL upsert passed across two stores and 12 concurrent attempts |
+| Throttling does not reveal whether an account exists                     | Pending | —                                                                            |
+| Untrusted forwarded values cannot change the resolved client identity    | Pending | —                                                                            |
+| Unsafe host, origin, cookie, proxy, and production settings are rejected | Pending | —                                                                            |
+| Fixed-length and streamed oversized bodies receive safe `413` responses  | Pending | —                                                                            |
+| Security headers cover success and applicable error responses            | Pending | —                                                                            |
+| Representative logs contain no seeded secret or sensitive derivative     | Pending | —                                                                            |
+| Locked dependency scans have no untriaged high-severity finding          | Pending | —                                                                            |
+| Full repository quality, build, migration, and security gates pass       | Pending | —                                                                            |
 
 ### Advisory Triage
 

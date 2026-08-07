@@ -122,18 +122,27 @@ def test_migrated_schema_has_expected_tables_columns_constraints_and_indexes(
             "created_at",
             "updated_at",
         },
+        "rate_limit_counters": {
+            "bucket",
+            "key_digest",
+            "attempt_count",
+            "window_started_at",
+            "expires_at",
+        },
     }
     expected_primary_keys = {
         "users": "pk_users",
         "sessions": "pk_sessions",
         "impulse_purchase_entries": "pk_impulse_purchase_entries",
         "opportunity_cost_examples": "pk_opportunity_cost_examples",
+        "rate_limit_counters": "pk_rate_limit_counters",
     }
     expected_foreign_keys = {
         "users": set(),
         "sessions": {"fk_sessions_user_id_users"},
         "impulse_purchase_entries": {"fk_entries_user_id_users"},
         "opportunity_cost_examples": {"fk_opportunity_cost_examples_user_id_users"},
+        "rate_limit_counters": set(),
     }
     expected_indexes = {
         "users": {"uq_users_email"},
@@ -147,6 +156,7 @@ def test_migrated_schema_has_expected_tables_columns_constraints_and_indexes(
             "ix_entries_user_status_created",
         },
         "opportunity_cost_examples": {"ix_opportunity_cost_examples_user_created"},
+        "rate_limit_counters": {"ix_rate_limit_counters_expires_at"},
     }
 
     assert set(inspector.get_table_names()) == {
@@ -183,6 +193,14 @@ def test_migrated_schema_has_expected_tables_columns_constraints_and_indexes(
         "ck_entries_reason_not_blank",
         "ck_entries_status",
         "ck_entries_updated_after_created",
+    }
+    assert {
+        constraint["name"] for constraint in inspector.get_check_constraints("rate_limit_counters")
+    } == {
+        "ck_rate_limit_counters_attempt_count_positive",
+        "ck_rate_limit_counters_bucket_not_blank",
+        "ck_rate_limit_counters_key_digest_format",
+        "ck_rate_limit_counters_window_expiry",
     }
     assert {
         constraint["name"]
