@@ -1,6 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState, type ReactNode } from "react";
-import type { KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FeedbackMessage } from "../components/FeedbackMessage";
@@ -15,6 +20,11 @@ export function DashboardPage() {
   const entryCreated = hasEntryCreatedState(location.state);
   const entryUpdated = hasEntryUpdatedState(location.state);
   const [entryNotice, setEntryNotice] = useState<string>();
+  const noticeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (entryNotice !== undefined) noticeRef.current?.focus();
+  }, [entryNotice]);
 
   if (dashboard.isPending) {
     return (
@@ -51,7 +61,12 @@ export function DashboardPage() {
         <FeedbackMessage message="Entry changes saved." tone="success" />
       ) : null}
       {entryNotice === undefined ? null : (
-        <FeedbackMessage message={entryNotice} tone="success" />
+        <FeedbackMessage
+          focusable
+          message={entryNotice}
+          ref={noticeRef}
+          tone="success"
+        />
       )}
       <p>Review your waiting decisions and the purchases you have resolved.</p>
       {dashboard.isFetching ? (
@@ -111,6 +126,18 @@ export function DashboardPage() {
   );
 }
 
+function toggleDisclosureFromKeyboard(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+
+  const disclosure = event.currentTarget.parentElement;
+  if (!(disclosure instanceof HTMLDetailsElement)) return;
+
+  // jsdom and some older assistive-technology/browser combinations do not apply
+  // the native summary keyboard action consistently.
+  event.preventDefault();
+  disclosure.open = !disclosure.open;
+}
+
 function hasEntryCreatedState(state: unknown): boolean {
   return (
     typeof state === "object" &&
@@ -136,19 +163,4 @@ function DashboardFrame({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
-}
-
-function toggleDisclosureFromKeyboard(event: KeyboardEvent<HTMLElement>) {
-  if (event.key !== "Enter" && event.key !== " ") {
-    return;
-  }
-
-  const disclosure = event.currentTarget.parentElement;
-
-  if (!(disclosure instanceof HTMLDetailsElement)) {
-    return;
-  }
-
-  event.preventDefault();
-  disclosure.open = !disclosure.open;
 }

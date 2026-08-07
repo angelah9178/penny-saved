@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { ApiError } from "../api/errors";
@@ -29,6 +29,11 @@ export function OpportunityCostSettingsPage() {
   const updateExample = useUpdateOpportunityCostExampleMutation();
   const [activeForm, setActiveForm] = useState<ActiveForm>();
   const [notice, setNotice] = useState<string>();
+  const noticeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (notice !== undefined) noticeRef.current?.focus();
+  }, [notice]);
 
   async function submitForm(payload: CreateOpportunityCostExampleRequest) {
     if (activeForm === undefined) return;
@@ -89,7 +94,12 @@ export function OpportunityCostSettingsPage() {
       </div>
 
       {notice === undefined ? null : (
-        <FeedbackMessage message={notice} tone="success" />
+        <FeedbackMessage
+          focusable
+          message={notice}
+          ref={noticeRef}
+          tone="success"
+        />
       )}
 
       {activeForm === undefined ? null : (

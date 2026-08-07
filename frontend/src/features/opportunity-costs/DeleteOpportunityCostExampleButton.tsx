@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useState } from "react";
 
 import { ApiError } from "../../api/errors";
+import { ConfirmationDialog } from "../../components/ConfirmationDialog";
 import type { OpportunityCostExample } from "../../types/api";
 import { useDeleteOpportunityCostExampleMutation } from "./queries";
 
@@ -18,20 +19,12 @@ export function DeleteOpportunityCostExampleButton({
   onStale,
 }: DeleteOpportunityCostExampleButtonProps) {
   const deletion = useDeleteOpportunityCostExampleMutation();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
 
-  useEffect(() => {
-    if (isOpen) cancelRef.current?.focus();
-  }, [isOpen]);
-
-  function closeAndRestoreFocus(): void {
+  function closeDialog(): void {
     setIsOpen(false);
     setErrorMessage(undefined);
-    requestAnimationFrame(() => triggerRef.current?.focus());
   }
 
   async function confirmDeletion(): Promise<void> {
@@ -58,7 +51,6 @@ export function DeleteOpportunityCostExampleButton({
     <>
       <button
         className="button--danger"
-        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen(true)}
       >
@@ -66,78 +58,18 @@ export function DeleteOpportunityCostExampleButton({
       </button>
 
       {isOpen ? (
-        <div className="dialog-backdrop">
-          <div
-            aria-labelledby={`delete-example-${example.id}-title`}
-            aria-modal="true"
-            className="delete-dialog"
-            ref={dialogRef}
-            role="alertdialog"
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && !deletion.isPending) {
-                event.preventDefault();
-                closeAndRestoreFocus();
-              }
-              if (event.key === "Tab") {
-                keepFocusInDialog(event, dialogRef.current);
-              }
-            }}
-          >
-            <h2 id={`delete-example-${example.id}-title`}>
-              Delete {example.label}?
-            </h2>
-            <p>
-              This permanently removes the example from your savings comparisons
-              and cannot be undone.
-            </p>
-            {errorMessage === undefined ? null : (
-              <p className="request-state request-state--error" role="alert">
-                {errorMessage}
-              </p>
-            )}
-            <div className="delete-dialog__actions">
-              <button
-                ref={cancelRef}
-                type="button"
-                disabled={deletion.isPending}
-                onClick={closeAndRestoreFocus}
-              >
-                Cancel
-              </button>
-              <button
-                className="button--danger"
-                type="button"
-                disabled={deletion.isPending}
-                onClick={() => void confirmDeletion()}
-              >
-                {deletion.isPending ? "Deleting example…" : "Delete example"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmationDialog
+          danger
+          confirmLabel="Delete example"
+          description="This permanently removes the example from your savings comparisons and cannot be undone."
+          errorMessage={errorMessage}
+          isPending={deletion.isPending}
+          pendingLabel="Deleting example…"
+          title={`Delete ${example.label}?`}
+          onCancel={closeDialog}
+          onConfirm={() => void confirmDeletion()}
+        />
       ) : null}
     </>
   );
-}
-
-function keepFocusInDialog(
-  event: KeyboardEvent,
-  dialog: HTMLDivElement | null,
-): void {
-  if (dialog === null) return;
-
-  const controls = Array.from(
-    dialog.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
-  );
-  const first = controls[0];
-  const last = controls.at(-1);
-  if (first === undefined || last === undefined) return;
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
 }

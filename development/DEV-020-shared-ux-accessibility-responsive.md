@@ -24,7 +24,7 @@ passes.
 | ---------------- | ----------------------------------------------------------------- | ------------------------------------------ | -------------------------- |
 | &#91;x&#93;      | [1](#commit-1--establish-the-cross-application-audit-baseline)    | Establish audit baseline                   | DEV-012, 015, 018, and 019 |
 | &#91;x&#93;      | [2](#commit-2--harden-the-application-shell-and-route-experience) | Harden shell and routes                    | Commit 1                   |
-| &#91;&#160;&#93; | [3](#commit-3--standardize-request-form-and-mutation-feedback)    | Standardize state feedback                 | Commit 2                   |
+| &#91;x&#93;      | [3](#commit-3--standardize-request-form-and-mutation-feedback)    | Standardize state feedback                 | Commit 2                   |
 | &#91;&#160;&#93; | [4](#commit-4--complete-keyboard-and-focus-behavior)              | Complete keyboard and focus behavior       | Commit 3                   |
 | &#91;&#160;&#93; | [5](#commit-5--complete-responsive-and-visual-accessibility)      | Complete responsive and visual behavior    | Commit 4                   |
 | &#91;&#160;&#93; | [6](#commit-6--complete-the-manual-audit-and-verification)        | Complete audit and repository verification | Commits 1–5                |
@@ -264,7 +264,7 @@ make frontend-build
 
 ## Commit 3 — Standardize Request, Form, and Mutation Feedback
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `ef1fe00`.
 
 ### In Plain English
 
@@ -334,7 +334,7 @@ make frontend-test
 
 ## Commit 4 — Complete Keyboard and Focus Behavior
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -347,6 +347,20 @@ The most careful work is around dialogs. When one opens, focus moves inside it a
 stays there. Escape and Cancel close it when safe, and focus returns to the control
 that opened it. If the triggering item is deleted, focus moves to a sensible surviving
 heading or action rather than a DOM node that no longer exists.
+
+The purpose is to make the application usable for people who cannot reliably use a
+mouse, including people with motor disabilities, blind screen-reader users, people
+using switches or voice control, users with a temporary injury, and anyone whose
+mouse or trackpad is unavailable. Every important V1 workflow must work with Tab,
+Shift+Tab, Enter, Space, the arrow keys supported by native controls, and Escape when
+dismissal is safe.
+
+This also prevents common keyboard failures: focus must not disappear or become
+unexpectedly trapped, custom controls must not require a click, a dialog must not
+open while focus remains behind it, repeated key presses must not submit the same
+mutation twice, and closing a dialog must not send the user back to the top of the
+page. In short, users can finish their work without precise pointer input, improving
+accessibility, reliability, and general usability.
 
 Suggested commit message:
 
@@ -514,8 +528,8 @@ findings resolved, focused test results, manual evidence, and any approved defer
 | ------ | --------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
 | 1      | `b51c194` | Complete                     | Format, lint, typecheck, 405 frontend tests, and 5 accessibility scans passed                 |
 | 2      | `55d6f4c` | Complete                     | Format, lint, typecheck, build, 421 frontend tests, and route-error accessibility scan passed |
-| 3      | —         | Implemented; awaiting commit | Format, lint, typecheck, and 426 frontend tests passed                                        |
-| 4      | —         | Not implemented              | —                                                                                             |
+| 3      | `ef1fe00` | Complete                     | Format, lint, typecheck, and 426 frontend tests passed                                        |
+| 4      | —         | Implemented; awaiting commit | Format, lint, typecheck, and 429 frontend tests passed                                        |
 | 5      | —         | Not implemented              | —                                                                                             |
 | 6      | —         | Not implemented              | —                                                                                             |
 

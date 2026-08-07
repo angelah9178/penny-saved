@@ -66,18 +66,18 @@ For every route, inspect each applicable state. “Automated” means only that 
 Run the primary V1 journey using only the keyboard. Record each issue below rather
 than relying on a general impression that the page works.
 
-| Check                                                          | Result  | Notes |
-| -------------------------------------------------------------- | ------- | ----- |
-| Skip repeated navigation and reach main content                | Pending | —     |
-| Traverse controls in a logical visible-focus order             | Pending | —     |
-| Activate links and buttons with their native keyboard inputs   | Pending | —     |
-| Operate purchased disclosure and statistics range selector     | Pending | —     |
-| Submit and correct every form                                  | Pending | —     |
-| Open, cycle through, cancel, and confirm each dialog           | Pending | —     |
-| Escape closes dialogs only when safe                           | Pending | —     |
-| Focus returns or moves meaningfully after dismissal/deletion   | Pending | —     |
-| Pending mutations reject repeated keyboard/click activation    | Pending | —     |
-| Unsaved-changes prompt preserves or deliberately discards work | Pending | —     |
+| Check                                                          | Result    | Notes                                                      |
+| -------------------------------------------------------------- | --------- | ---------------------------------------------------------- |
+| Skip repeated navigation and reach main content                | Automated | Manual journey remains                                     |
+| Traverse controls in a logical visible-focus order             | Automated | Representative routes; complete manual journey in Commit 6 |
+| Activate links and buttons with their native keyboard inputs   | Automated | Direct component and route tests                           |
+| Operate purchased disclosure and statistics range selector     | Automated | Enter, Space, Tab, and native select tests                 |
+| Submit and correct every form                                  | Automated | Direct keyboard, focus, and correction tests               |
+| Open, cycle through, cancel, and confirm each dialog           | Automated | Shared confirmation-dialog tests                           |
+| Escape closes dialogs only when safe                           | Automated | Escape is blocked while pending                            |
+| Focus returns or moves meaningfully after dismissal/deletion   | Automated | Trigger restoration and surviving notice focus tested      |
+| Pending mutations reject repeated keyboard/click activation    | Automated | Keyboard, click, and repeated-activation tests             |
+| Unsaved-changes prompt preserves or deliberately discards work | Automated | Focus trap, Escape, stay, and leave paths tested           |
 
 ## Screen-Reader and Feedback Checklist
 
