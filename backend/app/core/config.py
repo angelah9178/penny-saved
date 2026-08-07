@@ -11,12 +11,13 @@ from pathlib import Path
 from typing import Any, Self
 from urllib.parse import urlsplit
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+DEVELOPMENT_RATE_LIMIT_KEY_SECRET = "development-only-rate-limit-key-secret"
 _HOST_PATTERN = re.compile(
     r"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$"
 )
@@ -68,6 +69,10 @@ class Settings(BaseSettings):
     auth_login_account_limit: int = Field(default=10, ge=1, le=10_000)
     auth_signup_ip_limit: int = Field(default=10, ge=1, le=10_000)
     auth_signup_account_limit: int = Field(default=3, ge=1, le=10_000)
+    rate_limit_key_secret: SecretStr = Field(
+        default=SecretStr(DEVELOPMENT_RATE_LIMIT_KEY_SECRET),
+        min_length=32,
+    )
 
     @model_validator(mode="after")
     def validate_configuration(self) -> Self:
@@ -100,6 +105,11 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "TRUSTED_HOSTS must include the production FRONTEND_ORIGIN hostname"
                 )
+        if (
+            self.app_env == AppEnvironment.PRODUCTION
+            and self.rate_limit_key_secret.get_secret_value() == DEVELOPMENT_RATE_LIMIT_KEY_SECRET
+        ):
+            raise ValueError("RATE_LIMIT_KEY_SECRET must be changed in production")
 
         return self
 

@@ -326,6 +326,7 @@ async def test_production_hides_interactive_api_documentation() -> None:
         frontend_origin="https://stopimpulsebuying.us",
         session_cookie_secure=True,
         trusted_hosts=("stopimpulsebuying.us",),
+        rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
     )
     app = create_app(settings, lifespan=no_database_lifespan)
 

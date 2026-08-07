@@ -8,8 +8,10 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from app.api.dependencies import get_rate_limit_store
 from app.api.errors import ApplicationError
 from app.core.config import AppEnvironment, Settings
+from app.core.rate_limits import InMemoryRateLimitStore
 from app.core.security import verify_and_update_password, verify_password
 from app.core.time import FixedClock, get_clock
 from app.db.session import get_db_session
@@ -87,6 +89,7 @@ def login_app(*, settings: Settings, db: AsyncSession) -> FastAPI:
 
     app.dependency_overrides[get_db_session] = override_db_session
     app.dependency_overrides[get_clock] = lambda: FixedClock(LOGIN_TIME)
+    app.dependency_overrides[get_rate_limit_store] = InMemoryRateLimitStore
     return app
 
 

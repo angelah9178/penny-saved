@@ -6,11 +6,14 @@ from typing import Annotated
 
 from app.api.cookies import clear_session_cookie, set_session_cookie
 from app.api.dependencies import (
+    enforce_auth_rate_limit,
     enforce_trusted_origin,
     get_current_user,
     get_presented_session_token,
+    get_rate_limit_store,
 )
 from app.core.config import Settings
+from app.core.rate_limits import RateLimitStore
 from app.core.time import Clock, get_clock
 from app.db.session import get_db_session
 from app.models.user import User
@@ -32,6 +35,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
     responses={
         status.HTTP_409_CONFLICT: {"model": ErrorResponse},
         status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorResponse},
+        status.HTTP_429_TOO_MANY_REQUESTS: {"model": ErrorResponse},
     },
 )
 async def signup_user(
@@ -41,10 +45,18 @@ async def signup_user(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     clock: Annotated[Clock, Depends(get_clock)],
     trusted_origin: Annotated[None, Depends(enforce_trusted_origin)],
+    rate_limit_store: Annotated[RateLimitStore, Depends(get_rate_limit_store)],
 ) -> AuthResponse:
     """Create an account, issue its first session, and return the public user."""
     del trusted_origin
     settings: Settings = request.app.state.settings
+    await enforce_auth_rate_limit(
+        request=request,
+        credentials_email=credentials.email,
+        action="signup",
+        clock=clock,
+        store=rate_limit_store,
+    )
     result = await signup(
         db,
         credentials=credentials,
@@ -66,6 +78,7 @@ async def signup_user(
     responses={
         status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse},
         status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorResponse},
+        status.HTTP_429_TOO_MANY_REQUESTS: {"model": ErrorResponse},
     },
 )
 async def login_user(
@@ -75,10 +88,18 @@ async def login_user(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     clock: Annotated[Clock, Depends(get_clock)],
     trusted_origin: Annotated[None, Depends(enforce_trusted_origin)],
+    rate_limit_store: Annotated[RateLimitStore, Depends(get_rate_limit_store)],
 ) -> AuthResponse:
     """Verify credentials, issue a new session, and return the public user."""
     del trusted_origin
     settings: Settings = request.app.state.settings
+    await enforce_auth_rate_limit(
+        request=request,
+        credentials_email=credentials.email,
+        action="login",
+        clock=clock,
+        store=rate_limit_store,
+    )
     result = await login(
         db,
         credentials=credentials,

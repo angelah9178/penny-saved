@@ -22,7 +22,7 @@ passes.
 |                  | Commit                                                   | Short title                      | Depends on                |
 | ---------------- | -------------------------------------------------------- | -------------------------------- | ------------------------- |
 | &#91;x&#93;      | [1](#commit-1--establish-the-security-baseline)          | Establish security rules         | DEV-008, DEV-010, DEV-017 |
-| &#91;&#160;&#93; | [2](#commit-2--add-the-shared-rate-limit-store)          | Add shared rate-limit storage    | Commit 1                  |
+| &#91;x&#93;      | [2](#commit-2--add-the-shared-rate-limit-store)          | Add shared rate-limit storage    | Commit 1                  |
 | &#91;&#160;&#93; | [3](#commit-3--throttle-authentication-attempts)         | Throttle signup and login        | Commit 2                  |
 | &#91;&#160;&#93; | [4](#commit-4--harden-http-and-production-boundaries)    | Harden public request boundaries | Commit 1                  |
 | &#91;&#160;&#93; | [5](#commit-5--complete-redaction-and-security-scanning) | Redact secrets and scan packages | Commits 3–4               |
@@ -144,7 +144,7 @@ git diff --check
 
 ## Commit 2 — Add the Shared Rate-Limit Store
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `e4d9b9a`.
 
 ### In Plain English
 
@@ -209,7 +209,7 @@ git diff --check
 
 ## Commit 3 — Throttle Authentication Attempts
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -221,6 +221,25 @@ changes capitalization or spacing.
 A blocked request returns `429 Too Many Requests` with a useful retry delay. Login
 still gives the same safe public behavior whether an email is missing or a password
 is wrong. Rate limiting must not become a new account-discovery tool.
+
+In short, Commit 2 built the shared scoreboard and Commit 3 makes signup and login
+use it. Each structurally valid authentication attempt consumes both an IP counter
+and a normalized-account counter. For example, `Person@Example.com`,
+`person@example.com`, and `person@example.com` consume the same account limit. An
+attempt is blocked when either counter is exhausted.
+
+The public `429` response says when another attempt may be made, but it does not say
+whether the account exists, which counter was exhausted, how many attempts were
+recorded, or what key was stored. A blocked request never creates or clears a session
+cookie. At this stage the IP key comes only from the direct connection; Commit 4 will
+add the explicit trusted-proxy rules required before any forwarded client address is
+accepted.
+
+Malformed bodies that fail the existing `AuthRequest` schema do not reach password
+verification and do not consume an account counter. Structurally valid attempts
+consume both counters regardless of whether their credentials succeed. Commit 4's
+request-size boundary separately handles malformed-body traffic that should be
+rejected before parsing.
 
 Suggested commit message:
 
@@ -455,8 +474,8 @@ triage links, and limitations.
 | Commit | Hash      | Result                       | Verification                                                                     |
 | ------ | --------- | ---------------------------- | -------------------------------------------------------------------------------- |
 | 1      | `199f400` | Complete                     | Ruff format/lint, 505 backend tests, backend construction, and diff check passed |
-| 2      | —         | Implemented; awaiting commit | Ruff format/lint, 522 backend tests, migration drift, and diff check passed      |
-| 3      | —         | Not implemented              | —                                                                                |
+| 2      | `e4d9b9a` | Complete                     | Ruff format/lint, 522 backend tests, migration drift, and diff check passed      |
+| 3      | —         | Implemented; awaiting commit | Ruff format/lint, 528 backend tests, backend construction, and diff check passed |
 | 4      | —         | Not implemented              | —                                                                                |
 | 5      | —         | Not implemented              | —                                                                                |
 | 6      | —         | Not implemented              | —                                                                                |
@@ -465,9 +484,9 @@ triage links, and limitations.
 
 | Check                                                                    | Result  | Evidence                                                                     |
 | ------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------- |
-| Login and signup enforce IP and normalized-account limits                | Pending | —                                                                            |
+| Login and signup enforce IP and normalized-account limits                | Pass    | Both routes consume direct-client IP and normalized-account counters         |
 | Limit state is shared across workers and safe under concurrency          | Pass    | Atomic PostgreSQL upsert passed across two stores and 12 concurrent attempts |
-| Throttling does not reveal whether an account exists                     | Pending | —                                                                            |
+| Throttling does not reveal whether an account exists                     | Pass    | Uniform `429`, message, `Retry-After`, and no cookie mutation                |
 | Untrusted forwarded values cannot change the resolved client identity    | Pending | —                                                                            |
 | Unsafe host, origin, cookie, proxy, and production settings are rejected | Pending | —                                                                            |
 | Fixed-length and streamed oversized bodies receive safe `413` responses  | Pending | —                                                                            |

@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from app.api.dependencies import get_rate_limit_store
 from app.core.config import AppEnvironment, Settings
+from app.core.rate_limits import InMemoryRateLimitStore
 from app.core.security import digest_session_token, generate_session_token
 from app.core.time import FixedClock, get_clock
 from app.db.session import get_db_session
@@ -90,6 +92,7 @@ def session_app(
 
     app.dependency_overrides[get_db_session] = override_db_session
     app.dependency_overrides[get_clock] = lambda: FixedClock(current_time)
+    app.dependency_overrides[get_rate_limit_store] = InMemoryRateLimitStore
     return app
 
 

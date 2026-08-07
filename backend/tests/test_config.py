@@ -32,6 +32,7 @@ SETTING_NAMES = (
     "AUTH_LOGIN_ACCOUNT_LIMIT",
     "AUTH_SIGNUP_IP_LIMIT",
     "AUTH_SIGNUP_ACCOUNT_LIMIT",
+    "RATE_LIMIT_KEY_SECRET",
 )
 
 
@@ -71,6 +72,9 @@ def test_development_defaults_are_typed() -> None:
     assert settings.auth_login_account_limit == 10
     assert settings.auth_signup_ip_limit == 10
     assert settings.auth_signup_account_limit == 3
+    assert settings.rate_limit_key_secret.get_secret_value() == (
+        "development-only-rate-limit-key-secret"
+    )
 
 
 def test_environment_values_are_parsed_into_expected_types(
@@ -240,6 +244,7 @@ def test_valid_production_configuration() -> None:
         session_cookie_secure=True,
         log_level=LogLevel.WARNING,
         trusted_hosts=("stopimpulsebuying.us",),
+        rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
     )
 
     assert settings.app_env is AppEnvironment.PRODUCTION
@@ -287,6 +292,7 @@ def test_production_rejects_trusting_every_proxy(network: str) -> None:
             session_cookie_secure=True,
             trusted_hosts=("stopimpulsebuying.us",),
             trusted_proxy_networks=(network,),
+            rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
         )
 
 
@@ -299,7 +305,29 @@ def test_production_host_must_cover_frontend_origin() -> None:
             frontend_origin="https://stopimpulsebuying.us",
             session_cookie_secure=True,
             trusted_hosts=("api.stopimpulsebuying.us",),
+            rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
         )
+
+
+def test_production_requires_a_non_default_rate_limit_secret() -> None:
+    with pytest.raises(ValidationError, match="RATE_LIMIT_KEY_SECRET"):
+        Settings(
+            _env_file=None,
+            app_env=AppEnvironment.PRODUCTION,
+            database_url=DATABASE_URL,
+            frontend_origin="https://stopimpulsebuying.us",
+            session_cookie_secure=True,
+            trusted_hosts=("stopimpulsebuying.us",),
+        )
+
+
+def test_rate_limit_secret_is_hidden_in_validation_errors() -> None:
+    secret = "too-short"
+
+    with pytest.raises(ValidationError) as error:
+        development_settings(rate_limit_key_secret=secret)
+
+    assert secret not in str(error.value)
 
 
 def test_validation_error_text_does_not_expose_database_password() -> None:

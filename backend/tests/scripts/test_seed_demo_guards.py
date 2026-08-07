@@ -67,6 +67,9 @@ def _settings(
         trusted_hosts=("stopimpulsebuying.us",)
         if app_env == AppEnvironment.PRODUCTION
         else ("localhost", "127.0.0.1"),
+        rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes"
+        if app_env == AppEnvironment.PRODUCTION
+        else "development-only-rate-limit-key-secret",
     )
 
 
