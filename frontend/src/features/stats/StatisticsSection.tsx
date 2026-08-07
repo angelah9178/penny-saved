@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 
 import { ErrorAlert } from "../../components/ErrorAlert";
+import { FeedbackMessage } from "../../components/FeedbackMessage";
 import { Loading } from "../../components/Loading";
 import { formatUsd } from "../../lib/currency";
 import type { OpportunityCostEquivalent, StatsRange } from "../../types/api";
@@ -65,15 +66,20 @@ export function StatisticsSection() {
       {summary.isError ? (
         <ErrorAlert
           message="We could not load your statistics. Please try again."
+          isRetrying={summary.isFetching}
+          retryLabel="Retry statistics"
+          retryingLabel="Retrying statistics…"
           onRetry={() => {
             void summary.refetch();
           }}
         />
       ) : null}
-      {summary.isFetching && !summary.isPending ? (
-        <p className="statistics__updating" role="status" aria-live="polite">
-          Updating statistics…
-        </p>
+      {summary.isFetching && summary.data !== undefined ? (
+        <FeedbackMessage
+          className="statistics__updating"
+          message="Updating statistics…"
+          tone="status"
+        />
       ) : null}
       {summary.data === undefined ? null : (
         <>

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ApiError } from "../api/errors";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { FeedbackMessage } from "../components/FeedbackMessage";
 import { Loading } from "../components/Loading";
 import { OpportunityCostExampleList } from "../features/opportunity-costs/OpportunityCostExampleList";
 import { OpportunityCostForm } from "../features/opportunity-costs/OpportunityCostForm";
@@ -88,9 +89,7 @@ export function OpportunityCostSettingsPage() {
       </div>
 
       {notice === undefined ? null : (
-        <p className="request-state request-state--success" role="status">
-          {notice}
-        </p>
+        <FeedbackMessage message={notice} tone="success" />
       )}
 
       {activeForm === undefined ? null : (
@@ -132,15 +131,20 @@ export function OpportunityCostSettingsPage() {
       {examples.isError ? (
         <ErrorAlert
           message="We could not load your opportunity-cost examples. Please try again."
+          isRetrying={examples.isFetching}
+          retryLabel="Retry examples"
+          retryingLabel="Retrying examples…"
           onRetry={() => {
             void examples.refetch();
           }}
         />
       ) : null}
-      {examples.isFetching && !examples.isPending ? (
-        <p className="opportunity-cost-settings__updating" role="status">
-          Updating examples…
-        </p>
+      {examples.isFetching && examples.data !== undefined ? (
+        <FeedbackMessage
+          className="opportunity-cost-settings__updating"
+          message="Updating examples…"
+          tone="status"
+        />
       ) : null}
       {examples.data?.examples.length === 0 ? (
         <EmptyState

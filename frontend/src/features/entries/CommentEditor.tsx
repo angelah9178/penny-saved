@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import { ApiError } from "../../api/errors";
+import { FeedbackMessage } from "../../components/FeedbackMessage";
 import type { EntryResponse, UpdateEntryCommentRequest } from "../../types/api";
 import {
   entryCommentSchema,
@@ -84,14 +85,12 @@ export function CommentEditor({ comment, onSubmit }: CommentEditorProps) {
       }}
     >
       {globalError === undefined && confirmation === undefined ? null : (
-        <div
-          className={`request-state ${globalError === undefined ? "request-state--success" : "request-state--error"}`}
+        <FeedbackMessage
+          focusable
+          message={globalError ?? confirmation ?? "Comment updated."}
           ref={feedbackRef}
-          role={globalError === undefined ? "status" : "alert"}
-          tabIndex={-1}
-        >
-          {globalError ?? confirmation}
-        </div>
+          tone={globalError === undefined ? "success" : "error"}
+        />
       )}
       <div className="form-field">
         <label htmlFor={fieldId}>Comment</label>

@@ -71,7 +71,7 @@ describe("OpportunityCostSettingsPage", () => {
 
     const retry = await screen.findByRole(
       "button",
-      { name: "Try again" },
+      { name: "Retry examples" },
       { timeout: 4_000 },
     );
     expect(screen.queryByText("No opportunity-cost examples yet")).toBeNull();

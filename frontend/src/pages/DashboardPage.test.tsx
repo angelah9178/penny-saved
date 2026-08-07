@@ -196,7 +196,7 @@ describe("DashboardPage", () => {
 
     const retryButton = await screen.findByRole(
       "button",
-      { name: "Try again" },
+      { name: "Retry dashboard" },
       { timeout: 4_000 },
     );
     await user.tab();

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { ApiError } from "../../api/errors";
+import { FeedbackMessage } from "../../components/FeedbackMessage";
 import type { CheckInEntryRequest } from "../../types/api";
 import {
   checkInFormSchema,
@@ -77,14 +78,12 @@ export function CheckInForm({ onSubmit }: CheckInFormProps) {
       onSubmit={(event) => void submit(event)}
     >
       {globalError === undefined ? null : (
-        <div
-          className="request-state request-state--error"
+        <FeedbackMessage
+          focusable
+          message={globalError}
           ref={summaryRef}
-          role="alert"
-          tabIndex={-1}
-        >
-          {globalError}
-        </div>
+          tone="error"
+        />
       )}
 
       <fieldset
@@ -95,11 +94,16 @@ export function CheckInForm({ onSubmit }: CheckInFormProps) {
       >
         <legend>What happened with this purchase?</legend>
         <label>
-          <input type="radio" value="saved" {...register("result")} />
+          <input type="radio" value="saved" required {...register("result")} />
           <span>I did not buy it</span>
         </label>
         <label>
-          <input type="radio" value="purchased" {...register("result")} />
+          <input
+            type="radio"
+            value="purchased"
+            required
+            {...register("result")}
+          />
           <span>I bought it</span>
         </label>
       </fieldset>

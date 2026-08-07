@@ -33,11 +33,15 @@ export function CheckInEntryPage() {
   }
 
   if (detail.isError) {
+    const unavailable = isUnavailableDetailError(detail.error);
     return (
       <CheckInPageLayout title="Check in">
         <ErrorAlert
           message={detailErrorMessage(detail.error)}
-          onRetry={() => void detail.refetch()}
+          isRetrying={detail.isFetching}
+          retryLabel="Retry check-in"
+          retryingLabel="Retrying check-in…"
+          {...(unavailable ? {} : { onRetry: () => void detail.refetch() })}
         />
       </CheckInPageLayout>
     );
@@ -243,4 +247,10 @@ function detailErrorMessage(error: Error): string {
     if (error.status === 403) return "You do not have access to that entry.";
   }
   return "We could not load this entry. Please try again.";
+}
+
+function isUnavailableDetailError(error: Error): boolean {
+  return (
+    error instanceof ApiError && (error.status === 403 || error.status === 404)
+  );
 }

@@ -16,13 +16,24 @@ export function AuthBootstrap({ children }: AuthBootstrapProps) {
   }
 
   if (session.status === "error") {
-    return <AuthBootstrapError onRetry={session.retry} />;
+    return (
+      <AuthBootstrapError
+        isRetrying={session.isRetrying}
+        onRetry={session.retry}
+      />
+    );
   }
 
   return children;
 }
 
-function AuthBootstrapError({ onRetry }: { onRetry: () => void }) {
+function AuthBootstrapError({
+  isRetrying,
+  onRetry,
+}: {
+  isRetrying: boolean;
+  onRetry: () => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,6 +44,9 @@ function AuthBootstrapError({ onRetry }: { onRetry: () => void }) {
     <div ref={containerRef} tabIndex={-1}>
       <ErrorAlert
         message="We could not check your session. Please try again."
+        isRetrying={isRetrying}
+        retryLabel="Retry session check"
+        retryingLabel="Retrying session check…"
         onRetry={onRetry}
       />
     </div>

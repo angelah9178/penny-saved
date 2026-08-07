@@ -23,7 +23,7 @@ passes.
 |                  | Commit                                                            | Title                                      | Depends on                 |
 | ---------------- | ----------------------------------------------------------------- | ------------------------------------------ | -------------------------- |
 | &#91;x&#93;      | [1](#commit-1--establish-the-cross-application-audit-baseline)    | Establish audit baseline                   | DEV-012, 015, 018, and 019 |
-| &#91;&#160;&#93; | [2](#commit-2--harden-the-application-shell-and-route-experience) | Harden shell and routes                    | Commit 1                   |
+| &#91;x&#93;      | [2](#commit-2--harden-the-application-shell-and-route-experience) | Harden shell and routes                    | Commit 1                   |
 | &#91;&#160;&#93; | [3](#commit-3--standardize-request-form-and-mutation-feedback)    | Standardize state feedback                 | Commit 2                   |
 | &#91;&#160;&#93; | [4](#commit-4--complete-keyboard-and-focus-behavior)              | Complete keyboard and focus behavior       | Commit 3                   |
 | &#91;&#160;&#93; | [5](#commit-5--complete-responsive-and-visual-accessibility)      | Complete responsive and visual behavior    | Commit 4                   |
@@ -197,7 +197,7 @@ make frontend-test
 
 ## Commit 2 — Harden the Application Shell and Route Experience
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `55d6f4c`.
 
 ### In Plain English
 
@@ -264,7 +264,7 @@ make frontend-build
 
 ## Commit 3 — Standardize Request, Form, and Mutation Feedback
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -278,6 +278,21 @@ problem, a summary receives focus after an invalid submission, a server failure 
 announced, pending controls prevent duplicate work, and confirmed success is clear.
 The commit shares only the small presentation or focus behavior that has genuinely
 been repeated; API calls and feature rules stay with their owning features.
+
+In short, Commit 3 makes feedback consistent across the application. “Consistent”
+does not mean every screen uses identical wording. Each message still identifies its
+specific operation, but its behavior, accessibility, and presentation follow the
+same shared pattern:
+
+- loading feedback says what is loading;
+- empty results are visibly and semantically different from failed requests;
+- errors explain what failed and provide an appropriate, operation-specific retry;
+- background refreshes keep confirmed content visible;
+- form errors use the same focusable summary and field associations;
+- pending actions prevent duplicate submissions or retries;
+- confirmed success is announced consistently; and
+- expired sessions and unavailable resources are not presented as ordinary,
+  retryable server errors.
 
 Suggested commit message:
 
@@ -498,8 +513,8 @@ findings resolved, focused test results, manual evidence, and any approved defer
 | Commit | Hash      | Result                       | Verification                                                                                  |
 | ------ | --------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
 | 1      | `b51c194` | Complete                     | Format, lint, typecheck, 405 frontend tests, and 5 accessibility scans passed                 |
-| 2      | —         | Implemented; awaiting commit | Format, lint, typecheck, build, 421 frontend tests, and route-error accessibility scan passed |
-| 3      | —         | Not implemented              | —                                                                                             |
+| 2      | `55d6f4c` | Complete                     | Format, lint, typecheck, build, 421 frontend tests, and route-error accessibility scan passed |
+| 3      | —         | Implemented; awaiting commit | Format, lint, typecheck, and 426 frontend tests passed                                        |
 | 4      | —         | Not implemented              | —                                                                                             |
 | 5      | —         | Not implemented              | —                                                                                             |
 | 6      | —         | Not implemented              | —                                                                                             |

@@ -38,14 +38,16 @@ export function EditEntryPage() {
   }
 
   if (detail.isError) {
+    const unavailable = isUnavailableDetailError(detail.error);
     return (
       <div className="entry-management-page">
         <h1>Edit entry</h1>
         <ErrorAlert
           message={detailErrorMessage(detail.error)}
-          onRetry={() => {
-            void detail.refetch();
-          }}
+          isRetrying={detail.isFetching}
+          retryLabel="Retry entry"
+          retryingLabel="Retrying entry…"
+          {...(unavailable ? {} : { onRetry: () => void detail.refetch() })}
         />
         <Link to="/dashboard">Back to dashboard</Link>
       </div>
@@ -124,4 +126,10 @@ function detailErrorMessage(error: Error): string {
     }
   }
   return "We could not load this entry. Please try again.";
+}
+
+function isUnavailableDetailError(error: Error): boolean {
+  return (
+    error instanceof ApiError && (error.status === 403 || error.status === 404)
+  );
 }

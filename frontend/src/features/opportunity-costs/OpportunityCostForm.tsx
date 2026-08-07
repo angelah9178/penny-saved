@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { ApiError } from "../../api/errors";
+import { FeedbackMessage } from "../../components/FeedbackMessage";
 import type { CreateOpportunityCostExampleRequest } from "../../types/api";
 import {
   EMPTY_OPPORTUNITY_COST_FORM_VALUES,
@@ -100,16 +101,16 @@ export function OpportunityCostForm({
       }}
     >
       {validationSummary || globalError !== undefined ? (
-        <div
-          className="request-state request-state--error"
+        <FeedbackMessage
+          focusable
+          message={
+            validationSummary
+              ? "Please correct the highlighted fields."
+              : (globalError ?? "We could not save this example.")
+          }
           ref={summaryRef}
-          role="alert"
-          tabIndex={-1}
-        >
-          {validationSummary
-            ? "Please correct the highlighted fields."
-            : globalError}
-        </div>
+          tone="error"
+        />
       ) : null}
 
       <div className="form-field">
@@ -117,6 +118,7 @@ export function OpportunityCostForm({
         <input
           id={`${formId}-label`}
           type="text"
+          required
           maxLength={120}
           disabled={disabled}
           aria-invalid={errors.label ? "true" : "false"}
@@ -131,6 +133,7 @@ export function OpportunityCostForm({
         <input
           id={`${formId}-unit-name`}
           type="text"
+          required
           maxLength={80}
           disabled={disabled}
           aria-invalid={errors.unit_name ? "true" : "false"}
@@ -145,6 +148,7 @@ export function OpportunityCostForm({
         <input
           id={`${formId}-dollar-value`}
           type="text"
+          required
           inputMode="decimal"
           placeholder="0.00"
           disabled={disabled}

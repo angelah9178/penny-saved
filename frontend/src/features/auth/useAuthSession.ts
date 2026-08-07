@@ -7,7 +7,12 @@ export type AuthSessionState =
   | { status: "pending" }
   | { status: "authenticated"; user: User }
   | { status: "guest" }
-  | { status: "error"; error: Error; retry: () => void };
+  | {
+      status: "error";
+      error: Error;
+      isRetrying: boolean;
+      retry: () => void;
+    };
 
 export function useAuthSession(): AuthSessionState {
   const query = useQuery(currentUserQueryOptions());
@@ -20,6 +25,7 @@ export function useAuthSession(): AuthSessionState {
     return {
       status: "error",
       error: query.error,
+      isRetrying: query.isFetching,
       retry: () => {
         void query.refetch();
       },
