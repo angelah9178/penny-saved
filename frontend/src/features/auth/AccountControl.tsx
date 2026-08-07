@@ -39,17 +39,19 @@ export function AccountControl() {
   }
 
   return (
-    <div className="account-control">
-      <span>{session.user.email}</span>
-      <button
-        type="button"
-        disabled={mutation.isPending}
-        onClick={() => {
-          void handleLogout();
-        }}
-      >
-        {mutation.isPending ? "Logging out…" : "Log out"}
-      </button>
-    </div>
+    <nav aria-label="Account">
+      <div className="account-control">
+        <span>{session.user.email}</span>
+        <button
+          type="button"
+          disabled={mutation.isPending}
+          onClick={() => {
+            void handleLogout();
+          }}
+        >
+          {mutation.isPending ? "Logging out…" : "Log out"}
+        </button>
+      </div>
+    </nav>
   );
 }

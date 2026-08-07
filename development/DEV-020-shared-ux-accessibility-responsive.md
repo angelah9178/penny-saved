@@ -22,7 +22,7 @@ passes.
 
 |                  | Commit                                                            | Title                                      | Depends on                 |
 | ---------------- | ----------------------------------------------------------------- | ------------------------------------------ | -------------------------- |
-| &#91;&#160;&#93; | [1](#commit-1--establish-the-cross-application-audit-baseline)    | Establish audit baseline                   | DEV-012, 015, 018, and 019 |
+| &#91;x&#93;      | [1](#commit-1--establish-the-cross-application-audit-baseline)    | Establish audit baseline                   | DEV-012, 015, 018, and 019 |
 | &#91;&#160;&#93; | [2](#commit-2--harden-the-application-shell-and-route-experience) | Harden shell and routes                    | Commit 1                   |
 | &#91;&#160;&#93; | [3](#commit-3--standardize-request-form-and-mutation-feedback)    | Standardize state feedback                 | Commit 2                   |
 | &#91;&#160;&#93; | [4](#commit-4--complete-keyboard-and-focus-behavior)              | Complete keyboard and focus behavior       | Commit 3                   |
@@ -110,7 +110,7 @@ assistive technology, operating system, date, result, and any approved deferral.
 
 ## Commit 1 — Establish the Cross-Application Audit Baseline
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `b51c194`.
 
 ### In Plain English
 
@@ -197,7 +197,7 @@ make frontend-test
 
 ## Commit 2 — Harden the Application Shell and Route Experience
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -210,6 +210,23 @@ This commit concentrates on the frame around features. It corrects landmarks,
 heading structure, skip-link behavior, document titles, route-change focus, and
 application-level fallbacks. Feature-specific forms and dialogs remain in the later
 commits so this change stays easy to review.
+
+In practical terms, Commit 2 ensures users always know which page they are on, where
+its main content begins, what happened if the route failed, and how to recover. It
+covers:
+
+- a working “Skip to main content” link;
+- correctly identified `header`, `nav`, and `main` landmarks;
+- one clear main heading for each page;
+- useful browser-tab titles such as “Dashboard | A Penny Saved”;
+- sensible keyboard focus after moving to a different page;
+- safe return paths and one clear message after session expiry;
+- a helpful page for unknown URLs;
+- named loading feedback and recoverable route-error screens; and
+- regression tests that prevent these shared behaviors from silently breaking.
+
+It does not change individual feature rules, forms, mutation feedback, or dialog
+interaction. Those concerns remain owned by later commits.
 
 Suggested commit message:
 
@@ -478,14 +495,14 @@ findings resolved, focused test results, manual evidence, and any approved defer
 
 ### Commit Evidence
 
-| Commit | Hash | Result                       | Verification                                                                  |
-| ------ | ---- | ---------------------------- | ----------------------------------------------------------------------------- |
-| 1      | —    | Implemented; awaiting commit | Format, lint, typecheck, 405 frontend tests, and 5 accessibility scans passed |
-| 2      | —    | Not implemented              | —                                                                             |
-| 3      | —    | Not implemented              | —                                                                             |
-| 4      | —    | Not implemented              | —                                                                             |
-| 5      | —    | Not implemented              | —                                                                             |
-| 6      | —    | Not implemented              | —                                                                             |
+| Commit | Hash      | Result                       | Verification                                                                                  |
+| ------ | --------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
+| 1      | `b51c194` | Complete                     | Format, lint, typecheck, 405 frontend tests, and 5 accessibility scans passed                 |
+| 2      | —         | Implemented; awaiting commit | Format, lint, typecheck, build, 421 frontend tests, and route-error accessibility scan passed |
+| 3      | —         | Not implemented              | —                                                                                             |
+| 4      | —         | Not implemented              | —                                                                                             |
+| 5      | —         | Not implemented              | —                                                                                             |
+| 6      | —         | Not implemented              | —                                                                                             |
 
 ### Manual Audit Evidence
 

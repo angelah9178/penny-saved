@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { PageShell } from "./PageShell";
@@ -30,5 +31,38 @@ describe("PageShell", () => {
       screen.getByRole("link", { name: "Skip to main content" }),
     ).toHaveAttribute("href", "#main-content");
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
+  it("moves focus to main content when the skip link is activated", async () => {
+    const user = userEvent.setup();
+    render(
+      <PageShell>
+        <h1>Dashboard</h1>
+      </PageShell>,
+    );
+
+    await user.click(
+      screen.getByRole("link", { name: "Skip to main content" }),
+    );
+
+    expect(screen.getByRole("main")).toHaveFocus();
+  });
+
+  it("places shared header actions in a named navigation landmark", () => {
+    render(
+      <PageShell
+        headerActions={
+          <nav aria-label="Account">
+            <button type="button">Log out</button>
+          </nav>
+        }
+      >
+        <h1>Dashboard</h1>
+      </PageShell>,
+    );
+
+    expect(
+      screen.getByRole("navigation", { name: "Account" }),
+    ).toContainElement(screen.getByRole("button", { name: "Log out" }));
   });
 });

@@ -5,12 +5,14 @@ import { NotFoundPage } from "../pages/NotFoundPage";
 import { GuestRoute } from "./GuestRoute";
 import { IndexRoute } from "./IndexRoute";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { RouteErrorPage } from "./RouteErrorPage";
 import { RouteLoading } from "./RouteLoading";
 
 export const appRoutes = [
   {
     path: "/",
     element: <App />,
+    errorElement: <RouteErrorPage />,
     HydrateFallback: RouteLoading,
     children: [
       {

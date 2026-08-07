@@ -23,7 +23,13 @@ const example: OpportunityCostExample = {
 describe("DEV-020 automated accessibility baseline", () => {
   it("scans the shared application shell", async () => {
     const { container } = renderWithApp(
-      <PageShell headerActions={<a href="/login">Log in</a>}>
+      <PageShell
+        headerActions={
+          <nav aria-label="Account">
+            <a href="/login">Log in</a>
+          </nav>
+        }
+      >
         <h1>Welcome</h1>
         <p>Track the purchases you choose to avoid.</p>
       </PageShell>,
