@@ -25,7 +25,7 @@ passes.
 | &#91;x&#93;      | [2](#commit-2--add-the-shared-rate-limit-store)          | Add shared rate-limit storage    | Commit 1                  |
 | &#91;x&#93;      | [3](#commit-3--throttle-authentication-attempts)         | Throttle signup and login        | Commit 2                  |
 | &#91;x&#93;      | [4](#commit-4--harden-http-and-production-boundaries)    | Harden public request boundaries | Commit 1                  |
-| &#91;&#160;&#93; | [5](#commit-5--complete-redaction-and-security-scanning) | Redact secrets and scan packages | Commits 3–4               |
+| &#91;x&#93;      | [5](#commit-5--complete-redaction-and-security-scanning) | Redact secrets and scan packages | Commits 3–4               |
 | &#91;&#160;&#93; | [6](#commit-6--verify-the-complete-security-boundary)    | Complete security verification   | Commits 1–5               |
 
 ## Objective
@@ -352,7 +352,7 @@ git diff --check
 
 ## Commit 5 — Complete Redaction and Security Scanning
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `4814863`.
 
 ### In Plain English
 
@@ -441,7 +441,7 @@ git diff --check
 
 ## Commit 6 — Verify the Complete Security Boundary
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -524,38 +524,56 @@ triage links, and limitations.
 
 ### Commit Evidence
 
-| Commit | Hash      | Result                       | Verification                                                                     |
-| ------ | --------- | ---------------------------- | -------------------------------------------------------------------------------- |
-| 1      | `199f400` | Complete                     | Ruff format/lint, 505 backend tests, backend construction, and diff check passed |
-| 2      | `e4d9b9a` | Complete                     | Ruff format/lint, 522 backend tests, migration drift, and diff check passed      |
-| 3      | `baedd0d` | Complete                     | Ruff format/lint, 528 backend tests, backend construction, and diff check passed |
-| 4      | `068a411` | Complete                     | Ruff format/lint, 534 backend tests, backend construction, and diff check passed |
-| 5      | —         | Implemented; awaiting commit | Full `make check` (539 backend tests and both builds) plus security scans passed |
-| 6      | —         | Not implemented              | —                                                                                |
+| Commit | Hash      | Result                       | Verification                                                                      |
+| ------ | --------- | ---------------------------- | --------------------------------------------------------------------------------- |
+| 1      | `199f400` | Complete                     | Ruff format/lint, 505 backend tests, backend construction, and diff check passed  |
+| 2      | `e4d9b9a` | Complete                     | Ruff format/lint, 522 backend tests, migration drift, and diff check passed       |
+| 3      | `baedd0d` | Complete                     | Ruff format/lint, 528 backend tests, backend construction, and diff check passed  |
+| 4      | `068a411` | Complete                     | Ruff format/lint, 534 backend tests, backend construction, and diff check passed  |
+| 5      | `4814863` | Complete                     | Full `make check` (539 backend tests and both builds) plus security scans passed  |
+| 6      | —         | Implemented; awaiting commit | Clean install, 968 tests, both builds, migration drift, and security scans passed |
 
 ### Security Verification Checklist
 
-| Check                                                                    | Result  | Evidence                                                                             |
-| ------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------ |
-| Login and signup enforce IP and normalized-account limits                | Pass    | Both routes consume direct-client IP and normalized-account counters                 |
-| Limit state is shared across workers and safe under concurrency          | Pass    | Atomic PostgreSQL upsert passed across two stores and 12 concurrent attempts         |
-| Throttling does not reveal whether an account exists                     | Pass    | Uniform `429`, message, `Retry-After`, and no cookie mutation                        |
-| Untrusted forwarded values cannot change the resolved client identity    | Pass    | Socket peer remains authoritative unless its network is explicitly trusted           |
-| Unsafe host, origin, cookie, proxy, and production settings are rejected | Pass    | Startup validation plus assembled host, proxy, and cookie-origin tests               |
-| Fixed-length and streamed oversized bodies receive safe `413` responses  | Pass    | Exact 1,024-byte boundary and chunked overflow tested                                |
-| Security headers cover success and applicable error responses            | Pass    | Success, `404`, host rejection, and `413`; HSTS limited to production HTTPS          |
-| Representative logs contain no seeded secret or sensitive derivative     | Pass    | Recursive mappings, sequences, URLs, exceptions, quoted, and multiline values tested |
-| Locked dependency scans have no untriaged high-severity finding          | Pass    | Python scan is clear; the frontend RSC-only advisory has documented, expiring triage |
-| Full repository quality, build, migration, and security gates pass       | Pending | —                                                                                    |
+| Check                                                                    | Result | Evidence                                                                               |
+| ------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------------------------- |
+| Login and signup enforce IP and normalized-account limits                | Pass   | Both routes consume direct-client IP and normalized-account counters                   |
+| Limit state is shared across workers and safe under concurrency          | Pass   | Atomic PostgreSQL upsert passed across two stores and 12 concurrent attempts           |
+| Throttling does not reveal whether an account exists                     | Pass   | Uniform `429`, message, `Retry-After`, and no cookie mutation                          |
+| Untrusted forwarded values cannot change the resolved client identity    | Pass   | Socket peer remains authoritative unless its network is explicitly trusted             |
+| Unsafe host, origin, cookie, proxy, and production settings are rejected | Pass   | Startup validation plus assembled host, proxy, and cookie-origin tests                 |
+| Fixed-length and streamed oversized bodies receive safe `413` responses  | Pass   | Exact 1,024-byte boundary and chunked overflow tested                                  |
+| Security headers cover success and applicable error responses            | Pass   | Success, `404`, host rejection, and `413`; HSTS limited to production HTTPS            |
+| Representative logs contain no seeded secret or sensitive derivative     | Pass   | Recursive mappings, sequences, URLs, exceptions, quoted, and multiline values tested   |
+| Locked dependency scans have no untriaged high-severity finding          | Pass   | Python scan is clear; the frontend RSC-only advisory has documented, expiring triage   |
+| Full repository quality, build, migration, and security gates pass       | Pass   | Clean install; 429 frontend and 539 backend tests; builds, migration, and scans passed |
 
 ### Advisory Triage
 
-| Advisory              | Package/path                       | Severity                                | Decision                                                                                          | Owner/follow-up                                                                                                | Review date |
-| --------------------- | ---------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------- |
-| `GHSA-qwww-vcr4-c8h2` | `react-router`, `react-router-dom` | Moderate upstream; reported high by npm | Triaged: the application is a client-rendered SPA and does not use the affected unstable RSC APIs | DEV-021 Commit 6: upgrade when a patched React Router 7 release is available or complete a tested v8 migration | 2026-09-07  |
+| Advisory              | Package/path                       | Severity                                | Decision                                                                                          | Owner/follow-up                                                                                       | Review date |
+| --------------------- | ---------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------- |
+| `GHSA-qwww-vcr4-c8h2` | `react-router`, `react-router-dom` | Moderate upstream; reported high by npm | Triaged: the application is a client-rendered SPA and does not use the affected unstable RSC APIs | DEV-024: upgrade when a patched React Router 7 release is available or complete a tested v8 migration | 2026-09-07  |
 
 ### Final Verification
 
-Record the final `make check`, `make security-check`, Alembic drift result,
-production-construction result, test counts, scanner versions, unresolved findings,
-and confirmation that no high-severity dependency finding remains untriaged.
+On 2026-08-07, the prescribed clean-room gate completed successfully:
+
+- `make clean`, `make install`, PostgreSQL startup, and migration to `head` passed.
+- Formatting, linting, TypeScript checking, 429 frontend tests, 539 backend tests,
+  the frontend production bundle, and backend application construction passed.
+- The migration integration suite exercised downgrade and re-upgrade; the final
+  Alembic 1.18.4 drift check reported no new upgrade operations.
+- Production settings and assembled-application tests accepted the complete safe
+  configuration and rejected unsafe host, origin, proxy, cookie, and secret settings
+  independently.
+- `pip-audit` 2.10.1 found no known vulnerability in the pinned Python runtime
+  requirements.
+- npm 10.9.8 reported no untriaged high/critical finding. The one accepted React
+  Router advisory remains limited to unused unstable RSC APIs, is recorded above,
+  and expires for mandatory review on 2026-09-07.
+- The final worktree diff check passed. No application secret was supplied to a
+  scanner or written to the verification record.
+
+DEV-021 is implemented and verified. Its master development tracker remains
+unchanged until the DEV-021 pull request is merged and accepted on the default
+branch.
