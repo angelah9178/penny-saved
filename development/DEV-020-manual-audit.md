@@ -25,17 +25,31 @@ performing the described check.
 
 Complete these fields for every manual audit session.
 
-| Field                         | Value |
-| ----------------------------- | ----- |
-| Reviewer                      | —     |
-| Date                          | —     |
-| Commit                        | —     |
-| Operating system              | —     |
-| Browser and version           | —     |
-| Screen reader and version     | —     |
-| Input methods                 | —     |
-| Reduced-motion setting        | —     |
-| Contrast-checking method/tool | —     |
+| Field                         | Value                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| Reviewer                      | Codex automated verification; interactive reviewer pending                  |
+| Date                          | 2026-08-07                                                                  |
+| Commit                        | `a079375` (Commit 5 baseline)                                               |
+| Operating system              | Linux 7.0.0-28-generic                                                      |
+| Browser and version           | Firefox installation detected; interactive/headless launch did not complete |
+| Screen reader and version     | Orca detected; interactive session not available                            |
+| Input methods                 | Automated keyboard-event coverage; physical keyboard and touch pending      |
+| Reduced-motion setting        | CSS rule present; rendered-browser verification pending                     |
+| Contrast-checking method/tool | Automated markup scans passed; rendered contrast tool pending               |
+
+### Commit 6 Verification Session
+
+The complete `make check` gate passed on 2026-08-07: formatting, lint, TypeScript,
+429 frontend tests, 486 backend tests, the production frontend build, and backend
+application construction. The frontend suite includes the representative
+accessibility scans and automated keyboard/focus behavior described below.
+
+A local production preview server started successfully. Firefox was present but did
+not complete a headless page capture, and this execution environment did not provide
+an interactive desktop session for Firefox plus Orca. Therefore no manual or
+rendered-browser cell has been changed to Pass. Finish the pending cells in an
+interactive browser and screen-reader session before Commit 6 is considered
+complete.
 
 ## Route and State Checklist
 

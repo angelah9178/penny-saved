@@ -26,7 +26,7 @@ passes.
 | &#91;x&#93;      | [2](#commit-2--harden-the-application-shell-and-route-experience) | Harden shell and routes                    | Commit 1                   |
 | &#91;x&#93;      | [3](#commit-3--standardize-request-form-and-mutation-feedback)    | Standardize state feedback                 | Commit 2                   |
 | &#91;x&#93;      | [4](#commit-4--complete-keyboard-and-focus-behavior)              | Complete keyboard and focus behavior       | Commit 3                   |
-| &#91;&#160;&#93; | [5](#commit-5--complete-responsive-and-visual-accessibility)      | Complete responsive and visual behavior    | Commit 4                   |
+| &#91;x&#93;      | [5](#commit-5--complete-responsive-and-visual-accessibility)      | Complete responsive and visual behavior    | Commit 4                   |
 | &#91;&#160;&#93; | [6](#commit-6--complete-the-manual-audit-and-verification)        | Complete audit and repository verification | Commits 1–5                |
 
 ## Objective
@@ -399,7 +399,7 @@ make frontend-test
 
 ## Commit 5 — Complete Responsive and Visual Accessibility
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `a079375`.
 
 ### In Plain English
 
@@ -472,7 +472,7 @@ make frontend-build
 
 ## Commit 6 — Complete the Manual Audit and Verification
 
-**Status:** Not started.
+**Status:** Automated verification complete; interactive audit pending.
 
 ### In Plain English
 
@@ -542,23 +542,28 @@ findings resolved, focused test results, manual evidence, and any approved defer
 
 ### Commit Evidence
 
-| Commit | Hash      | Result                       | Verification                                                                                  |
-| ------ | --------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
-| 1      | `b51c194` | Complete                     | Format, lint, typecheck, 405 frontend tests, and 5 accessibility scans passed                 |
-| 2      | `55d6f4c` | Complete                     | Format, lint, typecheck, build, 421 frontend tests, and route-error accessibility scan passed |
-| 3      | `ef1fe00` | Complete                     | Format, lint, typecheck, and 426 frontend tests passed                                        |
-| 4      | `d4470b2` | Complete                     | Format, lint, typecheck, and 429 frontend tests passed                                        |
-| 5      | —         | Implemented; awaiting commit | Format, lint, typecheck, 429 frontend tests, and production build passed                      |
-| 6      | —         | Not implemented              | —                                                                                             |
+| Commit | Hash      | Result                    | Verification                                                                                  |
+| ------ | --------- | ------------------------- | --------------------------------------------------------------------------------------------- |
+| 1      | `b51c194` | Complete                  | Format, lint, typecheck, 405 frontend tests, and 5 accessibility scans passed                 |
+| 2      | `55d6f4c` | Complete                  | Format, lint, typecheck, build, 421 frontend tests, and route-error accessibility scan passed |
+| 3      | `ef1fe00` | Complete                  | Format, lint, typecheck, and 426 frontend tests passed                                        |
+| 4      | `d4470b2` | Complete                  | Format, lint, typecheck, and 429 frontend tests passed                                        |
+| 5      | `a079375` | Complete                  | Format, lint, typecheck, 429 frontend tests, and production build passed                      |
+| 6      | —         | Interactive audit pending | `make check`: 429 frontend and 486 backend tests plus both builds passed                      |
 
 ### Manual Audit Evidence
 
-Record the completed audit document path, browsers, operating systems, viewport and
-zoom results, keyboard result, screen reader and version, reduced-motion result,
-contrast method, date, reviewer, unresolved findings, and linked follow-up tasks.
+The working audit is `development/DEV-020-manual-audit.md`. The 2026-08-07 automated
+session records Linux, the Commit 5 baseline, complete repository-gate results, and
+the unavailable interactive browser/screen-reader evidence. Viewport, zoom,
+physical-keyboard, screen-reader, reduced-motion, touch-target, and rendered
+contrast checks remain pending and must not be inferred from jsdom or CSS alone.
 
 ### Final Verification
 
-Record the final `make check` result, production frontend build result, automated
-accessibility test result, and confirmation that the manual audit contains no
-unresolved critical or serious issue.
+`make check` passed on 2026-08-07. This includes formatting, frontend and backend
+lint, TypeScript, 429 frontend tests, 486 backend tests, the production frontend
+build, and backend application construction. The representative automated
+accessibility scans passed within the frontend suite. Final DEV-020 verification is
+not yet complete because the manual audit still contains pending checks; it cannot
+yet confirm that no critical or serious manual issue exists.
