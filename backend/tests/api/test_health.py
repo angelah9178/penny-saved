@@ -325,6 +325,7 @@ async def test_production_hides_interactive_api_documentation() -> None:
         database_url=DATABASE_URL,
         frontend_origin="https://stopimpulsebuying.us",
         session_cookie_secure=True,
+        trusted_hosts=("stopimpulsebuying.us",),
     )
     app = create_app(settings, lifespan=no_database_lifespan)
 

@@ -64,6 +64,9 @@ def _settings(
         database_url=database_url,
         frontend_origin=frontend_origin,
         session_cookie_secure=app_env == AppEnvironment.PRODUCTION,
+        trusted_hosts=("stopimpulsebuying.us",)
+        if app_env == AppEnvironment.PRODUCTION
+        else ("localhost", "127.0.0.1"),
     )
 
 

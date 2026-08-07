@@ -72,7 +72,7 @@ These rules apply throughout the implementation:
 
 ## Commit 1 — Establish the Security Baseline
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -85,6 +85,28 @@ This is the safety checklist for the hardening work. Later commits can change
 request behavior confidently because the intended boundaries and failure behavior
 are already testable. This commit does not start rejecting ordinary requests or
 claim the application is hardened yet.
+
+Concretely, Commit 1 decides which website origins and hostnames are allowed, which
+reverse proxies may report the real client IP, how large a request may be, and the
+thresholds and time windows for login and signup limits. It specifies which values
+are safe in development, test, and production. For example, production must refuse
+to start with wildcard trusted hosts, an insecure HTTP frontend origin, insecure
+session cookies, invalid or trust-everywhere proxy networks, or missing and
+unreasonable request-size and rate-limit values.
+
+The important distinction is that this commit establishes and tests those rules. It
+does not yet throttle a user, interpret forwarded headers, or reject an oversized
+request; those enforcement mechanisms arrive in later commits.
+
+### Threat and Trust-Boundary Matrix
+
+| Boundary                         | Trusted input                                     | Untrusted input or risk                                     | Rule established here                                       |
+| -------------------------------- | ------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------- |
+| Browser → reverse proxy          | Configured HTTPS origin and expected host         | Cross-site origins, forged host, oversized request          | Exact origin/host and body-size settings                    |
+| Reverse proxy → application      | Direct peers in configured proxy networks         | Forwarded headers from any other peer                       | Empty-by-default explicit proxy trust                       |
+| Application worker → PostgreSQL  | Parameterized application operations              | Raw secret-bearing keys and inconsistent local counters     | Shared-store contract will use digested keys                |
+| Application → logs               | Safe request metadata and correlation identifiers | Cookies, passwords, tokens, bodies, URLs containing secrets | Sensitive-value inventory for Commit 5                      |
+| Lock files → CI advisory service | Committed, pinned dependency graphs               | Unreviewed findings or silent suppressions                  | High-severity triage policy and repeatable scan requirement |
 
 Suggested commit message:
 
@@ -418,14 +440,14 @@ triage links, and limitations.
 
 ### Commit Evidence
 
-| Commit | Hash | Result          | Verification |
-| ------ | ---- | --------------- | ------------ |
-| 1      | —    | Not implemented | —            |
-| 2      | —    | Not implemented | —            |
-| 3      | —    | Not implemented | —            |
-| 4      | —    | Not implemented | —            |
-| 5      | —    | Not implemented | —            |
-| 6      | —    | Not implemented | —            |
+| Commit | Hash | Result                       | Verification                                                                     |
+| ------ | ---- | ---------------------------- | -------------------------------------------------------------------------------- |
+| 1      | —    | Implemented; awaiting commit | Ruff format/lint, 505 backend tests, backend construction, and diff check passed |
+| 2      | —    | Not implemented              | —                                                                                |
+| 3      | —    | Not implemented              | —                                                                                |
+| 4      | —    | Not implemented              | —                                                                                |
+| 5      | —    | Not implemented              | —                                                                                |
+| 6      | —    | Not implemented              | —                                                                                |
 
 ### Security Verification Checklist
 

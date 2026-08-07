@@ -24,6 +24,14 @@ SETTING_NAMES = (
     "SESSION_TTL_SECONDS",
     "SESSION_COOKIE_SECURE",
     "LOG_LEVEL",
+    "TRUSTED_HOSTS",
+    "TRUSTED_PROXY_NETWORKS",
+    "MAX_REQUEST_BODY_BYTES",
+    "AUTH_RATE_LIMIT_WINDOW_SECONDS",
+    "AUTH_LOGIN_IP_LIMIT",
+    "AUTH_LOGIN_ACCOUNT_LIMIT",
+    "AUTH_SIGNUP_IP_LIMIT",
+    "AUTH_SIGNUP_ACCOUNT_LIMIT",
 )
 
 
@@ -55,6 +63,14 @@ def test_development_defaults_are_typed() -> None:
     assert settings.session_ttl_seconds == 2_592_000
     assert settings.session_cookie_secure is False
     assert settings.log_level is LogLevel.INFO
+    assert settings.trusted_hosts == ("localhost", "127.0.0.1")
+    assert settings.trusted_proxy_networks == ()
+    assert settings.max_request_body_bytes == 1_048_576
+    assert settings.auth_rate_limit_window_seconds == 900
+    assert settings.auth_login_ip_limit == 20
+    assert settings.auth_login_account_limit == 10
+    assert settings.auth_signup_ip_limit == 10
+    assert settings.auth_signup_account_limit == 3
 
 
 def test_environment_values_are_parsed_into_expected_types(
@@ -66,6 +82,10 @@ def test_environment_values_are_parsed_into_expected_types(
     monkeypatch.setenv("SESSION_TTL_SECONDS", "3600")
     monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("TRUSTED_HOSTS", '["api.example.com"]')
+    monkeypatch.setenv("TRUSTED_PROXY_NETWORKS", '["10.0.0.7/24"]')
+    monkeypatch.setenv("MAX_REQUEST_BODY_BYTES", "2097152")
+    monkeypatch.setenv("AUTH_LOGIN_IP_LIMIT", "30")
 
     settings = get_settings()
 
@@ -75,6 +95,10 @@ def test_environment_values_are_parsed_into_expected_types(
     assert settings.session_ttl_seconds == 3600
     assert settings.session_cookie_secure is True
     assert settings.log_level is LogLevel.DEBUG
+    assert settings.trusted_hosts == ("api.example.com",)
+    assert settings.trusted_proxy_networks == ("10.0.0.0/24",)
+    assert settings.max_request_body_bytes == 2_097_152
+    assert settings.auth_login_ip_limit == 30
 
 
 def test_get_settings_caches_until_explicitly_cleared(
@@ -143,6 +167,13 @@ def test_frontend_origin_trailing_slash_is_normalized() -> None:
         ("session_cookie_name", ""),
         ("session_cookie_name", "invalid cookie"),
         ("log_level", "TRACE"),
+        ("max_request_body_bytes", 1_023),
+        ("max_request_body_bytes", 10_485_761),
+        ("auth_rate_limit_window_seconds", 0),
+        ("auth_login_ip_limit", 0),
+        ("auth_login_account_limit", 10_001),
+        ("auth_signup_ip_limit", -1),
+        ("auth_signup_account_limit", 0),
     ],
 )
 def test_malformed_setting_is_rejected(field: str, value: object) -> None:
@@ -208,10 +239,67 @@ def test_valid_production_configuration() -> None:
         frontend_origin="https://stopimpulsebuying.us",
         session_cookie_secure=True,
         log_level=LogLevel.WARNING,
+        trusted_hosts=("stopimpulsebuying.us",),
     )
 
     assert settings.app_env is AppEnvironment.PRODUCTION
     assert settings.session_cookie_secure is True
+
+
+@pytest.mark.parametrize(
+    "trusted_hosts",
+    [
+        (),
+        ("*",),
+        ("https://example.com",),
+        ("example.com:443",),
+        ("example.com/path",),
+        ("bad_host.example",),
+    ],
+)
+def test_invalid_trusted_hosts_are_rejected(trusted_hosts: tuple[str, ...]) -> None:
+    with pytest.raises(ValidationError, match="TRUSTED_HOSTS"):
+        development_settings(trusted_hosts=trusted_hosts)
+
+
+def test_trusted_hosts_are_normalized_and_deduplicated() -> None:
+    settings = development_settings(
+        trusted_hosts=("API.Example.com.", "api.example.com", "127.0.0.1", "[::1]"),
+    )
+
+    assert settings.trusted_hosts == ("api.example.com", "127.0.0.1", "::1")
+
+
+@pytest.mark.parametrize("network", ["not-a-network", "10.0.0.999/24"])
+def test_invalid_trusted_proxy_network_is_rejected(network: str) -> None:
+    with pytest.raises(ValidationError, match="TRUSTED_PROXY_NETWORKS"):
+        development_settings(trusted_proxy_networks=(network,))
+
+
+@pytest.mark.parametrize("network", ["0.0.0.0/0", "::/0"])
+def test_production_rejects_trusting_every_proxy(network: str) -> None:
+    with pytest.raises(ValidationError, match="TRUSTED_PROXY_NETWORKS"):
+        Settings(
+            _env_file=None,
+            app_env=AppEnvironment.PRODUCTION,
+            database_url=DATABASE_URL,
+            frontend_origin="https://stopimpulsebuying.us",
+            session_cookie_secure=True,
+            trusted_hosts=("stopimpulsebuying.us",),
+            trusted_proxy_networks=(network,),
+        )
+
+
+def test_production_host_must_cover_frontend_origin() -> None:
+    with pytest.raises(ValidationError, match="TRUSTED_HOSTS"):
+        Settings(
+            _env_file=None,
+            app_env=AppEnvironment.PRODUCTION,
+            database_url=DATABASE_URL,
+            frontend_origin="https://stopimpulsebuying.us",
+            session_cookie_secure=True,
+            trusted_hosts=("api.stopimpulsebuying.us",),
+        )
 
 
 def test_validation_error_text_does_not_expose_database_password() -> None:

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import re
 from enum import StrEnum
 from functools import lru_cache
+from ipaddress import ip_address, ip_network
 from pathlib import Path
 from typing import Any, Self
 from urllib.parse import urlsplit
@@ -15,6 +17,9 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+_HOST_PATTERN = re.compile(
+    r"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$"
+)
 
 
 class AppEnvironment(StrEnum):
@@ -55,6 +60,14 @@ class Settings(BaseSettings):
     session_ttl_seconds: int = Field(default=2_592_000, gt=0)
     session_cookie_secure: bool = False
     log_level: LogLevel = LogLevel.INFO
+    trusted_hosts: tuple[str, ...] = ("localhost", "127.0.0.1")
+    trusted_proxy_networks: tuple[str, ...] = ()
+    max_request_body_bytes: int = Field(default=1_048_576, ge=1_024, le=10_485_760)
+    auth_rate_limit_window_seconds: int = Field(default=900, ge=1, le=86_400)
+    auth_login_ip_limit: int = Field(default=20, ge=1, le=10_000)
+    auth_login_account_limit: int = Field(default=10, ge=1, le=10_000)
+    auth_signup_ip_limit: int = Field(default=10, ge=1, le=10_000)
+    auth_signup_account_limit: int = Field(default=3, ge=1, le=10_000)
 
     @model_validator(mode="after")
     def validate_configuration(self) -> Self:
@@ -67,6 +80,12 @@ class Settings(BaseSettings):
         else:
             self.frontend_origin = _validate_frontend_origin(self.frontend_origin)
 
+        self.trusted_hosts = _validate_trusted_hosts(self.trusted_hosts)
+        self.trusted_proxy_networks = _validate_trusted_proxy_networks(
+            self.trusted_proxy_networks,
+            production=self.app_env == AppEnvironment.PRODUCTION,
+        )
+
         if self.app_env == AppEnvironment.PRODUCTION and not self.session_cookie_secure:
             raise ValueError("SESSION_COOKIE_SECURE must be true in production")
         if (
@@ -75,6 +94,12 @@ class Settings(BaseSettings):
             and not self.frontend_origin.startswith("https://")
         ):
             raise ValueError("FRONTEND_ORIGIN must use HTTPS in production")
+        if self.app_env == AppEnvironment.PRODUCTION and self.frontend_origin is not None:
+            frontend_host = urlsplit(self.frontend_origin).hostname
+            if frontend_host not in self.trusted_hosts:
+                raise ValueError(
+                    "TRUSTED_HOSTS must include the production FRONTEND_ORIGIN hostname"
+                )
 
         return self
 
@@ -120,6 +145,50 @@ def _validate_frontend_origin(value: str) -> str:
             "query, fragment, or credentials"
         )
     return value.removesuffix("/")
+
+
+def _validate_trusted_hosts(values: tuple[str, ...]) -> tuple[str, ...]:
+    """Normalize an exact host allowlist without ports, schemes, or wildcards."""
+    if not values:
+        raise ValueError("TRUSTED_HOSTS must contain at least one exact hostname or IP address")
+
+    normalized: list[str] = []
+    for value in values:
+        host = value.strip().lower().removesuffix(".")
+        is_valid = bool(host) and host != "*" and "://" not in host and "/" not in host
+        try:
+            normalized_host = str(ip_address(host.removeprefix("[").removesuffix("]")))
+        except ValueError:
+            normalized_host = host
+            is_valid = is_valid and ":" not in host and bool(_HOST_PATTERN.fullmatch(host))
+        if not is_valid:
+            raise ValueError(
+                "TRUSTED_HOSTS entries must be exact hostnames or IPv4 addresses "
+                "without schemes, ports, paths, or wildcards"
+            )
+        if normalized_host not in normalized:
+            normalized.append(normalized_host)
+    return tuple(normalized)
+
+
+def _validate_trusted_proxy_networks(
+    values: tuple[str, ...],
+    *,
+    production: bool,
+) -> tuple[str, ...]:
+    """Normalize explicitly trusted proxy networks and reject trust-everywhere ranges."""
+    normalized: list[str] = []
+    for value in values:
+        try:
+            network = ip_network(value, strict=False)
+        except ValueError as error:
+            raise ValueError("TRUSTED_PROXY_NETWORKS entries must be valid IP networks") from error
+        if production and network.prefixlen == 0:
+            raise ValueError("TRUSTED_PROXY_NETWORKS cannot trust every address in production")
+        canonical = str(network)
+        if canonical not in normalized:
+            normalized.append(canonical)
+    return tuple(normalized)
 
 
 def _settings_source_options() -> dict[str, Any]:
