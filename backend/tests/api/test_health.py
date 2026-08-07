@@ -41,7 +41,9 @@ async def no_database_lifespan(app: FastAPI) -> AsyncIterator[None]:
 @asynccontextmanager
 async def api_client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+    settings: Settings = app.state.settings
+    base_url = settings.frontend_origin or "http://test"
+    async with httpx.AsyncClient(transport=transport, base_url=base_url) as client:
         yield client
 
 

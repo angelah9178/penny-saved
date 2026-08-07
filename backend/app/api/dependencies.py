@@ -6,7 +6,7 @@ import asyncio
 from typing import Annotated
 
 from app.api.errors import ApplicationError
-from app.core.config import Settings
+from app.core.config import AppEnvironment, Settings
 from app.core.rate_limits import (
     PostgresRateLimitStore,
     RateLimitStore,
@@ -107,9 +107,19 @@ def enforce_trusted_origin(request: Request) -> None:
 
     origin = request.headers.get("origin")
     if origin is None:
-        return
+        settings: Settings = request.app.state.settings
+        if (
+            settings.app_env is not AppEnvironment.PRODUCTION
+            or get_presented_session_token(request) is None
+        ):
+            return
+        raise ApplicationError(
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="forbidden",
+            message=UNTRUSTED_ORIGIN_MESSAGE,
+        )
 
-    settings: Settings = request.app.state.settings
+    settings = request.app.state.settings
     if settings.frontend_origin is None or origin != settings.frontend_origin:
         raise ApplicationError(
             status_code=status.HTTP_403_FORBIDDEN,

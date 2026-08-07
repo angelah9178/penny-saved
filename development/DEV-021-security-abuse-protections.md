@@ -23,7 +23,7 @@ passes.
 | ---------------- | -------------------------------------------------------- | -------------------------------- | ------------------------- |
 | &#91;x&#93;      | [1](#commit-1--establish-the-security-baseline)          | Establish security rules         | DEV-008, DEV-010, DEV-017 |
 | &#91;x&#93;      | [2](#commit-2--add-the-shared-rate-limit-store)          | Add shared rate-limit storage    | Commit 1                  |
-| &#91;&#160;&#93; | [3](#commit-3--throttle-authentication-attempts)         | Throttle signup and login        | Commit 2                  |
+| &#91;x&#93;      | [3](#commit-3--throttle-authentication-attempts)         | Throttle signup and login        | Commit 2                  |
 | &#91;&#160;&#93; | [4](#commit-4--harden-http-and-production-boundaries)    | Harden public request boundaries | Commit 1                  |
 | &#91;&#160;&#93; | [5](#commit-5--complete-redaction-and-security-scanning) | Redact secrets and scan packages | Commits 3–4               |
 | &#91;&#160;&#93; | [6](#commit-6--verify-the-complete-security-boundary)    | Complete security verification   | Commits 1–5               |
@@ -209,7 +209,7 @@ git diff --check
 
 ## Commit 3 — Throttle Authentication Attempts
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `baedd0d`.
 
 ### In Plain English
 
@@ -277,7 +277,7 @@ git diff --check
 
 ## Commit 4 — Harden HTTP and Production Boundaries
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -290,6 +290,26 @@ It also adds conservative browser security headers. These headers reduce common
 browser risks, but they do not replace correct authentication, authorization, input
 validation, or TLS. Local development remains convenient through explicit
 development settings; production refuses to start with unsafe ambiguity.
+
+The point is to stop malicious or incorrectly routed traffic before it reaches
+sensitive application logic. Without these controls, an attacker could submit a
+forged client IP to avoid authentication limits, use an unexpected host in generated
+links or redirects, trigger an authenticated action from a malicious website, or
+consume server resources with an unreasonable body. A proxy mistake could also make
+the application treat an insecure connection as HTTPS.
+
+This boundary works like security at a building entrance:
+
+- trusted hosts confirm that the visitor reached the correct building;
+- trusted proxies confirm which approved security desk the visitor passed through;
+- origin checks confirm which website initiated a cookie-authenticated action;
+- body-size limits stop an unreasonable amount of material entering; and
+- security headers tell the browser what it may safely do with the response.
+
+The resulting rule is simple: only requests arriving through the expected host,
+origin, proxy, and size boundaries continue into the application. These controls do
+not stop every attack, but they remove several easy ways to bypass protections or
+misuse a signed-in user's session.
 
 Suggested commit message:
 
@@ -475,8 +495,8 @@ triage links, and limitations.
 | ------ | --------- | ---------------------------- | -------------------------------------------------------------------------------- |
 | 1      | `199f400` | Complete                     | Ruff format/lint, 505 backend tests, backend construction, and diff check passed |
 | 2      | `e4d9b9a` | Complete                     | Ruff format/lint, 522 backend tests, migration drift, and diff check passed      |
-| 3      | —         | Implemented; awaiting commit | Ruff format/lint, 528 backend tests, backend construction, and diff check passed |
-| 4      | —         | Not implemented              | —                                                                                |
+| 3      | `baedd0d` | Complete                     | Ruff format/lint, 528 backend tests, backend construction, and diff check passed |
+| 4      | —         | Implemented; awaiting commit | Ruff format/lint, 534 backend tests, backend construction, and diff check passed |
 | 5      | —         | Not implemented              | —                                                                                |
 | 6      | —         | Not implemented              | —                                                                                |
 
@@ -487,10 +507,10 @@ triage links, and limitations.
 | Login and signup enforce IP and normalized-account limits                | Pass    | Both routes consume direct-client IP and normalized-account counters         |
 | Limit state is shared across workers and safe under concurrency          | Pass    | Atomic PostgreSQL upsert passed across two stores and 12 concurrent attempts |
 | Throttling does not reveal whether an account exists                     | Pass    | Uniform `429`, message, `Retry-After`, and no cookie mutation                |
-| Untrusted forwarded values cannot change the resolved client identity    | Pending | —                                                                            |
-| Unsafe host, origin, cookie, proxy, and production settings are rejected | Pending | —                                                                            |
-| Fixed-length and streamed oversized bodies receive safe `413` responses  | Pending | —                                                                            |
-| Security headers cover success and applicable error responses            | Pending | —                                                                            |
+| Untrusted forwarded values cannot change the resolved client identity    | Pass    | Socket peer remains authoritative unless its network is explicitly trusted   |
+| Unsafe host, origin, cookie, proxy, and production settings are rejected | Pass    | Startup validation plus assembled host, proxy, and cookie-origin tests       |
+| Fixed-length and streamed oversized bodies receive safe `413` responses  | Pass    | Exact 1,024-byte boundary and chunked overflow tested                        |
+| Security headers cover success and applicable error responses            | Pass    | Success, `404`, host rejection, and `413`; HSTS limited to production HTTPS  |
 | Representative logs contain no seeded secret or sensitive derivative     | Pending | —                                                                            |
 | Locked dependency scans have no untriaged high-severity finding          | Pending | —                                                                            |
 | Full repository quality, build, migration, and security gates pass       | Pending | —                                                                            |
