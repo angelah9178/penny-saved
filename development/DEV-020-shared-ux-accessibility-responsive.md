@@ -31,6 +31,15 @@ passes.
 
 ## Objective
 
+“Shared UX hardening” means reviewing and improving the user experience across the
+entire application rather than adding a new product feature. “Shared UX” covers
+behavior used by multiple screens, such as navigation, loading messages, errors,
+forms, dialogs, and focus handling. “Hardening” means finding inconsistencies and
+edge cases, fixing them, and adding tests so they stay fixed.
+
+In plain English, DEV-020 makes every screen consistently accessible, responsive,
+and reliable.
+
 DEV-020 is the application-wide hardening pass for the V1 user experience. Earlier
 feature PRs made their own screens usable. This task checks those screens together,
 closes inconsistencies between them, and proves that the complete application works
@@ -101,7 +110,7 @@ assistive technology, operating system, date, result, and any approved deferral.
 
 ## Commit 1 — Establish the Cross-Application Audit Baseline
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -109,11 +118,49 @@ Commit 1 creates the checklist and automated safety net for the hardening work. 
 lists every route and meaningful state, records which behavior already works, and
 turns each genuine gap into work owned by one of the following commits.
 
-It also adds a small automated accessibility test helper and representative baseline
-checks. In plain terms, the project gains a repeatable way to catch common problems
-such as unnamed controls, invalid ARIA, or broken landmark structure. This first
-commit does not claim that an automated scanner can certify accessibility, and it
-does not make broad visual changes before the audit identifies what needs repair.
+The checklist is the human-review part of this safety net. It shows every important
+screen and condition that must be inspected, including:
+
+- loading, empty, error, retry, pending, and success states;
+- keyboard navigation, focus order, and focus movement after an action;
+- screen-reader names, instructions, errors, and announcements;
+- layouts at mobile, tablet, and desktop widths and at 200% browser zoom;
+- long text, unbroken content, and maximum supported currency values;
+- control sizes, color contrast, and information that must not rely on color alone;
+  and
+- reduced-motion behavior for people who disable or limit animation.
+
+The automated safety net is a focused set of component tests that runs with the
+normal frontend test suite. It adds a small helper that renders a component in the
+same test environment as the rest of the application, scans the rendered result with
+`jest-axe`, and reports the exact accessibility rules and elements that failed. A
+developer can reuse the helper when adding or changing a shared component instead of
+rebuilding the same scanner setup in every test.
+
+Representative baseline checks apply that helper to several different kinds of UI:
+the application shell, an authentication form, the dashboard, a feature form, and a
+confirmation dialog. Together, these checks provide a repeatable way to catch common
+problems such as:
+
+- a button or link with no accessible name;
+- a form control without a correctly associated label;
+- invalid or contradictory ARIA attributes;
+- an error message that is not connected to its field;
+- malformed heading, landmark, list, or dialog structure; and
+- duplicate IDs that break label and description relationships.
+
+These automated checks are regression alarms, not accessibility certification. A
+scanner examines the rendered markup and can identify only rules that can be tested
+programmatically. It cannot decide whether focus moves to the most useful place,
+whether keyboard order makes sense, whether a screen-reader announcement is clear,
+whether a narrow or zoomed layout overlaps, or whether an interaction is confusing.
+Those questions remain in the manual checklist and direct keyboard/focus tests.
+
+This first commit establishes evidence before making broad changes. It records which
+problems actually exist and assigns them to later commits, rather than mixing an
+unmeasured visual redesign into the audit setup. Critical defects discovered while
+establishing the baseline may still be fixed immediately when leaving them in place
+would make the test foundation unsafe or unusable.
 
 Suggested commit message:
 
@@ -431,14 +478,14 @@ findings resolved, focused test results, manual evidence, and any approved defer
 
 ### Commit Evidence
 
-| Commit | Hash | Result          | Verification |
-| ------ | ---- | --------------- | ------------ |
-| 1      | —    | Not implemented | —            |
-| 2      | —    | Not implemented | —            |
-| 3      | —    | Not implemented | —            |
-| 4      | —    | Not implemented | —            |
-| 5      | —    | Not implemented | —            |
-| 6      | —    | Not implemented | —            |
+| Commit | Hash | Result                       | Verification                                                                  |
+| ------ | ---- | ---------------------------- | ----------------------------------------------------------------------------- |
+| 1      | —    | Implemented; awaiting commit | Format, lint, typecheck, 405 frontend tests, and 5 accessibility scans passed |
+| 2      | —    | Not implemented              | —                                                                             |
+| 3      | —    | Not implemented              | —                                                                             |
+| 4      | —    | Not implemented              | —                                                                             |
+| 5      | —    | Not implemented              | —                                                                             |
+| 6      | —    | Not implemented              | —                                                                             |
 
 ### Manual Audit Evidence
 
