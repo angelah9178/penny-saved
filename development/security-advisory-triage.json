@@ -1,0 +1,13 @@
+{
+  "advisories": [
+    {
+      "id": "GHSA-qwww-vcr4-c8h2",
+      "packages": ["react-router", "react-router-dom"],
+      "impact": "The advisory affects only unstable React Server Components APIs; this client-rendered SPA does not import or enable those APIs.",
+      "rationale": "The official advisory rates the issue moderate and no patched React Router 7.x package is published. Compatible transitive findings were upgraded; a forced downgrade or unreviewed major migration would add unrelated risk.",
+      "owner": "DEV-021 Commit 6",
+      "follow_up": "Recheck for a patched 7.x release or complete a tested React Router 8 migration before DEV-024 release verification.",
+      "review_date": "2026-09-07"
+    }
+  ]
+}

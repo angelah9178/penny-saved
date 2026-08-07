@@ -7,6 +7,7 @@ import logging
 import re
 import sys
 import traceback
+from collections.abc import Mapping, Sequence
 from contextvars import ContextVar, Token
 from datetime import UTC, datetime
 from time import perf_counter
@@ -21,14 +22,39 @@ LOGGER_NAME = "penny_saved"
 REQUEST_ID_HEADER = "X-Request-ID"
 _request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
 _SENSITIVE_VALUE_PATTERN = re.compile(
-    r"(?i)\b(password|cookie|set-cookie|authorization|session_token|"
-    r"session_token_hash|session_digest)\b(\s*[:=]\s*)([^\s,;]+)"
+    r"(?i)\b(password|passwd|pwd|cookie|set[-_]?cookie|authorization|auth[-_]?token|"
+    r"access[-_]?token|refresh[-_]?token|session[-_](?:token|token[-_]hash|digest)|"
+    r"database[-_]?url|api[-_]?key|client[-_]?secret|rate[-_]?limit[-_]?key)\b"
+    r"(\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
+)
+_CREDENTIAL_URL_PATTERN = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://[^\s:/?#]+:)([^@\s/]+)(@[^\s]+)")
+_SENSITIVE_KEY_PATTERN = re.compile(
+    r"(?i)^(?:password|passwd|pwd|cookie|set[-_]?cookie|authorization|auth[-_]?token|"
+    r"access[-_]?token|refresh[-_]?token|session[-_](?:token|token[-_]hash|digest)|"
+    r"database[-_]?url|api[-_]?key|client[-_]?secret|rate[-_]?limit[-_]?key)$"
 )
 
 
 def redact_sensitive_text(value: str) -> str:
     """Redact labeled authentication material before it reaches structured output."""
-    return _SENSITIVE_VALUE_PATTERN.sub(r"\1\2<redacted>", value)
+    labeled = _SENSITIVE_VALUE_PATTERN.sub(r"\1\2<redacted>", value)
+    return _CREDENTIAL_URL_PATTERN.sub(r"\1<redacted>\3", labeled)
+
+
+def redact_sensitive_value(value: object, *, key: str | None = None) -> object:
+    """Recursively sanitize an approved structured log value."""
+    if key is not None and _SENSITIVE_KEY_PATTERN.fullmatch(key):
+        return "<redacted>"
+    if isinstance(value, str):
+        return redact_sensitive_text(value)
+    if isinstance(value, Mapping):
+        return {
+            str(item_key): redact_sensitive_value(item_value, key=str(item_key))
+            for item_key, item_value in value.items()
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [redact_sensitive_value(item) for item in value]
+    return value
 
 
 class JsonFormatter(logging.Formatter):
@@ -53,10 +79,11 @@ class JsonFormatter(logging.Formatter):
             "status",
             "duration_ms",
             "user_id",
+            "context",
         ):
             value = getattr(record, field, None)
             if value is not None:
-                payload[field] = value
+                payload[field] = redact_sensitive_value(value, key=field)
         if record.exc_info:
             exception_type, _, exception_traceback = record.exc_info
             payload["exception_type"] = exception_type.__name__

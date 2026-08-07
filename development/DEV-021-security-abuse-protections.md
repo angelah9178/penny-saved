@@ -24,7 +24,7 @@ passes.
 | &#91;x&#93;      | [1](#commit-1--establish-the-security-baseline)          | Establish security rules         | DEV-008, DEV-010, DEV-017 |
 | &#91;x&#93;      | [2](#commit-2--add-the-shared-rate-limit-store)          | Add shared rate-limit storage    | Commit 1                  |
 | &#91;x&#93;      | [3](#commit-3--throttle-authentication-attempts)         | Throttle signup and login        | Commit 2                  |
-| &#91;&#160;&#93; | [4](#commit-4--harden-http-and-production-boundaries)    | Harden public request boundaries | Commit 1                  |
+| &#91;x&#93;      | [4](#commit-4--harden-http-and-production-boundaries)    | Harden public request boundaries | Commit 1                  |
 | &#91;&#160;&#93; | [5](#commit-5--complete-redaction-and-security-scanning) | Redact secrets and scan packages | Commits 3–4               |
 | &#91;&#160;&#93; | [6](#commit-6--verify-the-complete-security-boundary)    | Complete security verification   | Commits 1–5               |
 
@@ -277,7 +277,7 @@ git diff --check
 
 ## Commit 4 — Harden HTTP and Production Boundaries
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `068a411`.
 
 ### In Plain English
 
@@ -352,7 +352,7 @@ git diff --check
 
 ## Commit 5 — Complete Redaction and Security Scanning
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -365,6 +365,39 @@ The scanner does not prove that the application is secure. It identifies publish
 dependency risks so the team can upgrade, mitigate, or document them deliberately.
 The merge policy blocks untriaged high-severity findings without silently ignoring
 lower-severity work.
+
+### Safety Net 1: Secret Redaction
+
+Applications need logs for debugging, but logs may be retained for a long time or
+viewed by several people and services. Accidentally recording a password or session
+token can therefore turn an ordinary error into a security incident. The redaction
+layer replaces passwords, cookies, authorization values, session material, database
+credentials, rate-limit keys, and common API secrets with `<redacted>` in both log
+messages and approved structured context.
+
+The tests seed fake secrets into nested mappings, lists, exceptions, credential-
+bearing URLs, quoted values, and multiline messages, then verify that none reaches
+the final JSON. Safe diagnostic fields such as request ID, route, status, duration,
+and exception type remain. This safety net is not permission to log complete request
+bodies, query strings, or headers and hope redaction catches everything; those inputs
+remain excluded from request logs.
+
+### Safety Net 2: Dependency Scanning
+
+The application may be carefully written while depending on a package version with
+a published vulnerability. The second safety net scans the exact committed npm
+dependency graph and the pinned Python runtime requirements in CI. It checks both
+direct packages and dependencies brought in by those packages.
+
+High or critical findings must be fixed, mitigated, or formally triaged before
+merge. Every suppression must identify the advisory, affected package and path,
+impact, rationale, owner, follow-up task, and review date. Lower-severity findings
+still require review, and no finding may be silently hidden merely to make CI green.
+Scanning is an early-warning system for known dependency risks, not proof that the
+application has no vulnerability.
+
+In short, redaction protects secrets from the project's own logs, while scanning
+warns about known risks in third-party packages.
 
 Suggested commit message:
 
@@ -496,30 +529,30 @@ triage links, and limitations.
 | 1      | `199f400` | Complete                     | Ruff format/lint, 505 backend tests, backend construction, and diff check passed |
 | 2      | `e4d9b9a` | Complete                     | Ruff format/lint, 522 backend tests, migration drift, and diff check passed      |
 | 3      | `baedd0d` | Complete                     | Ruff format/lint, 528 backend tests, backend construction, and diff check passed |
-| 4      | —         | Implemented; awaiting commit | Ruff format/lint, 534 backend tests, backend construction, and diff check passed |
-| 5      | —         | Not implemented              | —                                                                                |
+| 4      | `068a411` | Complete                     | Ruff format/lint, 534 backend tests, backend construction, and diff check passed |
+| 5      | —         | Implemented; awaiting commit | Full `make check` (539 backend tests and both builds) plus security scans passed |
 | 6      | —         | Not implemented              | —                                                                                |
 
 ### Security Verification Checklist
 
-| Check                                                                    | Result  | Evidence                                                                     |
-| ------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------- |
-| Login and signup enforce IP and normalized-account limits                | Pass    | Both routes consume direct-client IP and normalized-account counters         |
-| Limit state is shared across workers and safe under concurrency          | Pass    | Atomic PostgreSQL upsert passed across two stores and 12 concurrent attempts |
-| Throttling does not reveal whether an account exists                     | Pass    | Uniform `429`, message, `Retry-After`, and no cookie mutation                |
-| Untrusted forwarded values cannot change the resolved client identity    | Pass    | Socket peer remains authoritative unless its network is explicitly trusted   |
-| Unsafe host, origin, cookie, proxy, and production settings are rejected | Pass    | Startup validation plus assembled host, proxy, and cookie-origin tests       |
-| Fixed-length and streamed oversized bodies receive safe `413` responses  | Pass    | Exact 1,024-byte boundary and chunked overflow tested                        |
-| Security headers cover success and applicable error responses            | Pass    | Success, `404`, host rejection, and `413`; HSTS limited to production HTTPS  |
-| Representative logs contain no seeded secret or sensitive derivative     | Pending | —                                                                            |
-| Locked dependency scans have no untriaged high-severity finding          | Pending | —                                                                            |
-| Full repository quality, build, migration, and security gates pass       | Pending | —                                                                            |
+| Check                                                                    | Result  | Evidence                                                                             |
+| ------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------ |
+| Login and signup enforce IP and normalized-account limits                | Pass    | Both routes consume direct-client IP and normalized-account counters                 |
+| Limit state is shared across workers and safe under concurrency          | Pass    | Atomic PostgreSQL upsert passed across two stores and 12 concurrent attempts         |
+| Throttling does not reveal whether an account exists                     | Pass    | Uniform `429`, message, `Retry-After`, and no cookie mutation                        |
+| Untrusted forwarded values cannot change the resolved client identity    | Pass    | Socket peer remains authoritative unless its network is explicitly trusted           |
+| Unsafe host, origin, cookie, proxy, and production settings are rejected | Pass    | Startup validation plus assembled host, proxy, and cookie-origin tests               |
+| Fixed-length and streamed oversized bodies receive safe `413` responses  | Pass    | Exact 1,024-byte boundary and chunked overflow tested                                |
+| Security headers cover success and applicable error responses            | Pass    | Success, `404`, host rejection, and `413`; HSTS limited to production HTTPS          |
+| Representative logs contain no seeded secret or sensitive derivative     | Pass    | Recursive mappings, sequences, URLs, exceptions, quoted, and multiline values tested |
+| Locked dependency scans have no untriaged high-severity finding          | Pass    | Python scan is clear; the frontend RSC-only advisory has documented, expiring triage |
+| Full repository quality, build, migration, and security gates pass       | Pending | —                                                                                    |
 
 ### Advisory Triage
 
-| Advisory | Package/path | Severity | Decision | Owner/follow-up | Review date |
-| -------- | ------------ | -------- | -------- | --------------- | ----------- |
-| —        | —            | —        | None yet | —               | —           |
+| Advisory              | Package/path                       | Severity                                | Decision                                                                                          | Owner/follow-up                                                                                                | Review date |
+| --------------------- | ---------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------- |
+| `GHSA-qwww-vcr4-c8h2` | `react-router`, `react-router-dom` | Moderate upstream; reported high by npm | Triaged: the application is a client-rendered SPA and does not use the affected unstable RSC APIs | DEV-021 Commit 6: upgrade when a patched React Router 7 release is available or complete a tested v8 migration | 2026-09-07  |
 
 ### Final Verification
 

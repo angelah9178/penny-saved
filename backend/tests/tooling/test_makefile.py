@@ -37,6 +37,9 @@ def test_makefile_exposes_focused_and_combined_quality_targets() -> None:
         "backend-dev",
         "dev",
         "seed-demo",
+        "frontend-security-check",
+        "backend-security-check",
+        "security-check",
     }
     phony = makefile.split(".PHONY:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
 
@@ -119,3 +122,18 @@ def test_seed_demo_uses_backend_configuration_without_starting_dependencies() ->
     assert "$(MAKE) db-upgrade" not in seed_demo
     assert "pip install" not in seed_demo
     assert "npm " not in seed_demo
+
+
+def test_security_check_uses_locked_frontend_and_pinned_backend_inputs() -> None:
+    makefile = _makefile_text()
+    frontend = makefile.split("frontend-security-check:", maxsplit=1)[1].split("\n\n", maxsplit=1)[
+        0
+    ]
+    backend = makefile.split("backend-security-check:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
+    combined = makefile.split("\nsecurity-check:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
+
+    assert "node scripts/audit-frontend.mjs" in frontend
+    assert "pip_audit --requirement backend/requirements.txt" in backend
+    assert "--fix" not in frontend + backend
+    assert "$(MAKE) frontend-security-check" in combined
+    assert "$(MAKE) backend-security-check" in combined
