@@ -185,6 +185,11 @@ describe("EditEntryPage", () => {
     expect(
       await screen.findByRole("alert", undefined, { timeout: 5_000 }),
     ).toHaveTextContent(message);
+    if (status === 403 || status === 404) {
+      expect(screen.queryByRole("button", { name: "Retry entry" })).toBeNull();
+    } else {
+      expect(screen.getByRole("button", { name: "Retry entry" })).toBeEnabled();
+    }
   });
 });
 

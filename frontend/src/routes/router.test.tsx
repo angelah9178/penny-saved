@@ -546,6 +546,10 @@ describe("authentication routes", () => {
     expect(
       await screen.findByRole("heading", { name: "Page not found" }),
     ).toBeInTheDocument();
+    expect(document.title).toBe("Page not found | A Penny Saved");
+    expect(
+      screen.getByRole("link", { name: "Go to A Penny Saved" }),
+    ).toHaveAttribute("href", "/");
   });
 
   it("shows the session-expired message once on login", async () => {

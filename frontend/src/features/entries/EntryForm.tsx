@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { ApiError } from "../../api/errors";
+import { FeedbackMessage } from "../../components/FeedbackMessage";
 import type { CreateEntryRequest } from "../../types/api";
 import { entryFormSchema, type EntryFormValues } from "./entryFormValidation";
 
@@ -106,14 +107,12 @@ export function EntryForm({
       }}
     >
       {globalError === undefined ? null : (
-        <div
-          className="request-state request-state--error"
+        <FeedbackMessage
+          focusable
+          message={globalError}
           ref={summaryRef}
-          role="alert"
-          tabIndex={-1}
-        >
-          {globalError}
-        </div>
+          tone="error"
+        />
       )}
 
       <div className="form-field">
@@ -121,6 +120,7 @@ export function EntryForm({
         <input
           id={`${formId}-item-name`}
           type="text"
+          required
           maxLength={200}
           aria-invalid={errors.item_name ? "true" : "false"}
           aria-describedby={itemNameErrorId}
@@ -134,6 +134,7 @@ export function EntryForm({
         <input
           id={`${formId}-price`}
           type="text"
+          required
           inputMode="decimal"
           placeholder="0.00"
           aria-invalid={errors.price ? "true" : "false"}
@@ -148,6 +149,7 @@ export function EntryForm({
         <textarea
           id={`${formId}-reason`}
           maxLength={2_000}
+          required
           rows={6}
           aria-invalid={errors.reason_wanted ? "true" : "false"}
           aria-describedby={reasonErrorId}

@@ -25,12 +25,16 @@ export function EntryDetailPage() {
   if (detail.isPending) return <Loading message="Loading entry…" />;
 
   if (detail.isError) {
+    const unavailable = isUnavailableDetailError(detail.error);
     return (
       <div className="entry-detail-page">
         <h1>Entry details</h1>
         <ErrorAlert
           message={detailErrorMessage(detail.error)}
-          onRetry={() => void detail.refetch()}
+          isRetrying={detail.isFetching}
+          retryLabel="Retry entry"
+          retryingLabel="Retrying entry…"
+          {...(unavailable ? {} : { onRetry: () => void detail.refetch() })}
         />
         <Link to="/dashboard">Back to dashboard</Link>
       </div>
@@ -142,4 +146,10 @@ function detailErrorMessage(error: Error): string {
     if (error.status === 403) return "You do not have access to that entry.";
   }
   return "We could not load this entry. Please try again.";
+}
+
+function isUnavailableDetailError(error: Error): boolean {
+  return (
+    error instanceof ApiError && (error.status === 403 || error.status === 404)
+  );
 }

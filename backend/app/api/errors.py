@@ -25,12 +25,14 @@ class ApplicationError(Exception):
         code: str,
         message: str,
         fields: dict[str, str] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(code)
         self.status_code = status_code
         self.code = code
         self.message = message
         self.fields = fields
+        self.headers = headers
 
 
 def error_response(
@@ -67,6 +69,7 @@ async def application_error_handler(
         code=error.code,
         message=error.message,
         fields=error.fields,
+        headers=error.headers,
     )
 
 

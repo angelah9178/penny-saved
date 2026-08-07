@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 
 import { AuthForm } from "../features/auth/AuthForm";
+import { FeedbackMessage } from "../components/FeedbackMessage";
 
 export function LoginPage() {
   const location = useLocation();
@@ -15,9 +16,11 @@ export function LoginPage() {
     <>
       <h1>Log in</h1>
       {sessionExpired ? (
-        <div className="request-state" role="status">
-          Your session expired. Please sign in again.
-        </div>
+        <FeedbackMessage
+          message="Your session expired. Please sign in again."
+          tone="status"
+          className="request-state"
+        />
       ) : null}
       <AuthForm mode="login" />
       <Link to="/signup">Create an account</Link>

@@ -158,3 +158,23 @@ def test_workflow_needs_no_secrets_and_never_uses_sqlite() -> None:
 
     assert "secrets." not in workflow_text
     assert "sqlite" not in workflow_text
+
+
+def test_security_job_uses_locked_inputs_read_only_tools_and_bounded_runtime() -> None:
+    security = _workflow()["jobs"]["security"]
+    steps = _steps(security)
+
+    assert security["name"] == "security"
+    assert security["timeout-minutes"] == "15"
+    assert steps["Check out repository"]["uses"] == "actions/checkout@v6"
+    assert steps["Set up Node.js"]["uses"] == "actions/setup-node@v6"
+    assert steps["Set up Python"]["uses"] == "actions/setup-python@v6"
+    assert steps["Install locked frontend dependencies"]["run"] == "npm ci"
+    assert steps["Install pinned backend security tooling"]["run"] == (
+        "python -m pip install -r requirements-dev.txt"
+    )
+    assert steps["Audit locked frontend dependencies"]["run"] == "node scripts/audit-frontend.mjs"
+    assert steps["Audit pinned backend runtime dependencies"]["run"] == (
+        "python -m pip_audit --requirement requirements.txt --progress-spinner off"
+    )
+    assert "--fix" not in WORKFLOW_PATH.read_text()

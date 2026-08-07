@@ -71,7 +71,7 @@ describe("OpportunityCostSettingsPage", () => {
 
     const retry = await screen.findByRole(
       "button",
-      { name: "Try again" },
+      { name: "Retry examples" },
       { timeout: 4_000 },
     );
     expect(screen.queryByText("No opportunity-cost examples yet")).toBeNull();
@@ -260,9 +260,9 @@ describe("OpportunityCostSettingsPage", () => {
     expect(screen.getByRole("heading", { name: "Hours worked" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Delete example" }));
 
-    expect(
-      await screen.findByText("Hours worked was deleted."),
-    ).toHaveAttribute("role", "status");
+    const deletionNotice = await screen.findByText("Hours worked was deleted.");
+    expect(deletionNotice).toHaveAttribute("role", "status");
+    expect(deletionNotice).toHaveFocus();
     expect(
       await screen.findByText("No opportunity-cost examples yet"),
     ).toBeVisible();

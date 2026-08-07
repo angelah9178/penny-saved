@@ -25,6 +25,7 @@ def test_empty_database_upgrade_downgrade_and_reupgrade(
             "sessions",
             "impulse_purchase_entries",
             "opportunity_cost_examples",
+            "rate_limit_counters",
         }
 
 

@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../../api/errors";
+import { FeedbackMessage } from "../../components/FeedbackMessage";
 import { queryKeys } from "../../lib/queryKeys";
 import { safeReturnPath } from "../../routes/returnPath";
 import type { AuthRequest, AuthResponse } from "../../types/api";
@@ -103,14 +104,12 @@ export function AuthForm({ mode }: AuthFormProps) {
       }}
     >
       {globalError === undefined ? null : (
-        <div
-          className="request-state request-state--error"
+        <FeedbackMessage
+          focusable
+          message={globalError}
           ref={summaryRef}
-          role="alert"
-          tabIndex={-1}
-        >
-          {globalError}
-        </div>
+          tone="error"
+        />
       )}
 
       <div className="form-field">
@@ -118,6 +117,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         <input
           id={`${formId}-email`}
           type="email"
+          required
           autoComplete="email"
           aria-invalid={errors.email ? "true" : "false"}
           aria-describedby={emailErrorId}
@@ -135,6 +135,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         <input
           id={`${formId}-password`}
           type="password"
+          required
           autoComplete={mode === "signup" ? "new-password" : "current-password"}
           aria-invalid={errors.password ? "true" : "false"}
           aria-describedby={passwordErrorId}

@@ -41,7 +41,9 @@ async def no_database_lifespan(app: FastAPI) -> AsyncIterator[None]:
 @asynccontextmanager
 async def api_client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+    settings: Settings = app.state.settings
+    base_url = settings.frontend_origin or "http://test"
+    async with httpx.AsyncClient(transport=transport, base_url=base_url) as client:
         yield client
 
 
@@ -325,6 +327,8 @@ async def test_production_hides_interactive_api_documentation() -> None:
         database_url=DATABASE_URL,
         frontend_origin="https://stopimpulsebuying.us",
         session_cookie_secure=True,
+        trusted_hosts=("stopimpulsebuying.us",),
+        rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
     )
     app = create_app(settings, lifespan=no_database_lifespan)
 

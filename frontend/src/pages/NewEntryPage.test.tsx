@@ -100,14 +100,25 @@ describe("NewEntryPage", () => {
     await user.type(screen.getByLabelText("Item name"), "Coffee grinder");
     await user.click(screen.getByRole("link", { name: "Back to dashboard" }));
 
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "Your entry has unsaved changes.",
-    );
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Your entry has unsaved changes.");
     expect(router.state.location.pathname).toBe("/entries/new");
+    const stay = screen.getByRole("button", { name: "Stay on this page" });
+    const leave = screen.getByRole("button", { name: "Leave without saving" });
+    expect(stay).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(leave).toHaveFocus();
+    await user.tab();
+    expect(stay).toHaveFocus();
+    await user.keyboard("{Escape}");
 
-    await user.click(screen.getByRole("button", { name: "Stay on this page" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/entries/new");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("link", { name: "Back to dashboard" }),
+      ).toHaveFocus(),
+    );
 
     await user.click(screen.getByRole("link", { name: "Back to dashboard" }));
     await user.click(

@@ -4,10 +4,16 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.errors import register_error_handlers
 from app.api.router import api_router
 from app.core.config import AppEnvironment, Settings, get_settings
+from app.core.http_security import (
+    RequestBodyLimitMiddleware,
+    SecurityHeadersMiddleware,
+    TrustedProxyMiddleware,
+)
 from app.core.logging import (
     REQUEST_ID_HEADER,
     RequestContextMiddleware,
@@ -39,11 +45,6 @@ def create_app(
     )
     app.state.settings = resolved_settings
     register_error_handlers(app)
-    app.add_middleware(
-        RequestContextMiddleware,
-        environment=resolved_settings.app_env,
-    )
-
     if resolved_settings.frontend_origin is not None:
         app.add_middleware(
             CORSMiddleware,
@@ -53,6 +54,30 @@ def create_app(
             allow_headers=["*"],
             expose_headers=[REQUEST_ID_HEADER],
         )
+
+    allowed_hosts = list(resolved_settings.trusted_hosts)
+    if resolved_settings.app_env is AppEnvironment.TEST:
+        allowed_hosts.append("test")
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=allowed_hosts,
+    )
+    app.add_middleware(
+        TrustedProxyMiddleware,
+        trusted_networks=resolved_settings.trusted_proxy_networks,
+    )
+    app.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_bytes=resolved_settings.max_request_body_bytes,
+    )
+    app.add_middleware(
+        RequestContextMiddleware,
+        environment=resolved_settings.app_env,
+    )
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        environment=resolved_settings.app_env,
+    )
 
     app.include_router(api_router, prefix=API_PREFIX)
     return app

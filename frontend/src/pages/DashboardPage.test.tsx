@@ -196,7 +196,7 @@ describe("DashboardPage", () => {
 
     const retryButton = await screen.findByRole(
       "button",
-      { name: "Try again" },
+      { name: "Retry dashboard" },
       { timeout: 4_000 },
     );
     await user.tab();
@@ -281,6 +281,8 @@ describe("DashboardPage", () => {
 
     await user.keyboard("{Enter}");
     expect(summary.closest("details")).toHaveAttribute("open");
+    await user.keyboard(" ");
+    expect(summary.closest("details")).not.toHaveAttribute("open");
   });
 
   it("requires confirmation and restores focus when deletion is cancelled", async () => {
@@ -354,10 +356,9 @@ describe("DashboardPage", () => {
     await user.dblClick(screen.getByRole("button", { name: "Delete entry" }));
 
     expect(screen.getByRole("button", { name: "Deleting…" })).toBeDisabled();
-    expect(await screen.findByText("Desk lamp was deleted.")).toHaveAttribute(
-      "role",
-      "status",
-    );
+    const deletionNotice = await screen.findByText("Desk lamp was deleted.");
+    expect(deletionNotice).toHaveAttribute("role", "status");
+    expect(deletionNotice).toHaveFocus();
     expect(
       await screen.findByText("You have no purchases in the waiting period."),
     ).toBeVisible();

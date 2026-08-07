@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type MouseEvent, type ReactNode } from "react";
 
 export type PageShellProps = {
   children: ReactNode;
@@ -6,9 +6,16 @@ export type PageShellProps = {
 };
 
 export function PageShell({ children, headerActions }: PageShellProps) {
+  const mainRef = useRef<HTMLElement>(null);
+
+  function skipToMain(event: MouseEvent<HTMLAnchorElement>): void {
+    event.preventDefault();
+    mainRef.current?.focus();
+  }
+
   return (
     <div className="page-shell">
-      <a className="skip-link" href="#main-content">
+      <a className="skip-link" href="#main-content" onClick={skipToMain}>
         Skip to main content
       </a>
       <header className="site-header">
@@ -17,7 +24,12 @@ export function PageShell({ children, headerActions }: PageShellProps) {
           {headerActions}
         </div>
       </header>
-      <main className="page-content" id="main-content" tabIndex={-1}>
+      <main
+        className="page-content"
+        id="main-content"
+        ref={mainRef}
+        tabIndex={-1}
+      >
         {children}
       </main>
     </div>

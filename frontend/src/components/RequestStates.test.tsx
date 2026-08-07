@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EmptyState } from "./EmptyState";
 import { ErrorAlert } from "./ErrorAlert";
+import { FeedbackMessage } from "./FeedbackMessage";
 import { Loading } from "./Loading";
 
 describe("Loading", () => {
@@ -51,6 +52,23 @@ describe("ErrorAlert", () => {
 
     expect(onRetry).toHaveBeenCalledOnce();
   });
+
+  it("uses operation-specific labels and disables a pending retry", () => {
+    render(
+      <ErrorAlert
+        isRetrying
+        message="Your entries could not be loaded."
+        onRetry={vi.fn()}
+        retryLabel="Retry entries"
+        retryingLabel="Retrying entries…"
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Retrying entries…" }),
+    ).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Retry entries" })).toBeNull();
+  });
 });
 
 describe("EmptyState", () => {
@@ -69,5 +87,35 @@ describe("EmptyState", () => {
     expect(section).toHaveTextContent(
       "Entries you avoid purchasing will appear here.",
     );
+  });
+});
+
+describe("FeedbackMessage", () => {
+  it("uses consistent live-region semantics for success and updating feedback", () => {
+    const { rerender } = render(
+      <FeedbackMessage message="Entry changes saved." tone="success" />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Entry changes saved.",
+    );
+    expect(screen.getByRole("status")).toHaveAttribute("aria-atomic", "true");
+
+    rerender(<FeedbackMessage message="Updating dashboard…" tone="status" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Updating dashboard…");
+  });
+
+  it("provides a reusable focusable error summary", () => {
+    render(
+      <FeedbackMessage
+        focusable
+        message="Please correct the highlighted fields."
+        tone="error"
+      />,
+    );
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveAttribute("tabindex", "-1");
+    expect(alert).toHaveClass("request-state--error");
   });
 });

@@ -415,6 +415,15 @@ describe("CheckInEntryPage", () => {
     expect(
       screen.queryByText("Private backend detail."),
     ).not.toBeInTheDocument();
+    if (status === 403 || status === 404) {
+      expect(
+        screen.queryByRole("button", { name: "Retry check-in" }),
+      ).toBeNull();
+    } else {
+      expect(
+        screen.getByRole("button", { name: "Retry check-in" }),
+      ).toBeEnabled();
+    }
   });
 });
 

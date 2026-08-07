@@ -18,6 +18,7 @@ POSTGRES_VOLUME := penny_saved_postgres_data
 	frontend-typecheck typecheck \
 	frontend-test backend-test test \
 	frontend-build backend-build build check clean \
+	frontend-security-check backend-security-check security-check \
 	frontend-dev backend-dev dev \
 	db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision seed-demo \
 	check-frontend check-backend check-backend-env check-docker check-alembic
@@ -132,6 +133,16 @@ check: ## Run all frontend and backend quality checks.
 	$(MAKE) typecheck
 	$(MAKE) test
 	$(MAKE) build
+
+frontend-security-check: check-frontend ## Audit the locked frontend dependency graph for high-severity advisories.
+	node scripts/audit-frontend.mjs
+
+backend-security-check: check-backend ## Audit pinned backend runtime dependencies for known advisories.
+	$(VENV_PYTHON) -m pip_audit --requirement backend/requirements.txt --progress-spinner off
+
+security-check: ## Run frontend and backend dependency vulnerability scans.
+	$(MAKE) frontend-security-check
+	$(MAKE) backend-security-check
 
 clean: ## Remove generated build, coverage, bytecode, and tool-cache artifacts only.
 	./scripts/clean-generated.sh

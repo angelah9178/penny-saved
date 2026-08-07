@@ -229,7 +229,7 @@ describe("StatisticsSection", () => {
 
     const retry = await screen.findByRole(
       "button",
-      { name: "Try again" },
+      { name: "Retry statistics" },
       { timeout: 4_000 },
     );
     expect(screen.queryByText("Total saved")).not.toBeInTheDocument();

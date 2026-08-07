@@ -50,6 +50,34 @@ describe("EntryDetailPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it.each([
+    [403, "You do not have access to that entry."],
+    [404, "We could not find that entry."],
+  ])(
+    "does not offer retry for an unavailable HTTP %d entry",
+    async (status, message) => {
+      server.use(
+        http.get(`/api/entries/${entryId}`, () =>
+          HttpResponse.json(
+            { error: { code: "not_available", message: "Private detail." } },
+            { status },
+          ),
+        ),
+      );
+      const router = createMemoryRouter(
+        [{ path: "/entries/:entryId", element: <EntryDetailPage /> }],
+        { initialEntries: [`/entries/${entryId}`] },
+      );
+      render(
+        <AppProviders queryClient={createQueryClient()} router={router} />,
+      );
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(message);
+      expect(screen.queryByRole("button", { name: "Retry entry" })).toBeNull();
+      expect(screen.queryByText("Private detail.")).toBeNull();
+    },
+  );
+
   it("replaces the editor with one safe unavailable state after access loss", async () => {
     const user = userEvent.setup();
     server.use(

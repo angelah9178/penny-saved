@@ -137,7 +137,9 @@ describe("authentication bootstrap", () => {
       { queryClient },
     );
 
-    await user.click(await screen.findByRole("button", { name: "Try again" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Retry session check" }),
+    );
 
     expect(
       await screen.findByText("Signed in as person@example.com"),
