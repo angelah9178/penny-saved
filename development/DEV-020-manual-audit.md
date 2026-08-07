@@ -96,6 +96,13 @@ than relying on a general impression that the page works.
 
 Repeat relevant routes with realistic and worst-case content.
 
+Commit 5 adds shared CSS safeguards for wrapping, minimum touch-target sizes,
+visible focus, non-color error and disabled-state cues, narrow-screen stacking,
+viewport-bounded dialogs, and reduced motion. These safeguards passed the automated
+frontend gate, but CSS alone cannot prove rendered dimensions, contrast, zoom, or
+the absence of clipping. The cells below remain pending until Commit 6 records the
+real-browser checks.
+
 | Check                                                              | 320 px  | 768 px  | 1280 px | 200% zoom | Notes                                       |
 | ------------------------------------------------------------------ | ------- | ------- | ------- | --------- | ------------------------------------------- |
 | No page-level horizontal scrolling                                 | Pending | Pending | Pending | Pending   | —                                           |

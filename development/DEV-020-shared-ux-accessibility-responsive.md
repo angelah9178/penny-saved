@@ -25,7 +25,7 @@ passes.
 | &#91;x&#93;      | [1](#commit-1--establish-the-cross-application-audit-baseline)    | Establish audit baseline                   | DEV-012, 015, 018, and 019 |
 | &#91;x&#93;      | [2](#commit-2--harden-the-application-shell-and-route-experience) | Harden shell and routes                    | Commit 1                   |
 | &#91;x&#93;      | [3](#commit-3--standardize-request-form-and-mutation-feedback)    | Standardize state feedback                 | Commit 2                   |
-| &#91;&#160;&#93; | [4](#commit-4--complete-keyboard-and-focus-behavior)              | Complete keyboard and focus behavior       | Commit 3                   |
+| &#91;x&#93;      | [4](#commit-4--complete-keyboard-and-focus-behavior)              | Complete keyboard and focus behavior       | Commit 3                   |
 | &#91;&#160;&#93; | [5](#commit-5--complete-responsive-and-visual-accessibility)      | Complete responsive and visual behavior    | Commit 4                   |
 | &#91;&#160;&#93; | [6](#commit-6--complete-the-manual-audit-and-verification)        | Complete audit and repository verification | Commits 1–5                |
 
@@ -334,7 +334,7 @@ make frontend-test
 
 ## Commit 4 — Complete Keyboard and Focus Behavior
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `d4470b2`.
 
 ### In Plain English
 
@@ -399,7 +399,7 @@ make frontend-test
 
 ## Commit 5 — Complete Responsive and Visual Accessibility
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -412,6 +412,24 @@ It also checks the visual parts of accessibility: readable color contrast, a foc
 indicator that is never clipped or hidden, non-color cues for errors and status, and
 reduced-motion behavior. This is refinement of the existing interface, not a new
 brand or product redesign.
+
+Commit 5 therefore covers more than making the application look attractive on a
+phone. It makes the app usable on small mobile screens starting at 320 CSS pixels,
+tablets, desktop screens, desktop browsers at 200% zoom, and touch devices. It
+ensures:
+
+- there is no unintended horizontal page scrolling;
+- forms, cards, dialogs, and buttons do not overlap;
+- long text and large currency values wrap correctly;
+- actions remain visible and reachable;
+- touch targets are at least 44 by 44 CSS pixels;
+- text, controls, and state indicators have sufficient contrast;
+- keyboard focus indicators remain visible;
+- meaning does not depend only on color; and
+- animation respects the user's reduced-motion preference.
+
+In short, this commit makes the application readable, reachable, and comfortable to
+use on mobile, zoomed screens, and desktop.
 
 Suggested commit message:
 
@@ -529,8 +547,8 @@ findings resolved, focused test results, manual evidence, and any approved defer
 | 1      | `b51c194` | Complete                     | Format, lint, typecheck, 405 frontend tests, and 5 accessibility scans passed                 |
 | 2      | `55d6f4c` | Complete                     | Format, lint, typecheck, build, 421 frontend tests, and route-error accessibility scan passed |
 | 3      | `ef1fe00` | Complete                     | Format, lint, typecheck, and 426 frontend tests passed                                        |
-| 4      | —         | Implemented; awaiting commit | Format, lint, typecheck, and 429 frontend tests passed                                        |
-| 5      | —         | Not implemented              | —                                                                                             |
+| 4      | `d4470b2` | Complete                     | Format, lint, typecheck, and 429 frontend tests passed                                        |
+| 5      | —         | Implemented; awaiting commit | Format, lint, typecheck, 429 frontend tests, and production build passed                      |
 | 6      | —         | Not implemented              | —                                                                                             |
 
 ### Manual Audit Evidence
