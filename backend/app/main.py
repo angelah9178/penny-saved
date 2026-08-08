@@ -22,7 +22,16 @@ from app.core.logging import (
 )
 from app.core.metrics import MetricsMiddleware, MetricsRegistry
 from app.core.operations import METRICS_PATH
-from app.db.session import ENGINE_STATE_KEY, ApplicationLifespan, create_database_lifespan
+from app.db.session import (
+    ENGINE_STATE_KEY,
+    LIFECYCLE_STATE_KEY,
+    READINESS_STATE_KEY,
+    ApplicationLifecycleState,
+    ApplicationLifespan,
+    DependencyReadinessState,
+    create_database_lifespan,
+    create_operational_lifespan,
+)
 
 API_PREFIX = "/api"
 
@@ -34,7 +43,8 @@ def create_app(
 ) -> FastAPI:
     """Create one fully configured FastAPI application."""
     resolved_settings = settings or get_settings()
-    resolved_lifespan = lifespan or create_database_lifespan(resolved_settings)
+    resource_lifespan = lifespan or create_database_lifespan(resolved_settings)
+    resolved_lifespan = create_operational_lifespan(resource_lifespan)
     expose_api_docs = resolved_settings.app_env != AppEnvironment.PRODUCTION
     configure_logging(
         resolved_settings.app_env,
@@ -52,6 +62,8 @@ def create_app(
     )
     app.state.settings = resolved_settings
     app.state.metrics_registry = MetricsRegistry()
+    setattr(app.state, LIFECYCLE_STATE_KEY, ApplicationLifecycleState.STARTING)
+    setattr(app.state, READINESS_STATE_KEY, DependencyReadinessState.UNKNOWN)
     register_error_handlers(app)
     if resolved_settings.metrics_enabled:
 

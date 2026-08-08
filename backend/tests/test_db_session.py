@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.core.config import AppEnvironment, Settings
 from app.db.session import (
     ENGINE_STATE_KEY,
+    LIFECYCLE_STATE_KEY,
     SESSION_FACTORY_STATE_KEY,
+    ApplicationLifecycleState,
     create_database_lifespan,
+    create_operational_lifespan,
     get_db_session,
 )
 from fastapi import FastAPI
@@ -96,6 +100,53 @@ async def test_lifespan_disposes_engine_when_factory_creation_fails(
             pytest.fail("Lifespan should not start")
 
     engine.dispose.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_operational_lifespan_becomes_unready_before_resource_disposal(
+    settings: Settings,
+    engine: MagicMock,
+) -> None:
+    app = FastAPI()
+    lifecycle_states_at_disposal: list[ApplicationLifecycleState] = []
+
+    async def dispose() -> None:
+        lifecycle_states_at_disposal.append(app.state.lifecycle_state)
+
+    engine.dispose.side_effect = dispose
+    resources = create_database_lifespan(
+        settings,
+        engine_builder=MagicMock(return_value=engine),
+        session_factory_builder=MagicMock(return_value=MagicMock()),
+    )
+    lifespan = create_operational_lifespan(resources)
+
+    async with lifespan(app):
+        assert getattr(app.state, LIFECYCLE_STATE_KEY) is ApplicationLifecycleState.READY
+
+    assert lifecycle_states_at_disposal == [ApplicationLifecycleState.STOPPING]
+    assert app.state.metrics_registry.render().endswith("application_readiness 0\n")
+
+
+@pytest.mark.asyncio
+async def test_database_disposal_obeys_configured_shutdown_timeout(
+    settings: Settings,
+    engine: MagicMock,
+) -> None:
+    async def slow_dispose() -> None:
+        await asyncio.sleep(0.02)
+
+    timeout_settings = settings.model_copy(update={"graceful_shutdown_timeout_seconds": 0.001})
+    engine.dispose.side_effect = slow_dispose
+    lifespan = create_database_lifespan(
+        timeout_settings,
+        engine_builder=MagicMock(return_value=engine),
+        session_factory_builder=MagicMock(return_value=MagicMock()),
+    )
+
+    with pytest.raises(TimeoutError):
+        async with lifespan(FastAPI()):
+            pass
 
 
 @pytest.mark.asyncio

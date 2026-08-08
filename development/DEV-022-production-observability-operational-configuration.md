@@ -24,7 +24,7 @@ passes.
 | ----------- | ------------------------------------------------------------- | ------------------------------ | ------------------- |
 | &#91;x&#93;      | [1](#commit-1--define-the-production-operations-contract)     | Define the operations contract | DEV-003 and DEV-021 |
 | &#91;x&#93;      | [2](#commit-2--add-structured-request-logging-and-correlation) | Add correlated request logs    | Commit 1            |
-| &#91;&#160;&#93; | [3](#commit-3--add-safe-application-metrics)                  | Add bounded metrics            | Commits 1–2         |
+| &#91;x&#93;      | [3](#commit-3--add-safe-application-metrics)                  | Add bounded metrics            | Commits 1–2         |
 | &#91;&#160;&#93; | [4](#commit-4--complete-health-and-process-lifecycle-behavior) | Complete health and lifecycle  | Commits 1–2         |
 | &#91;&#160;&#93; | [5](#commit-5--document-the-production-configuration-and-runbook) | Document production operations | Commits 1–4      |
 | &#91;&#160;&#93; | [6](#commit-6--verify-the-complete-operational-boundary)      | Verify operational behavior    | Commits 1–5         |
@@ -294,7 +294,7 @@ git diff --check
 
 ## Commit 3 — Add Safe Application Metrics
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `5e7428f`.
 
 ### In Plain English
 
@@ -363,13 +363,24 @@ git diff --check
 
 ## Commit 4 — Complete Health and Process Lifecycle Behavior
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
 Commit 4 makes health checks tell the truth. “Live” means the application process is
 running and can answer a basic request. “Ready” means it can also reach the resources
 required to serve ordinary traffic, especially PostgreSQL.
+
+`GET /api/health` answers whether the backend process can respond to HTTP. It does
+not contact PostgreSQL, so a database outage does not cause a supervisor to restart
+an otherwise live process repeatedly. A successful liveness response is `200` with
+`{"status":"ok"}`.
+
+`GET /api/ready` answers whether this instance can handle normal application traffic.
+It checks PostgreSQL within `HEALTH_CHECK_TIMEOUT_SECONDS`. It returns `200` with
+`{"status":"ready"}` on success and a safe `503` with
+`{"status":"unavailable"}` while starting, stopping, timed out, or unable to reach
+the database. It never exposes a database address, credential, or exception message.
 
 The distinction matters during an outage or restart. A supervisor should restart a
 dead process, but repeatedly restarting a perfectly live application will not repair
@@ -381,6 +392,25 @@ This commit also makes startup and shutdown predictable. The process validates i
 settings and initializes required resources before becoming ready. On shutdown it
 marks itself unready, stops accepting new work through the surrounding supervisor
 and proxy flow, and releases its database resources cleanly.
+
+The intended order is:
+
+```text
+Startup
+  → validate configuration
+  → create database resources
+  → become ready
+
+Shutdown
+  → become unready
+  → allow the server to finish active work within its timeout
+  → close database resources
+  → exit
+```
+
+This gives `systemd` or another supervisor reliable signals for starting, stopping,
+and restarting the backend. Commit 4 implements the application side of that
+contract; Commit 5 documents the real supervisor and reverse-proxy configuration.
 
 Suggested commit message:
 
@@ -585,8 +615,8 @@ backup/restore rehearsal evidence, limitations, and blockers.
 | ------ | ---- | ----------- | ------------ |
 | 1      | `03dc757` | Complete | Ruff format/lint and 549 backend tests passed |
 | 2      | `900cba4` | Complete | Ruff format/lint, 555 backend tests, and security scans passed |
-| 3      | —    | Implemented; awaiting commit | Ruff format/lint, 560 backend tests, and security scans passed |
-| 4      | —    | Not started | —            |
+| 3      | `5e7428f` | Complete | Ruff format/lint, 560 backend tests, and security scans passed |
+| 4      | —    | Implemented; awaiting commit | Ruff format/lint, backend construction, and 565 backend tests passed |
 | 5      | —    | Not started | —            |
 | 6      | —    | Not started | —            |
 

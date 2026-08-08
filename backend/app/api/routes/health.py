@@ -5,16 +5,19 @@ from __future__ import annotations
 import asyncio
 from typing import Annotated, Literal
 
-from app.core.metrics import MetricsRegistry
-from app.db.session import get_db_session
+from app.db.session import (
+    LIFECYCLE_STATE_KEY,
+    ApplicationLifecycleState,
+    DependencyReadinessState,
+    get_db_session,
+    set_dependency_readiness,
+)
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-
-READINESS_TIMEOUT_SECONDS = 2.0
 
 
 class HealthResponse(BaseModel):
@@ -59,18 +62,22 @@ async def get_readiness(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ReadinessResponse | JSONResponse:
     """Report whether PostgreSQL can serve database-backed requests."""
+    lifecycle_state = getattr(request.app.state, LIFECYCLE_STATE_KEY, None)
+    if lifecycle_state is not ApplicationLifecycleState.READY:
+        set_dependency_readiness(request.app, DependencyReadinessState.UNAVAILABLE)
+        return _unavailable_response()
     try:
-        async with asyncio.timeout(READINESS_TIMEOUT_SECONDS):
+        async with asyncio.timeout(request.app.state.settings.health_check_timeout_seconds):
             await session.execute(text("SELECT 1"))
     except (TimeoutError, SQLAlchemyError):
-        _metrics_registry(request).set_readiness(False)
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=ReadinessResponse(status="unavailable").model_dump(),
-        )
-    _metrics_registry(request).set_readiness(True)
+        set_dependency_readiness(request.app, DependencyReadinessState.UNAVAILABLE)
+        return _unavailable_response()
+    set_dependency_readiness(request.app, DependencyReadinessState.READY)
     return ReadinessResponse(status="ready")
 
 
-def _metrics_registry(request: Request) -> MetricsRegistry:
-    return request.app.state.metrics_registry
+def _unavailable_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=ReadinessResponse(status="unavailable").model_dump(),
+    )

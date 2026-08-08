@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from io import StringIO
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-from app.api.routes.health import READINESS_TIMEOUT_SECONDS
 from app.core.config import AppEnvironment, Settings
-from app.core.logging import REQUEST_ID_HEADER
-from app.db.session import get_db_session
+from app.core.logging import REQUEST_ID_HEADER, configure_logging
+from app.db.session import (
+    LIFECYCLE_STATE_KEY,
+    ApplicationLifecycleState,
+    DependencyReadinessState,
+    get_db_session,
+)
 from app.main import create_app
 from fastapi import FastAPI
 from sqlalchemy.exc import SQLAlchemyError
@@ -49,6 +55,7 @@ async def api_client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
 
 def app_with_session(settings: Settings, session: AsyncSession) -> FastAPI:
     app = create_app(settings, lifespan=no_database_lifespan)
+    setattr(app.state, LIFECYCLE_STATE_KEY, ApplicationLifecycleState.READY)
 
     async def override_db_session() -> AsyncIterator[AsyncSession]:
         yield session
@@ -77,10 +84,12 @@ async def test_factory_registers_database_lifespan(
     app = create_app(settings)
     async with app.router.lifespan_context(app):
         assert events == ["started"]
+        assert app.state.lifecycle_state is ApplicationLifecycleState.READY
 
     lifespan_builder.assert_called_once_with(settings)
     assert events == ["started", "stopped"]
     assert app.state.settings is settings
+    assert app.state.lifecycle_state is ApplicationLifecycleState.STOPPING
 
 
 @pytest.mark.asyncio
@@ -127,22 +136,76 @@ async def test_readiness_returns_safe_unavailable_response(
 @pytest.mark.asyncio
 async def test_readiness_times_out_slow_database_probe(
     settings: Settings,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def slow_execute(*args: object) -> None:
         del args
-        await asyncio.sleep(READINESS_TIMEOUT_SECONDS * 2)
+        await asyncio.sleep(0.02)
 
     session = AsyncMock(spec=AsyncSession)
     session.execute.side_effect = slow_execute
     app = app_with_session(settings, session)
-    monkeypatch.setattr("app.api.routes.health.READINESS_TIMEOUT_SECONDS", 0.001)
+    app.state.settings.health_check_timeout_seconds = 0.001
 
     async with api_client(app) as client:
         response = await client.get("/api/ready")
 
     assert response.status_code == 503
     assert response.json() == {"status": "unavailable"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "lifecycle_state",
+    [ApplicationLifecycleState.STARTING, ApplicationLifecycleState.STOPPING],
+)
+async def test_readiness_rejects_starting_and_stopping_states(
+    settings: Settings,
+    lifecycle_state: ApplicationLifecycleState,
+) -> None:
+    session = AsyncMock(spec=AsyncSession)
+    app = app_with_session(settings, session)
+    setattr(app.state, LIFECYCLE_STATE_KEY, lifecycle_state)
+
+    async with api_client(app) as client:
+        response = await client.get("/api/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "unavailable"}
+    session.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_readiness_records_loss_repeated_failure_and_recovery_once_each(
+    settings: Settings,
+) -> None:
+    session = AsyncMock(spec=AsyncSession)
+    session.execute.side_effect = [
+        SQLAlchemyError("unavailable"),
+        SQLAlchemyError("still unavailable"),
+        None,
+    ]
+    app = app_with_session(settings, session)
+    app.state.readiness_state = DependencyReadinessState.READY
+    stream = StringIO()
+    configure_logging(settings.app_env, settings.log_level, stream=stream)
+
+    async with api_client(app) as client:
+        lost = await client.get("/api/ready")
+        repeated = await client.get("/api/ready")
+        recovered = await client.get("/api/ready")
+
+    assert [lost.status_code, repeated.status_code, recovered.status_code] == [503, 503, 200]
+    assert app.state.readiness_state is DependencyReadinessState.READY
+    assert app.state.metrics_registry.render().endswith("application_readiness 1\n")
+    transitions = [
+        json.loads(line)
+        for line in stream.getvalue().splitlines()
+        if json.loads(line)["event"] == "application.readiness_transition"
+    ]
+    assert [transition["context"]["to"] for transition in transitions] == [
+        "unavailable",
+        "ready",
+    ]
 
 
 @pytest.mark.asyncio
