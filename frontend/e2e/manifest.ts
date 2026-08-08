@@ -12,6 +12,14 @@ export type E2EManifest = {
   signup_user: ManifestUser;
   journey_user: ManifestUser;
   eligible_item_name: string;
+  check_in_comment: string;
+  expected_saved_total_cents: number;
+  expected_avoided_purchase_count: number;
+  expected_purchased_count: number;
+  whole_equivalent_label: string;
+  whole_equivalent_units: number;
+  fractional_equivalent_label: string;
+  fractional_equivalent_units: number;
   signup_entry_item_name: string;
   signup_entry_price_cents: number;
   signup_entry_reason: string;
@@ -44,6 +52,14 @@ function isManifest(value: unknown): value is E2EManifest {
     isUser(candidate.signup_user) &&
     isUser(candidate.journey_user) &&
     typeof candidate.eligible_item_name === "string" &&
+    typeof candidate.check_in_comment === "string" &&
+    typeof candidate.expected_saved_total_cents === "number" &&
+    typeof candidate.expected_avoided_purchase_count === "number" &&
+    typeof candidate.expected_purchased_count === "number" &&
+    typeof candidate.whole_equivalent_label === "string" &&
+    typeof candidate.whole_equivalent_units === "number" &&
+    typeof candidate.fractional_equivalent_label === "string" &&
+    typeof candidate.fractional_equivalent_units === "number" &&
     typeof candidate.signup_entry_item_name === "string" &&
     typeof candidate.signup_entry_price_cents === "number" &&
     typeof candidate.signup_entry_reason === "string"

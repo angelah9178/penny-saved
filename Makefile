@@ -180,7 +180,7 @@ e2e: check-frontend check-backend ## Run the complete isolated browser stack and
 
 e2e-auth-entry: check-frontend check-backend ## Run the first-half signup, entry, and login browser journey.
 	@test -n "$${E2E_DATABASE_URL:-}" || { echo "Export a dedicated E2E_DATABASE_URL ending in _e2e_test." >&2; exit 1; }
-	E2E_PLAYWRIGHT_SCRIPT=e2e:auth-entry E2E_VERIFY_AUTH_ENTRY=true $(VENV_PYTHON) scripts/e2e_stack.py run
+	E2E_PLAYWRIGHT_SCRIPT=e2e:auth-entry E2E_VERIFY_PHASE=auth-entry $(VENV_PYTHON) scripts/e2e_stack.py run
 
 e2e-cleanup-check: check-backend ## Verify E2E supervision, redaction, and cleanup safeguards.
 	cd backend && $(BACKEND_PYTHON) -m pytest tests/tooling/test_e2e_stack.py tests/scripts/test_e2e_data.py

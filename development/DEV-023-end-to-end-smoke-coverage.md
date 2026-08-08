@@ -26,7 +26,7 @@ passes.
 | &#91;x&#93;      | [1](#commit-1--define-the-browser-smoke-contract)         | Define smoke-test rules       | DEV-020 and DEV-021     |
 | &#91;x&#93;      | [2](#commit-2--add-isolated-end-to-end-test-data)         | Add isolated browser data     | Commit 1 and DEV-007    |
 | &#91;x&#93;      | [3](#commit-3--start-and-stop-the-complete-test-stack)    | Orchestrate the live stack    | Commits 1–2 and DEV-022 |
-| &#91;&#160;&#93; | [4](#commit-4--cover-authentication-and-entry-creation)   | Test auth and entry creation  | Commit 3                |
+| &#91;x&#93;      | [4](#commit-4--cover-authentication-and-entry-creation)   | Test auth and entry creation  | Commit 3                |
 | &#91;&#160;&#93; | [5](#commit-5--cover-check-in-statistics-and-logout)      | Test the completed journey    | Commit 4                |
 | &#91;&#160;&#93; | [6](#commit-6--add-ci-and-verify-reliable-smoke-coverage) | Add CI and verify reliability | Commits 1–5             |
 
@@ -394,7 +394,7 @@ git diff --check
 
 ## Commit 4 — Cover Authentication and Entry Creation
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete in `5eace49`.
 
 ### In Plain English
 
@@ -461,13 +461,21 @@ git diff --check
 
 ## Commit 5 — Cover Check-In, Statistics, and Logout
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
 Commit 5 completes the critical journey. After logging into the seeded account, the
 browser opens the entry whose timestamp was prepared as already eligible, checks it
 in as “saved,” and sees it move out of the waiting/check-in list.
+
+This is the second half of product testing, and its important distinction is that it
+tests account-specific actions available to a particular user after login. Commit 4
+proved that someone can enter the application and create an entry. Commit 5 proves
+that the authenticated seeded user can act on their own eligible entry, see their own
+saved history, statistics, and opportunity-cost equivalents, and then remove their
+own access by logging out. The test does not treat those entries or totals as shared
+application-wide data; every assertion is tied to that logged-in run-owned account.
 
 The test then opens statistics and checks the values a person cares about: the saved
 count and money total include the newly resolved entry, and the seeded
@@ -618,8 +626,8 @@ database names, cleanup evidence, limitations, and deferrals.
 | 1      | `d9834be` | Complete                     | Playwright 1.62.1 contract passed in pinned Chromium; formatting, lint, typecheck, static contract, test listing, security, and whitespace gates passed |
 | 2      | `b029216` | Complete                     | Ruff formatting/lint, 589 backend tests, Alembic drift check, and whitespace gate passed                                                                |
 | 3      | `7a7c842` | Complete                     | `make e2e` run `run-20260808152536-98c2bd11` passed; prior rehearsal left zero run-owned users; 429 frontend and 599 backend tests passed               |
-| 4      | —         | Implemented; awaiting commit | First-half run `run-20260808154334-3cc82342` and combined run `run-20260808155113-a2f60614` passed; 600 backend tests and zero residual users           |
-| 5      | —         | Not started                  | —                                                                                                                                                       |
+| 4      | `5eace49` | Complete                     | First-half run `run-20260808154334-3cc82342` and combined run `run-20260808155113-a2f60614` passed; 600 backend tests and zero residual users           |
+| 5      | —         | Implemented; awaiting commit | Complete run `run-20260808161234-a810a6b2` passed all four Chromium tests and cleanup; frontend lint/typecheck and 601 backend tests passed             |
 | 6      | —         | Not started                  | —                                                                                                                                                       |
 
 ### Smoke Verification Checklist
@@ -635,8 +643,8 @@ database names, cleanup evidence, limitations, and deferrals.
 | Signup succeeds and browser reload restores its session              | Pass    | Signup reached dashboard; reload restored the protected session                         |
 | Existing seeded account can log in through the real form             | Pass    | Seeded journey account displayed its unique eligible entry                              |
 | Entry creation persists and appears in the waiting dashboard list    | Pass    | Entry survived reload and passed the PostgreSQL ownership assertion                     |
-| Seeded eligible entry checks in without waiting or changing rules    | Pending | —                                                                                       |
-| Statistics show saved totals and whole/fractional equivalents        | Pending | —                                                                                       |
+| Seeded eligible entry checks in without waiting or changing rules    | Pass    | The eligible account-owned entry was resolved as saved with its run-specific comment    |
+| Statistics show saved totals and whole/fractional equivalents        | Pass    | All-time total, counts, and both manifest-defined equivalents survived a browser reload |
 | Logout revokes access to protected browser routes                    | Pass    | Logout made direct protected navigation return to login                                 |
 | Failure artifacts are useful, bounded, retained, and non-sensitive   | Pass    | Bounded failure-log and secret/header/cookie/database redaction tests                   |
 | Repeated runs pass independently without retry-dependent success     | Pass    | Focused and combined runs passed with fresh IDs and no retries                          |

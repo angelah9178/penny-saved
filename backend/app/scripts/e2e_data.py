@@ -14,7 +14,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from uuid import UUID, uuid5
 
-from sqlalchemy import Connection, Engine, create_engine, or_, select
+from sqlalchemy import Connection, Engine, create_engine, func, or_, select
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
 
@@ -22,6 +22,7 @@ from app.core.security import hash_password, verify_password
 from app.core.time import normalize_utc
 from app.models.entry import EntryStatus, ImpulsePurchaseEntry
 from app.models.opportunity_cost_example import OpportunityCostExample
+from app.models.session import Session
 from app.models.user import User
 from app.scripts.seed_demo import SeedSafetyError, require_migration_head
 
@@ -67,13 +68,19 @@ class E2EDataManifest:
     journey_user: E2EUserManifest
     eligible_entry_id: str
     eligible_item_name: str
+    seeded_saved_entry_id: str
+    check_in_comment: str
     signup_entry_item_name: str
     signup_entry_price_cents: int
     signup_entry_reason: str
     initial_saved_total_cents: int
     expected_saved_total_cents: int
+    expected_avoided_purchase_count: int
+    expected_purchased_count: int
     whole_equivalent_label: str
+    whole_equivalent_units: int
     fractional_equivalent_label: str
+    fractional_equivalent_units: float
 
 
 EngineFactory = Callable[[str], Engine]
@@ -171,6 +178,7 @@ def build_manifest(config: E2EDataConfig) -> E2EDataManifest:
     _, signup_email = _identity(config.run_id, "signup", config.email_domain)
     journey_id, journey_email = _identity(config.run_id, "journey", config.email_domain)
     eligible_id = uuid5(E2E_NAMESPACE, f"{config.run_id}:eligible-entry")
+    seeded_saved_id = uuid5(E2E_NAMESPACE, f"{config.run_id}:saved-entry")
     return E2EDataManifest(
         version=MANIFEST_VERSION,
         run_id=config.run_id,
@@ -179,13 +187,19 @@ def build_manifest(config: E2EDataConfig) -> E2EDataManifest:
         journey_user=E2EUserManifest(id=str(journey_id), email=journey_email),
         eligible_entry_id=str(eligible_id),
         eligible_item_name=f"Eligible headphones [{config.run_id}]",
+        seeded_saved_entry_id=str(seeded_saved_id),
+        check_in_comment=f"I chose to keep the savings [{config.run_id}].",
         signup_entry_item_name=f"Smoke test notebook [{config.run_id}]",
         signup_entry_price_cents=4_321,
         signup_entry_reason=f"First-half browser journey [{config.run_id}]",
         initial_saved_total_cents=5_000,
         expected_saved_total_cents=12_500,
+        expected_avoided_purchase_count=2,
+        expected_purchased_count=0,
         whole_equivalent_label=f"Transit rides [{config.run_id}]",
+        whole_equivalent_units=5,
         fractional_equivalent_label=f"Lunches [{config.run_id}]",
+        fractional_equivalent_units=3.1,
     )
 
 
@@ -267,11 +281,10 @@ def setup_data(connection: Connection, config: E2EDataConfig) -> E2EDataManifest
             "updated_at": config.setup_at - timedelta(hours=49),
         },
     )
-    saved_id = uuid5(E2E_NAMESPACE, f"{config.run_id}:saved-entry")
     _insert_or_verify(
         connection,
         table=ImpulsePurchaseEntry.__table__,
-        record_id=saved_id,
+        record_id=UUID(manifest.seeded_saved_entry_id),
         values={
             "user_id": journey_id,
             "item_name": f"Saved desk lamp [{config.run_id}]",
@@ -359,6 +372,71 @@ def verify_auth_entry_data(connection: Connection, manifest: E2EDataManifest) ->
         )
 
 
+def verify_complete_journey_data(connection: Connection, manifest: E2EDataManifest) -> None:
+    """Prove the seeded user's saved check-in, history, and session revocation."""
+    if manifest.journey_user.id is None:
+        raise E2EDataSafetyError("Journey manifest must contain its deterministic user ID.")
+    journey_id = UUID(manifest.journey_user.id)
+    setup_at = normalize_utc(datetime.fromisoformat(manifest.setup_at))
+    entries = ImpulsePurchaseEntry.__table__
+    eligible = (
+        connection.execute(
+            select(entries).where(
+                entries.c.id == UUID(manifest.eligible_entry_id),
+                entries.c.user_id == journey_id,
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if (
+        eligible is None
+        or eligible["status"] is not EntryStatus.SAVED
+        or eligible["comment"] != manifest.check_in_comment
+        or eligible["checked_in_at"] is None
+    ):
+        raise E2EDataSafetyError("Eligible entry was not persisted as the expected saved check-in.")
+
+    seeded_history = (
+        connection.execute(
+            select(entries).where(
+                entries.c.id == UUID(manifest.seeded_saved_entry_id),
+                entries.c.user_id == journey_id,
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if (
+        seeded_history is None
+        or seeded_history["status"] is not EntryStatus.SAVED
+        or seeded_history["price_cents"] != manifest.initial_saved_total_cents
+        or seeded_history["comment"] != "Deterministic browser-test history."
+        or seeded_history["created_at"] != setup_at - timedelta(days=5)
+        or seeded_history["checked_in_at"] != setup_at - timedelta(days=3)
+        or seeded_history["updated_at"] != setup_at - timedelta(days=3)
+    ):
+        raise E2EDataSafetyError("Seeded saved history changed during the browser journey.")
+
+    saved_summary = connection.execute(
+        select(func.count(), func.coalesce(func.sum(entries.c.price_cents), 0)).where(
+            entries.c.user_id == journey_id,
+            entries.c.status == EntryStatus.SAVED,
+        )
+    ).one()
+    if saved_summary != (
+        manifest.expected_avoided_purchase_count,
+        manifest.expected_saved_total_cents,
+    ):
+        raise E2EDataSafetyError("Persisted saved statistics do not match the manifest.")
+
+    active_sessions = connection.execute(
+        select(func.count()).select_from(Session).where(Session.user_id == journey_id)
+    ).scalar_one()
+    if active_sessions != 0:
+        raise E2EDataSafetyError("Journey logout did not revoke every browser-test session.")
+
+
 def _write_manifest(path: Path, manifest: E2EDataManifest) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile("w", dir=path.parent, delete=False, encoding="utf-8") as handle:
@@ -379,13 +457,19 @@ def _read_manifest(path: Path, config: E2EDataConfig) -> E2EDataManifest:
             journey_user=E2EUserManifest(**raw["journey_user"]),
             eligible_entry_id=raw["eligible_entry_id"],
             eligible_item_name=raw["eligible_item_name"],
+            seeded_saved_entry_id=raw["seeded_saved_entry_id"],
+            check_in_comment=raw["check_in_comment"],
             signup_entry_item_name=raw["signup_entry_item_name"],
             signup_entry_price_cents=raw["signup_entry_price_cents"],
             signup_entry_reason=raw["signup_entry_reason"],
             initial_saved_total_cents=raw["initial_saved_total_cents"],
             expected_saved_total_cents=raw["expected_saved_total_cents"],
+            expected_avoided_purchase_count=raw["expected_avoided_purchase_count"],
+            expected_purchased_count=raw["expected_purchased_count"],
             whole_equivalent_label=raw["whole_equivalent_label"],
+            whole_equivalent_units=raw["whole_equivalent_units"],
             fractional_equivalent_label=raw["fractional_equivalent_label"],
+            fractional_equivalent_units=raw["fractional_equivalent_units"],
         )
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise E2EDataSafetyError("Manifest is missing or invalid; refusing cleanup.") from error
@@ -447,6 +531,25 @@ def run_verify_auth_entry(
         with engine.connect() as connection:
             head_verifier(connection)
             verify_auth_entry_data(connection, manifest)
+    except SeedSafetyError as error:
+        raise E2EDataSafetyError(str(error)) from error
+    finally:
+        engine.dispose()
+
+
+def run_verify_complete_journey(
+    config: E2EDataConfig,
+    *,
+    engine_factory: EngineFactory = create_engine,
+    head_verifier: HeadVerifier = require_migration_head,
+) -> None:
+    """Verify the complete committed browser journey before guarded cleanup."""
+    manifest = _read_manifest(config.manifest_path, config)
+    engine = engine_factory(config.database_url)
+    try:
+        with engine.connect() as connection:
+            head_verifier(connection)
+            verify_complete_journey_data(connection, manifest)
     except SeedSafetyError as error:
         raise E2EDataSafetyError(str(error)) from error
     finally:

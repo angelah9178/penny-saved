@@ -38,6 +38,7 @@ from app.scripts.e2e_data import (  # noqa: E402
     run_cleanup,
     run_setup,
     run_verify_auth_entry,
+    run_verify_complete_journey,
 )
 
 DEFAULT_FRONTEND_URL = "http://127.0.0.1:4173"
@@ -361,7 +362,12 @@ def _run_browser_with_live_servers(
 ) -> None:
     """Run Chromium while failing promptly if either application server exits."""
     playwright_script = environment.get("E2E_PLAYWRIGHT_SCRIPT", "e2e:smoke")
-    if playwright_script not in {"e2e:contract", "e2e:auth-entry", "e2e:smoke"}:
+    if playwright_script not in {
+        "e2e:contract",
+        "e2e:auth-entry",
+        "e2e:journey",
+        "e2e:smoke",
+    }:
         raise StackError("E2E_PLAYWRIGHT_SCRIPT is not an approved browser command.")
     browser = _start_process(
         "browser",
@@ -496,16 +502,20 @@ def run_stack(config: E2EDataConfig, environment: dict[str, str]) -> None:
             secrets_to_remove=secrets_to_remove,
             failure_log=artifact_directory / "browser.log",
         )
-        default_verification = (
-            "false"
-            if environment.get("E2E_PLAYWRIGHT_SCRIPT") == "e2e:contract"
-            else "true"
-        )
-        if (
-            environment.get("E2E_VERIFY_AUTH_ENTRY", default_verification).lower()
-            == "true"
-        ):
+        playwright_script = environment.get("E2E_PLAYWRIGHT_SCRIPT", "e2e:smoke")
+        default_phase = {
+            "e2e:contract": "none",
+            "e2e:auth-entry": "auth-entry",
+            "e2e:journey": "complete",
+            "e2e:smoke": "smoke",
+        }[playwright_script]
+        verification_phase = environment.get("E2E_VERIFY_PHASE", default_phase)
+        if verification_phase in {"auth-entry", "smoke"}:
             run_verify_auth_entry(config)
+        if verification_phase in {"complete", "smoke"}:
+            run_verify_complete_journey(config)
+        if verification_phase not in {"none", "auth-entry", "complete", "smoke"}:
+            raise StackError("E2E_VERIFY_PHASE is not an approved verification phase.")
     except BaseException as error:
         failure = error
     finally:

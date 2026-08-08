@@ -22,6 +22,7 @@ from app.scripts.e2e_data import (
     run_setup,
     setup_data,
     verify_auth_entry_data,
+    verify_complete_journey_data,
 )
 from sqlalchemy import Connection, func, select
 from sqlalchemy.engine import URL
@@ -162,6 +163,24 @@ def test_auth_entry_verification_accepts_api_assigned_signup_id_and_cleanup(
 
     verify_auth_entry_data(db_connection, manifest)
     assert cleanup_data(db_connection, manifest) == 2
+
+
+def test_complete_journey_verification_accepts_saved_check_in_and_revoked_session(
+    db_connection: Connection, tmp_path: Path
+) -> None:
+    manifest = setup_data(db_connection, _config(tmp_path))
+    db_connection.execute(
+        ImpulsePurchaseEntry.__table__.update()
+        .where(ImpulsePurchaseEntry.id == UUID(manifest.eligible_entry_id))
+        .values(
+            status=EntryStatus.SAVED,
+            comment=manifest.check_in_comment,
+            checked_in_at=SETUP_AT,
+            updated_at=SETUP_AT,
+        )
+    )
+
+    verify_complete_journey_data(db_connection, manifest)
 
 
 def test_guarded_run_writes_secret_free_manifest_and_cleans_committed_data(

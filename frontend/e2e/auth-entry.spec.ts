@@ -87,6 +87,8 @@ test("seeded journey account logs in and sees its eligible entry", async ({
     page.getByRole("heading", { name: manifest.eligible_item_name }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Check in" })).toBeVisible();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login$/u);
 });
 
 async function assertSecretIsNotBrowserVisible(
