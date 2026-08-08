@@ -155,6 +155,84 @@ jobs:
           tests/integration/test_migrations.py
         working-directory: backend
 
+  browser-smoke:
+    name: browser-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_ENV: test
+      CI: true
+      DATABASE_URL: postgresql+psycopg://penny_saved_ci:penny_saved_ci@localhost:5432/penny_saved
+      TEST_DATABASE_URL: postgresql+psycopg://penny_saved_ci:penny_saved_ci@localhost:5432/penny_saved_test
+      E2E_DATABASE_URL: postgresql+psycopg://penny_saved_ci:penny_saved_ci@localhost:5432/penny_saved_e2e_test
+      E2E_CI_DATABASE_HOST: localhost
+      E2E_FRONTEND_URL: http://127.0.0.1:4173
+      E2E_BACKEND_URL: http://127.0.0.1:8000
+      E2E_EMAIL_DOMAIN: browser.invalid
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: penny_saved_e2e_test
+          POSTGRES_USER: penny_saved_ci
+          POSTGRES_PASSWORD: penny_saved_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username=penny_saved_ci --dbname=penny_saved_e2e_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - name: Restore pinned Chromium cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-chromium-${{ hashFiles('frontend/package-lock.json') }}
+      - name: Install locked frontend dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Install pinned backend dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r backend/requirements-dev.txt
+      - name: Install pinned Chromium
+        run: npm exec -- playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Run complete smoke journey twice
+        run: |
+          make e2e
+          make e2e
+      - name: Prove E2E database and ports are clean
+        if: always()
+        run: .venv/bin/python scripts/check_e2e_residue.py
+      - name: Upload failure evidence after cleanup
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-smoke-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/
+            frontend/e2e-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+
   security:
     name: security
     runs-on: ubuntu-latest

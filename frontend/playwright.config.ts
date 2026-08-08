@@ -10,7 +10,7 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 5_000 },
   forbidOnly: true,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   reporter: "list",
   use: {
     baseURL: browserEnvironment.frontendUrl,

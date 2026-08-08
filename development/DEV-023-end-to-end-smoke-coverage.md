@@ -27,7 +27,7 @@ passes.
 | &#91;x&#93;      | [2](#commit-2--add-isolated-end-to-end-test-data)         | Add isolated browser data     | Commit 1 and DEV-007    |
 | &#91;x&#93;      | [3](#commit-3--start-and-stop-the-complete-test-stack)    | Orchestrate the live stack    | Commits 1–2 and DEV-022 |
 | &#91;x&#93;      | [4](#commit-4--cover-authentication-and-entry-creation)   | Test auth and entry creation  | Commit 3                |
-| &#91;&#160;&#93; | [5](#commit-5--cover-check-in-statistics-and-logout)      | Test the completed journey    | Commit 4                |
+| &#91;x&#93;      | [5](#commit-5--cover-check-in-statistics-and-logout)      | Test the completed journey    | Commit 4                |
 | &#91;&#160;&#93; | [6](#commit-6--add-ci-and-verify-reliable-smoke-coverage) | Add CI and verify reliability | Commits 1–5             |
 
 ## Objective
@@ -461,7 +461,7 @@ git diff --check
 
 ## Commit 5 — Cover Check-In, Statistics, and Logout
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete in `2b3b672`.
 
 ### In Plain English
 
@@ -526,13 +526,23 @@ git diff --check
 
 ## Commit 6 — Add CI and Verify Reliable Smoke Coverage
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
 Commit 6 proves the browser suite is dependable enough to protect a release. It adds
 an isolated CI job with PostgreSQL and pinned Chromium, runs the complete journey
 more than once, and records whether setup and cleanup leave any state behind.
+
+In plain English, Commits 1–5 built the complete browser test. Commit 6 makes GitHub
+run it automatically when relevant code changes. GitHub creates a temporary database,
+builds the real application, runs the complete user journey twice with fresh test
+users, and confirms each run removes its users, entries, sessions, processes, and
+occupied ports. One passing run shows the journey works once; two clean independent
+runs also show that it does not depend on leftover data or a random success.
+
+Commit 6 does not add another user-facing part of the journey. It turns the journey
+from Commits 1–5 into a repeatable safety check before changes are accepted.
 
 When a test fails, CI keeps a screenshot, trace, console messages, and redacted
 process logs. Those files show what the browser saw and which safe request IDs can be
@@ -627,28 +637,28 @@ database names, cleanup evidence, limitations, and deferrals.
 | 2      | `b029216` | Complete                     | Ruff formatting/lint, 589 backend tests, Alembic drift check, and whitespace gate passed                                                                |
 | 3      | `7a7c842` | Complete                     | `make e2e` run `run-20260808152536-98c2bd11` passed; prior rehearsal left zero run-owned users; 429 frontend and 599 backend tests passed               |
 | 4      | `5eace49` | Complete                     | First-half run `run-20260808154334-3cc82342` and combined run `run-20260808155113-a2f60614` passed; 600 backend tests and zero residual users           |
-| 5      | —         | Implemented; awaiting commit | Complete run `run-20260808161234-a810a6b2` passed all four Chromium tests and cleanup; frontend lint/typecheck and 601 backend tests passed             |
-| 6      | —         | Not started                  | —                                                                                                                                                       |
+| 5      | `2b3b672` | Complete                     | Complete run `run-20260808161234-a810a6b2` passed all four Chromium tests and cleanup; frontend lint/typecheck and 601 backend tests passed             |
+| 6      | —         | Implemented; awaiting commit | Independent runs `run-20260808163520-1e8424af` and `run-20260808163700-05952a05` passed without retries; residue, quality, and security gates passed    |
 
 ### Smoke Verification Checklist
 
-| Check                                                                | Result  | Evidence                                                                                |
-| -------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------- |
-| Real pinned browser runs against live React, FastAPI, and PostgreSQL | Pass    | Combined Chromium run `run-20260808155113-a2f60614`                                     |
-| Local and CI targets refuse development/staging/production data      | Pass    | URL, database suffix, ordinary-database, production-domain, and explicit CI-host guards |
-| Setup creates only deterministic run-owned data at Alembic head      | Pass    | Live manifest setup, migration verification, and post-run ownership assertion           |
-| Cleanup removes only run-owned data and is safe when repeated        | Pass    | Exact-manifest tests and zero users after live rehearsal                                |
-| Stack startup uses readiness rather than fixed sleeps                | Pass    | Live readiness plus timeout and early-exit tooling tests                                |
-| Stack shutdown leaves no child process or occupied test port         | Pass    | Exact process-group and real-child reap tests; live stack run passed                    |
-| Signup succeeds and browser reload restores its session              | Pass    | Signup reached dashboard; reload restored the protected session                         |
-| Existing seeded account can log in through the real form             | Pass    | Seeded journey account displayed its unique eligible entry                              |
-| Entry creation persists and appears in the waiting dashboard list    | Pass    | Entry survived reload and passed the PostgreSQL ownership assertion                     |
-| Seeded eligible entry checks in without waiting or changing rules    | Pass    | The eligible account-owned entry was resolved as saved with its run-specific comment    |
-| Statistics show saved totals and whole/fractional equivalents        | Pass    | All-time total, counts, and both manifest-defined equivalents survived a browser reload |
-| Logout revokes access to protected browser routes                    | Pass    | Logout made direct protected navigation return to login                                 |
-| Failure artifacts are useful, bounded, retained, and non-sensitive   | Pass    | Bounded failure-log and secret/header/cookie/database redaction tests                   |
-| Repeated runs pass independently without retry-dependent success     | Pass    | Focused and combined runs passed with fresh IDs and no retries                          |
-| Full quality, build, migration, smoke, and security gates pass       | Pending | —                                                                                       |
+| Check                                                                | Result | Evidence                                                                                |
+| -------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| Real pinned browser runs against live React, FastAPI, and PostgreSQL | Pass   | Combined Chromium run `run-20260808155113-a2f60614`                                     |
+| Local and CI targets refuse development/staging/production data      | Pass   | URL, database suffix, ordinary-database, production-domain, and explicit CI-host guards |
+| Setup creates only deterministic run-owned data at Alembic head      | Pass   | Live manifest setup, migration verification, and post-run ownership assertion           |
+| Cleanup removes only run-owned data and is safe when repeated        | Pass   | Exact-manifest tests and zero users after live rehearsal                                |
+| Stack startup uses readiness rather than fixed sleeps                | Pass   | Live readiness plus timeout and early-exit tooling tests                                |
+| Stack shutdown leaves no child process or occupied test port         | Pass   | Exact process-group and real-child reap tests; live stack run passed                    |
+| Signup succeeds and browser reload restores its session              | Pass   | Signup reached dashboard; reload restored the protected session                         |
+| Existing seeded account can log in through the real form             | Pass   | Seeded journey account displayed its unique eligible entry                              |
+| Entry creation persists and appears in the waiting dashboard list    | Pass   | Entry survived reload and passed the PostgreSQL ownership assertion                     |
+| Seeded eligible entry checks in without waiting or changing rules    | Pass   | The eligible account-owned entry was resolved as saved with its run-specific comment    |
+| Statistics show saved totals and whole/fractional equivalents        | Pass   | All-time total, counts, and both manifest-defined equivalents survived a browser reload |
+| Logout revokes access to protected browser routes                    | Pass   | Logout made direct protected navigation return to login                                 |
+| Failure artifacts are useful, bounded, retained, and non-sensitive   | Pass   | Bounded failure-log and secret/header/cookie/database redaction tests                   |
+| Repeated runs pass independently without retry-dependent success     | Pass   | Two Commit 6 runs passed with fresh IDs, zero retries, zero data, and released ports    |
+| Full quality, build, migration, smoke, and security gates pass       | Pass   | `make check`, two live build/migration smoke runs, and `make security-check` passed     |
 
 ### Failure Artifact Record
 

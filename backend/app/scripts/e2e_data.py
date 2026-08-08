@@ -149,8 +149,13 @@ def validate_config(config: E2EDataConfig, *, environment: Mapping[str, str]) ->
     if not config.manifest_path.is_absolute():
         raise E2EDataSafetyError("E2E_MANIFEST_PATH must be an absolute caller-owned path.")
 
+    return validate_database_target(config.database_url, environment=environment)
+
+
+def validate_database_target(database_url: str, *, environment: Mapping[str, str]) -> URL:
+    """Refuse a non-PostgreSQL, shared, or unapproved E2E database target."""
     try:
-        url = make_url(config.database_url)
+        url = make_url(database_url)
     except ArgumentError as error:
         raise E2EDataSafetyError("E2E_DATABASE_URL must be a valid SQLAlchemy URL.") from error
     if url.drivername != "postgresql+psycopg" or not url.database:
