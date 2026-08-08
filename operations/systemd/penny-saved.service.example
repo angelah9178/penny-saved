@@ -1,0 +1,32 @@
+# Example only. Confirm paths, account names, and the installed systemd version first.
+[Unit]
+Description=A Penny Saved FastAPI backend
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=penny-saved
+Group=penny-saved
+WorkingDirectory=/srv/penny-saved/current/backend
+EnvironmentFile=/etc/penny-saved/backend.env
+ExecStart=/srv/penny-saved/current/.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --workers 2 --no-proxy-headers --timeout-graceful-shutdown 30
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=40s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=penny-saved
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

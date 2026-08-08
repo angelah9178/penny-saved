@@ -25,7 +25,7 @@ passes.
 | &#91;x&#93;      | [1](#commit-1--define-the-production-operations-contract)     | Define the operations contract | DEV-003 and DEV-021 |
 | &#91;x&#93;      | [2](#commit-2--add-structured-request-logging-and-correlation) | Add correlated request logs    | Commit 1            |
 | &#91;x&#93;      | [3](#commit-3--add-safe-application-metrics)                  | Add bounded metrics            | Commits 1–2         |
-| &#91;&#160;&#93; | [4](#commit-4--complete-health-and-process-lifecycle-behavior) | Complete health and lifecycle  | Commits 1–2         |
+| &#91;x&#93;      | [4](#commit-4--complete-health-and-process-lifecycle-behavior) | Complete health and lifecycle  | Commits 1–2         |
 | &#91;&#160;&#93; | [5](#commit-5--document-the-production-configuration-and-runbook) | Document production operations | Commits 1–4      |
 | &#91;&#160;&#93; | [6](#commit-6--verify-the-complete-operational-boundary)      | Verify operational behavior    | Commits 1–5         |
 
@@ -363,7 +363,7 @@ git diff --check
 
 ## Commit 4 — Complete Health and Process Lifecycle Behavior
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `1d5bda5`.
 
 ### In Plain English
 
@@ -452,7 +452,7 @@ git diff --check
 
 ## Commit 5 — Document the Production Configuration and Runbook
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -461,10 +461,34 @@ follow later. It provides a secret-free production configuration example for
 `stopimpulsebuying.us` and explains how the reverse proxy, application supervisor,
 PostgreSQL, TLS, logs, metrics, backups, and restores fit together on the Oracle VPS.
 
+The production environment example lists required settings such as
+`APP_ENV=production`, the approved HTTPS origin, secure cookies, JSON logs, and
+opt-in metrics. Database and rate-limit secrets remain obvious `REPLACE_WITH`
+placeholders; populated credentials are stored outside the repository.
+
+The reverse-proxy example serves the built frontend, sends `/api` traffic to FastAPI
+over loopback, preserves the trusted proxy boundary, applies matching request-size
+and timeout limits, supports the React route fallback, terminates HTTPS, and prevents
+public access to `/internal/metrics`. The supervisor example runs the backend as a
+non-root account, loads secrets from `/etc`, restarts unexpected failures, sends logs
+to the journal, and allows graceful shutdown without automatically running database
+migrations.
+
+The runbook also defines TLS-renewal ownership, loopback-only PostgreSQL, log and
+metric access, database-outage diagnosis, disk-growth checks, backup creation,
+checksum verification, isolated restore rehearsal, and application-versus-database
+rollback boundaries. A backup is not considered proven until a separate disposable
+database restore has succeeded.
+
 This is a design and rehearsal document, not a deployment. Placeholder values show
 where a secret belongs without inventing or storing the real secret. Example proxy
 and supervisor configuration must be reviewed for the actual server paths, users,
 ports, and certificate tooling before it is installed.
+
+Commit 5 does not connect to the Oracle VPS, install Nginx or a service unit, change
+DNS or firewall rules, obtain a certificate, create a production secret, run a
+production backup or restore, or deploy the application. Every unresolved host
+choice is recorded as a release decision or DEV-024 blocker.
 
 The runbook separates backup from restore. Creating a backup is useful only if the
 team knows where it is retained, how it is protected, and how to prove it can be
@@ -616,8 +640,8 @@ backup/restore rehearsal evidence, limitations, and blockers.
 | 1      | `03dc757` | Complete | Ruff format/lint and 549 backend tests passed |
 | 2      | `900cba4` | Complete | Ruff format/lint, 555 backend tests, and security scans passed |
 | 3      | `5e7428f` | Complete | Ruff format/lint, 560 backend tests, and security scans passed |
-| 4      | —    | Implemented; awaiting commit | Ruff format/lint, backend construction, and 565 backend tests passed |
-| 5      | —    | Not started | —            |
+| 4      | `1d5bda5` | Complete | Ruff format/lint, backend construction, and 565 backend tests passed |
+| 5      | —    | Implemented; awaiting commit | Full `make check` (429 frontend and 567 backend tests), operations validation, builds, and security scans passed |
 | 6      | —    | Not started | —            |
 
 ### Operational Verification Checklist
@@ -632,9 +656,9 @@ backup/restore rehearsal evidence, limitations, and blockers.
 | Liveness remains independent of PostgreSQL                                | Pending | —        |
 | Readiness returns `503` during database loss and recovers afterward       | Pending | —        |
 | Startup validation and graceful shutdown follow the documented lifecycle | Pending | —        |
-| Production examples contain no real secrets and pass available checks    | Pending | —        |
+| Production examples contain no real secrets and pass available checks    | Pass    | Typed settings test and `make operations-check` |
 | Backup and isolated restore procedures have been successfully rehearsed  | Pending | —        |
-| Unresolved infrastructure choices are explicit DEV-024 blockers          | Pending | —        |
+| Unresolved infrastructure choices are explicit DEV-024 blockers          | Pass    | Runbook required-decisions section and table below |
 | Full repository quality, migration, build, and security gates pass       | Pending | —        |
 
 ### Infrastructure Decisions and Release Blockers
@@ -644,16 +668,16 @@ item. A blank value is not an implicit approval.
 
 | Decision                         | Owner | Decision / blocker | Required evidence | Status  |
 | -------------------------------- | ----- | ------------------ | ----------------- | ------- |
-| Oracle VPS operating system      | —     | —                  | Supported version | Pending |
-| Reverse proxy and version        | —     | —                  | Config validation | Pending |
-| Process supervisor and service user | —  | —                  | Startup/stop test | Pending |
-| TLS client and renewal owner     | —     | —                  | Renewal dry run   | Pending |
-| Secret-delivery mechanism        | —     | —                  | Permission review | Pending |
-| PostgreSQL version and ownership | —     | —                  | Backup/restore test | Pending |
-| Backup location and retention    | —     | —                  | Isolated restore  | Pending |
-| Log retention and access         | —     | —                  | Rotation/access test | Pending |
-| Metrics collection and access    | —     | —                  | Private scrape test | Pending |
-| Incident contact and escalation  | —     | —                  | Contact validation | Pending |
+| Oracle VPS operating system      | DEV-024 release owner | Choose supported image and patch policy | Supported version | Blocker |
+| Reverse proxy and version        | DEV-024 release owner | Nginx candidate; installed version undecided | `nginx -t` | Blocker |
+| Process supervisor and service user | DEV-024 release owner | systemd and `penny-saved` candidate; host paths unverified | Startup/stop test | Blocker |
+| TLS client and renewal owner     | DEV-024 release owner | ACME client and named renewal owner undecided | Renewal dry run | Blocker |
+| Secret-delivery mechanism        | DEV-024 release owner | `/etc` example exists; delivery and readers undecided | Permission review | Blocker |
+| PostgreSQL version and ownership | DEV-024 release owner | V1 targets PostgreSQL 16; host roles unverified | Backup/restore test | Blocker |
+| Backup location and retention    | DEV-024 release owner | Destination, encryption, off-host copy, and retention undecided | Isolated restore | Blocker |
+| Log retention and access         | DEV-024 release owner | systemd journal candidate; limits and readers undecided | Rotation/access test | Blocker |
+| Metrics collection and access    | DEV-024 release owner | Loopback endpoint defined; collector undecided | Private scrape test | Blocker |
+| Incident contact and escalation  | Product owner | Contact and response threshold undecided | Contact validation | Blocker |
 
 DEV-022 remains incomplete until every commit gate passes and each unresolved item
 needed for release is either decided or carried into DEV-024 as an explicit blocker.

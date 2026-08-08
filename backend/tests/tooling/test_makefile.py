@@ -40,6 +40,7 @@ def test_makefile_exposes_focused_and_combined_quality_targets() -> None:
         "frontend-security-check",
         "backend-security-check",
         "security-check",
+        "operations-check",
     }
     phony = makefile.split(".PHONY:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
 
@@ -52,7 +53,7 @@ def test_check_runs_quality_stages_in_the_documented_order() -> None:
     makefile = _makefile_text()
     check_recipe = makefile.split("\ncheck: ##", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
 
-    stages = ["format-check", "lint", "typecheck", "test", "build"]
+    stages = ["format-check", "lint", "typecheck", "test", "build", "operations-check"]
     positions = [check_recipe.index(f"$(MAKE) {stage}") for stage in stages]
 
     assert positions == sorted(positions)

@@ -18,6 +18,7 @@ POSTGRES_VOLUME := penny_saved_postgres_data
 	frontend-typecheck typecheck \
 	frontend-test backend-test test \
 	frontend-build backend-build build check clean \
+	operations-check \
 	frontend-security-check backend-security-check security-check \
 	frontend-dev backend-dev dev \
 	db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision seed-demo \
@@ -133,6 +134,10 @@ check: ## Run all frontend and backend quality checks.
 	$(MAKE) typecheck
 	$(MAKE) test
 	$(MAKE) build
+	$(MAKE) operations-check
+
+operations-check: check-backend ## Validate secret-free production operations examples.
+	$(VENV_PYTHON) scripts/check_operations.py
 
 frontend-security-check: check-frontend ## Audit the locked frontend dependency graph for high-severity advisories.
 	node scripts/audit-frontend.mjs
