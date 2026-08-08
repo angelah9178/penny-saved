@@ -1,0 +1,520 @@
+# DEV-022 — Production Operations
+
+## Table of Contents
+
+- [Commit Tracker](#commit-tracker)
+- [Objective](#objective)
+- [Operational Rules](#operational-rules)
+- [Commit 1 — Define the Production Operations Contract](#commit-1--define-the-production-operations-contract)
+- [Commit 2 — Add Structured Request Logging and Correlation](#commit-2--add-structured-request-logging-and-correlation)
+- [Commit 3 — Add Safe Application Metrics](#commit-3--add-safe-application-metrics)
+- [Commit 4 — Complete Health and Process Lifecycle Behavior](#commit-4--complete-health-and-process-lifecycle-behavior)
+- [Commit 5 — Document the Production Configuration and Runbook](#commit-5--document-the-production-configuration-and-runbook)
+- [Commit 6 — Verify the Complete Operational Boundary](#commit-6--verify-the-complete-operational-boundary)
+- [Out of Scope](#out-of-scope)
+- [Implementation Record](#implementation-record)
+
+## Commit Tracker
+
+Change `[ ]` to `[x]` only after that commit is implemented, committed, and its gate
+passes.
+
+|             | Commit                                                        | Short title                    | Depends on          |
+| ----------- | ------------------------------------------------------------- | ------------------------------ | ------------------- |
+| &#91;&#160;&#93; | [1](#commit-1--define-the-production-operations-contract)     | Define the operations contract | DEV-003 and DEV-021 |
+| &#91;&#160;&#93; | [2](#commit-2--add-structured-request-logging-and-correlation) | Add correlated request logs    | Commit 1            |
+| &#91;&#160;&#93; | [3](#commit-3--add-safe-application-metrics)                  | Add bounded metrics            | Commits 1–2         |
+| &#91;&#160;&#93; | [4](#commit-4--complete-health-and-process-lifecycle-behavior) | Complete health and lifecycle  | Commits 1–2         |
+| &#91;&#160;&#93; | [5](#commit-5--document-the-production-configuration-and-runbook) | Document production operations | Commits 1–4      |
+| &#91;&#160;&#93; | [6](#commit-6--verify-the-complete-operational-boundary)      | Verify operational behavior    | Commits 1–5         |
+
+## Objective
+
+DEV-022 makes the application understandable and operable after it is started in
+production. It does not add a customer-facing feature and it does not deploy the
+application.
+
+In plain English, this work answers questions such as:
+
+- When a user reports an error, can an operator find the matching server event?
+- Can the operator tell which route failed without logging a private entry ID?
+- Can monitoring distinguish a running process from one that is ready for traffic?
+- What happens when PostgreSQL is temporarily unavailable?
+- Can logs and metrics explain slow or failing requests without exposing secrets?
+- Can the service start, stop, and restart cleanly under a process supervisor?
+- Is there one safe example of the production settings the Oracle VPS will need?
+- Are backup, restore, TLS, proxy, and rollback expectations written down before a
+  real release is attempted?
+
+The result is an operational contract: safe machine-readable evidence from the
+application and clear instructions for the person responsible for it. DEV-024 will
+use this contract during final release validation.
+
+## Operational Rules
+
+These rules apply throughout the implementation:
+
+- Logs go to standard output/error. Production infrastructure owns collection,
+  rotation, retention, and access control.
+- Production application logs are structured JSON with stable field names. Local
+  development may retain a readable format.
+- Use the route template, such as `/api/entries/{entry_id}`, in logs and metric
+  labels. Never use a raw URL, query string, email, entry ID, session value, request
+  body, or other unbounded user value as a label.
+- Accept a client request ID only when it matches a small documented character and
+  length policy. Otherwise generate a new cryptographically unpredictable value.
+- Return the effective request ID in the response and include it in every log event
+  for that request.
+- Keep exception details and stack traces server-side. The client receives the
+  existing safe error envelope plus its correlation ID, not internal details.
+- A liveness check answers only whether the application process can respond. A
+  readiness check answers whether the instance can safely receive normal traffic.
+- Health responses must be fast, small, unauthenticated, and non-sensitive. They do
+  not expose versions, credentials, database addresses, stack traces, or dependency
+  internals.
+- A database outage makes readiness fail with `503 Service Unavailable`; it must not
+  make the lightweight liveness endpoint depend on the database.
+- Startup configuration is validated before serving traffic. Shutdown stops taking
+  new work, releases owned resources, and finishes within a documented supervisor
+  timeout.
+- Production examples contain names and placeholders, never usable credentials,
+  private keys, cookies, database passwords, or tokens.
+- Documentation may describe commands that an authorized operator will run later,
+  but DEV-022 does not provision infrastructure, change DNS, obtain certificates,
+  access production data, or deploy a release.
+
+## Commit 1 — Define the Production Operations Contract
+
+**Status:** Not started.
+
+### In Plain English
+
+Commit 1 decides what the application will report before adding new reporting code.
+It defines the fields that belong in a request log, which measurements are useful,
+what “alive” and “ready” mean, and which production settings control those behaviors.
+
+Think of this as agreeing on the dashboard instruments before wiring them into the
+car. Without a stable contract, one request might be called `request_id` in one log
+and `trace` in another, or a health check might say “healthy” even though the
+database is unreachable. Later commits implement the definitions established here.
+
+This commit also draws the privacy boundary. Operators need a route name, status,
+timing, and correlation ID; they do not need a password, cookie, raw URL, entry UUID,
+or request body. The tests added here turn that distinction into an enforceable rule.
+
+Suggested commit message:
+
+```text
+Commit 1: Define the production operations contract
+```
+
+Implement:
+
+- Document the structured log schema: timestamp, level, environment, event name,
+  request ID, method, route template, status, duration, and authenticated user ID
+  only when it has been safely resolved.
+- Define behavior for unmatched routes and failures that occur before route
+  resolution without falling back to a raw path containing private values.
+- Define the accepted inbound request-ID header, validation policy, generated format,
+  response header, and propagation through application code.
+- Define the metric names, units, bounded labels, and intended operator questions for
+  request rate, duration, error count, database-pool state, authentication failures,
+  lifecycle conflicts, and readiness.
+- Define separate liveness and readiness contracts, including status codes, response
+  shapes, timeouts, and database-failure behavior.
+- Add typed configuration for log level, log format, health-check timeout, metrics
+  exposure, and graceful-shutdown timing where these values need to be configurable.
+- Reject unsupported or unsafe production values while keeping deterministic test and
+  development defaults.
+- Add contract and configuration tests before behavior changes.
+
+Commit gate:
+
+```bash
+make backend-format-check
+make backend-lint
+make backend-test
+git diff --check
+```
+
+## Commit 2 — Add Structured Request Logging and Correlation
+
+**Status:** Not started.
+
+### In Plain English
+
+Commit 2 gives every request a safe tracking number and records one consistent
+completion event. If a client receives an error with request ID `abc123`, an
+operator can search the server logs for that same ID and see which general route ran,
+its status, and how long it took.
+
+The tracking number connects the public symptom to private operational evidence; it
+does not expose the evidence itself. Expected client mistakes still receive concise
+safe errors. Unexpected exceptions retain a full server-side traceback for diagnosis,
+while the browser sees only the approved generic message and correlation ID.
+
+For example, a request for `/api/entries/8f...` is recorded under the stable route
+template `/api/entries/{entry_id}`. This lets operators group all entry-detail
+requests together and prevents each private identifier from becoming a new log or
+metric category.
+
+Suggested commit message:
+
+```text
+Commit 2: Add structured request logging and correlation
+```
+
+Implement:
+
+- Add request-context middleware that validates or generates a request ID and returns
+  the effective value in a documented response header.
+- Make the request ID available to route, service, error-handler, and lifecycle log
+  events without global state leaking between concurrent requests.
+- Emit one completion event per request with method, route template, status, duration,
+  environment, and resolved user ID when available.
+- Use a safe bounded fallback for unmatched routes and failures before routing; never
+  log raw paths or query strings merely to fill a field.
+- Configure structured JSON output in production and deterministic readable output in
+  development/test as established in Commit 1.
+- Log expected application errors at an appropriate level without a traceback and
+  unexpected exceptions once with their traceback on the server.
+- Include the request ID in every standard error response, including unexpected
+  `500` responses and applicable middleware rejections.
+- Preserve DEV-021 redaction for nested values, exceptions, headers, URLs, and
+  multi-line messages.
+- Test accepted, rejected, and generated request IDs; concurrent isolation; resolved
+  and unmatched routes; authenticated and anonymous requests; streaming/failure
+  behavior; safe client errors; and server-side exception correlation.
+
+Commit gate:
+
+```bash
+make backend-format-check
+make backend-lint
+make backend-test
+make security-check
+git diff --check
+```
+
+## Commit 3 — Add Safe Application Metrics
+
+**Status:** Not started.
+
+### In Plain English
+
+Commit 3 adds counters and timings that show trends without requiring an operator to
+read every log line. Metrics can answer “Are errors increasing?”, “Which kind of
+request is slow?”, and “Is the database connection pool under pressure?”
+
+Metrics are deliberately less detailed than logs. They group requests by a small set
+of stable values such as route template, method, and status class. They must not use
+email addresses, user IDs, entry IDs, request IDs, error messages, or raw URLs as
+labels because those values can reveal private information and create an unlimited
+number of time series.
+
+This commit exposes application measurements for an already-chosen monitoring system;
+it does not buy a monitoring service, create a public dashboard, or configure paging.
+The production runbook will require the reverse proxy or firewall to keep the metrics
+endpoint away from the public internet.
+
+Suggested commit message:
+
+```text
+Commit 3: Add bounded operational metrics
+```
+
+Implement:
+
+- Instrument request count, duration, and error count using method, route template,
+  and bounded status information only.
+- Record authentication failures and lifecycle conflicts as aggregate event counters
+  without account, client-IP, resource, or submitted-value labels.
+- Export supported database-pool utilization measurements without database addresses
+  or credentials.
+- Publish current readiness state and readiness-check outcomes as bounded metrics.
+- Expose metrics in the format and at the path chosen in Commit 1, with production
+  access restrictions documented and unsafe public exposure avoided by default.
+- Avoid double counting when middleware rejects a request or an exception is handled.
+- Document metric meanings, units, label sets, and example operator queries or alert
+  conditions without claiming fixed thresholds before production baselines exist.
+- Test representative success, validation, authentication, conflict, server-error,
+  unmatched-route, and database-unavailable paths.
+- Add a cardinality/privacy test that rejects forbidden labels and proves raw paths,
+  IDs, emails, request IDs, and exception text are absent.
+
+Commit gate:
+
+```bash
+make backend-format-check
+make backend-lint
+make backend-test
+make security-check
+git diff --check
+```
+
+## Commit 4 — Complete Health and Process Lifecycle Behavior
+
+**Status:** Not started.
+
+### In Plain English
+
+Commit 4 makes health checks tell the truth. “Live” means the application process is
+running and can answer a basic request. “Ready” means it can also reach the resources
+required to serve ordinary traffic, especially PostgreSQL.
+
+The distinction matters during an outage or restart. A supervisor should restart a
+dead process, but repeatedly restarting a perfectly live application will not repair
+a separate database outage. In that case liveness remains successful, readiness
+returns `503`, and the reverse proxy can stop sending normal traffic until the
+dependency recovers.
+
+This commit also makes startup and shutdown predictable. The process validates its
+settings and initializes required resources before becoming ready. On shutdown it
+marks itself unready, stops accepting new work through the surrounding supervisor
+and proxy flow, and releases its database resources cleanly.
+
+Suggested commit message:
+
+```text
+Commit 4: Complete health checks and process lifecycle
+```
+
+Implement:
+
+- Preserve or add a lightweight liveness endpoint that does not query PostgreSQL or
+  disclose configuration details.
+- Add the documented readiness endpoint with a bounded database probe and `503`
+  behavior when the application is starting, stopping, misconfigured, timed out, or
+  unable to reach PostgreSQL.
+- Keep response bodies stable and minimal while including request correlation on
+  failure.
+- Ensure health routes remain available through the intended host/proxy boundary and
+  are not blocked by authentication or ordinary user rate limits.
+- Validate production settings and initialize application-owned resources before
+  readiness can succeed.
+- On graceful shutdown, transition readiness to failure before disposing of the
+  database engine and other application-owned resources.
+- Define supervisor-compatible startup, shutdown, and termination behavior with a
+  finite documented timeout; do not terminate the process from a request handler.
+- Emit correlated lifecycle and readiness transition logs without creating a noisy
+  log event on every successful health probe.
+- Test healthy startup, invalid startup, database outage and recovery, probe timeout,
+  shutdown ordering, repeated lifecycle calls, and resource disposal.
+
+Commit gate:
+
+```bash
+make backend-format-check
+make backend-lint
+make backend-test
+make backend-build
+git diff --check
+```
+
+## Commit 5 — Document the Production Configuration and Runbook
+
+**Status:** Not started.
+
+### In Plain English
+
+Commit 5 turns the application behavior into instructions an authorized operator can
+follow later. It provides a secret-free production configuration example for
+`stopimpulsebuying.us` and explains how the reverse proxy, application supervisor,
+PostgreSQL, TLS, logs, metrics, backups, and restores fit together on the Oracle VPS.
+
+This is a design and rehearsal document, not a deployment. Placeholder values show
+where a secret belongs without inventing or storing the real secret. Example proxy
+and supervisor configuration must be reviewed for the actual server paths, users,
+ports, and certificate tooling before it is installed.
+
+The runbook separates backup from restore. Creating a backup is useful only if the
+team knows where it is retained, how it is protected, and how to prove it can be
+restored into an isolated database. It also distinguishes application rollback from
+database rollback: returning to an earlier artifact may be safe, while reversing an
+applied migration is a separate reviewed decision.
+
+Suggested commit message:
+
+```text
+Commit 5: Document production configuration and operations
+```
+
+Implement:
+
+- Add a tracked, secret-free production environment example documenting every
+  required variable, whether it is secret, its source, and safe formatting rules.
+- Use the approved same-origin `https://stopimpulsebuying.us` topology: the reverse
+  proxy serves frontend assets and proxies `/api` over loopback to the backend.
+- Provide reviewed example configuration for trusted proxy/host handling, request
+  size, timeouts, security headers, request-ID forwarding, health checks, metrics
+  access, and static SPA fallback.
+- Document a non-root `systemd` or equivalent supervisor service with explicit working
+  directory, environment delivery, restart policy, startup command, graceful stop,
+  log destination, and hardening expectations.
+- Document TLS issuance/renewal ownership and verification while keeping certificate
+  provisioning and DNS changes outside this task.
+- Require PostgreSQL to listen only on loopback or a private local network and explain
+  least-privilege application and backup roles.
+- Write executable backup and isolated restore-verification procedures covering
+  format, consistency, encryption/access, retention, disk space, checksums, exit-code
+  checks, and evidence recording.
+- Document log access, metric access, disk/log growth checks, readiness diagnosis,
+  database-outage response, certificate renewal checks, rollback boundaries, and
+  escalation/incident-contact placeholders.
+- Mark every unresolved infrastructure choice as an explicit decision or release
+  blocker rather than silently choosing a production value.
+- Validate configuration syntax where local tooling safely permits and add tests or
+  lint checks that prevent real-looking secrets from entering examples.
+
+Commit gate:
+
+```bash
+make check
+make security-check
+git diff --check
+```
+
+## Commit 6 — Verify the Complete Operational Boundary
+
+**Status:** Not started.
+
+### In Plain English
+
+Commit 6 proves that the earlier pieces agree. It starts the application with a safe
+production-like configuration, sends successful and failing requests, simulates a
+database outage, and checks the resulting responses, logs, metrics, and health state.
+
+This is where the team demonstrates the important operator journey: take a request
+ID from a safe client error, find the matching structured log, confirm that no secret
+was recorded, and use readiness and metrics to understand the broader condition.
+Warnings and failed checks are fixed or recorded as explicit release blockers; they
+are not hidden to make the tracker look complete.
+
+No command in this commit touches the real Oracle VPS or production database. The
+evidence comes from isolated local or CI services using placeholder secrets.
+
+Suggested commit message:
+
+```text
+Commit 6: Verify production observability and operations
+```
+
+Implement:
+
+- Run assembled-application tests for correlated success, safe client error,
+  unexpected exception, middleware rejection, unmatched route, and authenticated
+  request behavior.
+- Prove a client-visible request ID finds the corresponding request and exception log
+  events without exposing traceback details in the response.
+- Assert representative logs and metrics contain no seeded password, cookie, token,
+  authorization value, database URL, email, client IP, user-controlled path segment,
+  body value, or sensitive derivative.
+- Verify bounded metric labels and exact-once request accounting under concurrency and
+  error handling.
+- Start with PostgreSQL available, simulate loss and recovery, and verify readiness
+  changes between success and `503` while liveness continues to succeed.
+- Exercise clean startup, graceful termination, shutdown ordering, resource disposal,
+  and the documented supervisor timeout in an isolated environment.
+- Validate the production configuration example and any proxy/supervisor examples
+  with the available syntax or static checks.
+- Rehearse backup creation and restore into a new isolated database, verify migration
+  revision and representative row counts/integrity, and destroy only the explicitly
+  named disposable test target afterward.
+- Run the full quality, build, migration, and security gates.
+- Update this tracker and implementation record with hashes, commands, versions,
+  test counts, observed evidence, limitations, and unresolved release blockers.
+- Update the master development tracker only after the DEV-022 pull request is merged
+  and accepted on the default branch.
+
+Commit gate:
+
+```bash
+make clean
+make install
+make db-up
+make db-upgrade
+make check
+make security-check
+cd backend
+../.venv/bin/python -m alembic check
+cd ..
+git diff --check
+git status --short
+```
+
+## Out of Scope
+
+- Provisioning or changing the Oracle VPS, firewall, DNS, reverse proxy, system
+  service, TLS certificates, PostgreSQL instance, monitoring provider, dashboards,
+  alert routes, or secrets is not authorized by this task.
+- A `make deploy` target, automated production deployment, production migration, and
+  real rollback remain outside DEV-022.
+- The final release decision and execution checklist belong to DEV-024.
+- Live browser journey coverage belongs to DEV-023; DEV-022 tests the backend and
+  operational surfaces needed to support that suite.
+- Centralized log vendors, distributed tracing vendors, on-call paging products,
+  uptime providers, and incident-management tooling require separate infrastructure
+  decisions.
+- Logs and metrics are not analytics. Do not add behavioral tracking, user profiling,
+  or user/entry-level metric dimensions.
+- This task does not log request or response bodies and does not weaken DEV-021's
+  redaction, trusted-proxy, origin, host, cookie, header, or request-size protections.
+- Automatic database failover, replication, point-in-time recovery infrastructure,
+  and automatic restore into production are outside the single-VPS V1 scope.
+- Email delivery monitoring remains out of scope until an email-dependent feature is
+  approved and implemented.
+
+## Implementation Record
+
+Complete this section as each commit lands. Record concrete files, configuration
+names, commit hashes, test counts, tool versions, production-example validation,
+backup/restore rehearsal evidence, limitations, and blockers.
+
+### Commit Evidence
+
+| Commit | Hash | Result      | Verification |
+| ------ | ---- | ----------- | ------------ |
+| 1      | —    | Not started | —            |
+| 2      | —    | Not started | —            |
+| 3      | —    | Not started | —            |
+| 4      | —    | Not started | —            |
+| 5      | —    | Not started | —            |
+| 6      | —    | Not started | —            |
+
+### Operational Verification Checklist
+
+| Check                                                                    | Result  | Evidence |
+| ------------------------------------------------------------------------ | ------- | -------- |
+| Safe client errors carry a request ID that matches server logs           | Pending | —        |
+| Unexpected exception details remain server-side                          | Pending | —        |
+| Request logs use route templates and the documented stable schema        | Pending | —        |
+| Logs preserve DEV-021 redaction under representative failures            | Pending | —        |
+| Metrics use bounded labels and contain no user or resource identifiers   | Pending | —        |
+| Liveness remains independent of PostgreSQL                                | Pending | —        |
+| Readiness returns `503` during database loss and recovers afterward       | Pending | —        |
+| Startup validation and graceful shutdown follow the documented lifecycle | Pending | —        |
+| Production examples contain no real secrets and pass available checks    | Pending | —        |
+| Backup and isolated restore procedures have been successfully rehearsed  | Pending | —        |
+| Unresolved infrastructure choices are explicit DEV-024 blockers          | Pending | —        |
+| Full repository quality, migration, build, and security gates pass       | Pending | —        |
+
+### Infrastructure Decisions and Release Blockers
+
+Record the owner, decision deadline, chosen value, and verification evidence for each
+item. A blank value is not an implicit approval.
+
+| Decision                         | Owner | Decision / blocker | Required evidence | Status  |
+| -------------------------------- | ----- | ------------------ | ----------------- | ------- |
+| Oracle VPS operating system      | —     | —                  | Supported version | Pending |
+| Reverse proxy and version        | —     | —                  | Config validation | Pending |
+| Process supervisor and service user | —  | —                  | Startup/stop test | Pending |
+| TLS client and renewal owner     | —     | —                  | Renewal dry run   | Pending |
+| Secret-delivery mechanism        | —     | —                  | Permission review | Pending |
+| PostgreSQL version and ownership | —     | —                  | Backup/restore test | Pending |
+| Backup location and retention    | —     | —                  | Isolated restore  | Pending |
+| Log retention and access         | —     | —                  | Rotation/access test | Pending |
+| Metrics collection and access    | —     | —                  | Private scrape test | Pending |
+| Incident contact and escalation  | —     | —                  | Contact validation | Pending |
+
+DEV-022 remains incomplete until every commit gate passes and each unresolved item
+needed for release is either decided or carried into DEV-024 as an explicit blocker.
