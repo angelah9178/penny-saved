@@ -5,7 +5,16 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage"] },
+  {
+    ignores: [
+      "dist",
+      "coverage",
+      "test-results",
+      "playwright-report",
+      "blob-report",
+      "e2e-artifacts",
+    ],
+  },
   {
     extends: [
       js.configs.recommended,
@@ -30,6 +39,12 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
+    },
+  },
+  {
+    files: ["e2e/**/*.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
     },
   },
 );

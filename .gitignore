@@ -21,6 +21,10 @@ node_modules/
 frontend/dist/
 frontend/coverage/
 frontend/.vite/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/e2e-artifacts/
 *.tsbuildinfo
 
 # Editors and operating systems

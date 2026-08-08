@@ -4,6 +4,7 @@
 
 - [Commit Tracker](#commit-tracker)
 - [Objective](#objective)
+- [What Smoke Coverage Means](#what-smoke-coverage-means)
 - [Smoke-Test Rules](#smoke-test-rules)
 - [Critical Journey](#critical-journey)
 - [Commit 1 — Define the Browser Smoke Contract](#commit-1--define-the-browser-smoke-contract)
@@ -20,14 +21,14 @@
 Change `[ ]` to `[x]` only after that commit is implemented, committed, and its gate
 passes.
 
-|                  | Commit                                                     | Short title                   | Depends on                  |
-| ---------------- | ---------------------------------------------------------- | ----------------------------- | --------------------------- |
-| &#91;&#160;&#93; | [1](#commit-1--define-the-browser-smoke-contract)          | Define smoke-test rules       | DEV-020 and DEV-021         |
-| &#91;&#160;&#93; | [2](#commit-2--add-isolated-end-to-end-test-data)          | Add isolated browser data     | Commit 1 and DEV-007        |
-| &#91;&#160;&#93; | [3](#commit-3--start-and-stop-the-complete-test-stack)     | Orchestrate the live stack    | Commits 1–2 and DEV-022     |
-| &#91;&#160;&#93; | [4](#commit-4--cover-authentication-and-entry-creation)    | Test auth and entry creation  | Commit 3                    |
-| &#91;&#160;&#93; | [5](#commit-5--cover-check-in-statistics-and-logout)       | Test the completed journey    | Commit 4                    |
-| &#91;&#160;&#93; | [6](#commit-6--add-ci-and-verify-reliable-smoke-coverage)  | Add CI and verify reliability | Commits 1–5                 |
+|                  | Commit                                                    | Short title                   | Depends on              |
+| ---------------- | --------------------------------------------------------- | ----------------------------- | ----------------------- |
+| &#91;&#160;&#93; | [1](#commit-1--define-the-browser-smoke-contract)         | Define smoke-test rules       | DEV-020 and DEV-021     |
+| &#91;&#160;&#93; | [2](#commit-2--add-isolated-end-to-end-test-data)         | Add isolated browser data     | Commit 1 and DEV-007    |
+| &#91;&#160;&#93; | [3](#commit-3--start-and-stop-the-complete-test-stack)    | Orchestrate the live stack    | Commits 1–2 and DEV-022 |
+| &#91;&#160;&#93; | [4](#commit-4--cover-authentication-and-entry-creation)   | Test auth and entry creation  | Commit 3                |
+| &#91;&#160;&#93; | [5](#commit-5--cover-check-in-statistics-and-logout)      | Test the completed journey    | Commit 4                |
+| &#91;&#160;&#93; | [6](#commit-6--add-ci-and-verify-reliable-smoke-coverage) | Add CI and verify reliability | Commits 1–5             |
 
 ## Objective
 
@@ -51,6 +52,44 @@ This is deliberately a small smoke suite, not a second copy of every backend,
 component, accessibility, security, and concurrency test. Its value is proving that
 the boundaries connect correctly: browser navigation, built frontend assets, HTTP,
 cookies, backend rules, migrations, and PostgreSQL persistence.
+
+## What Smoke Coverage Means
+
+Smoke coverage is a small set of tests that checks whether an application's most
+important features work together. The term comes from an old hardware check: turn a
+device on and see whether it immediately produces smoke. It is a fast signal that the
+assembled product is fundamentally working, not an exhaustive inspection of every
+possible behavior.
+
+For Penny Saved, smoke coverage answers one practical question:
+
+> Can a person complete the essential V1 journey in the assembled application?
+
+The smoke suite therefore uses a real Chromium browser to exercise the built React
+frontend, running FastAPI backend, real HTTP requests and cookies, applied database
+migrations, and PostgreSQL persistence together. Its critical path is:
+
+```text
+open the real frontend
+  → sign up or log in
+  → create an entry
+  → check in an eligible entry
+  → view updated statistics and opportunity-cost equivalents
+  → log out
+```
+
+This catches integration failures that isolated tests can miss, such as the frontend
+using the wrong API address, cookies failing in a real browser, built routes not
+loading, frontend forms disagreeing with backend contracts, a missing migration,
+successful mutations not updating the visible page, or logout failing to remove
+protected access.
+
+Smoke coverage does not mean testing every field value, authorization edge case,
+concurrency race, viewport, browser engine, accessibility requirement, security
+boundary, or exact calculation. Those detailed responsibilities remain with the
+existing backend, component, integration, security, and manual accessibility suites.
+The browser smoke tests provide a small release-level confidence signal that those
+parts connect correctly.
 
 ## Smoke-Test Rules
 
@@ -122,7 +161,7 @@ and opportunity-cost examples without adding a test-only API.
 
 ## Commit 1 — Define the Browser Smoke Contract
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -135,6 +174,12 @@ Think of this commit as building an empty but safe test track. It proves that a 
 browser can open a controlled local page and that the configuration will not silently
 point at production. It does not sign up, create an entry, or change application data
 yet.
+
+In practical terms, this commit proves only the browser-testing foundation: Chromium
+starts, Playwright can make a user-visible assertion, unsafe URLs and unreliable wait
+patterns are rejected, and useful evidence is retained when a test fails. It does not
+start FastAPI or PostgreSQL, create test users, seed entries, or exercise any Penny
+Saved screen. Those product-facing pieces begin in later commits.
 
 The initial target is Chromium in CI because this is release smoke coverage, not a
 cross-browser compatibility matrix. Firefox and WebKit can be added later if a real
@@ -519,44 +564,44 @@ database names, cleanup evidence, limitations, and deferrals.
 
 ### Commit Evidence
 
-| Commit | Hash | Result      | Verification |
-| ------ | ---- | ----------- | ------------ |
-| 1      | —    | Not started | —            |
-| 2      | —    | Not started | —            |
-| 3      | —    | Not started | —            |
-| 4      | —    | Not started | —            |
-| 5      | —    | Not started | —            |
-| 6      | —    | Not started | —            |
+| Commit | Hash | Result                       | Verification                                                                                                                                            |
+| ------ | ---- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1      | —    | Implemented; awaiting commit | Playwright 1.62.1 contract passed in pinned Chromium; formatting, lint, typecheck, static contract, test listing, security, and whitespace gates passed |
+| 2      | —    | Not started                  | —                                                                                                                                                       |
+| 3      | —    | Not started                  | —                                                                                                                                                       |
+| 4      | —    | Not started                  | —                                                                                                                                                       |
+| 5      | —    | Not started                  | —                                                                                                                                                       |
+| 6      | —    | Not started                  | —                                                                                                                                                       |
 
 ### Smoke Verification Checklist
 
-| Check                                                                  | Result  | Evidence |
-| ---------------------------------------------------------------------- | ------- | -------- |
-| Real pinned browser runs against live React, FastAPI, and PostgreSQL   | Pending | —        |
-| Local and CI targets refuse development/staging/production data        | Pending | —        |
-| Setup creates only deterministic run-owned data at Alembic head        | Pending | —        |
-| Cleanup removes only run-owned data and is safe when repeated           | Pending | —        |
-| Stack startup uses readiness rather than fixed sleeps                  | Pending | —        |
-| Stack shutdown leaves no child process or occupied test port           | Pending | —        |
-| Signup succeeds and browser reload restores its session                | Pending | —        |
-| Existing seeded account can log in through the real form               | Pending | —        |
-| Entry creation persists and appears in the waiting dashboard list      | Pending | —        |
-| Seeded eligible entry checks in without waiting or changing rules      | Pending | —        |
-| Statistics show saved totals and whole/fractional equivalents          | Pending | —        |
-| Logout revokes access to protected browser routes                      | Pending | —        |
-| Failure artifacts are useful, bounded, retained, and non-sensitive     | Pending | —        |
-| Repeated runs pass independently without retry-dependent success       | Pending | —        |
-| Full quality, build, migration, smoke, and security gates pass         | Pending | —        |
+| Check                                                                | Result  | Evidence |
+| -------------------------------------------------------------------- | ------- | -------- |
+| Real pinned browser runs against live React, FastAPI, and PostgreSQL | Pending | —        |
+| Local and CI targets refuse development/staging/production data      | Pending | —        |
+| Setup creates only deterministic run-owned data at Alembic head      | Pending | —        |
+| Cleanup removes only run-owned data and is safe when repeated        | Pending | —        |
+| Stack startup uses readiness rather than fixed sleeps                | Pending | —        |
+| Stack shutdown leaves no child process or occupied test port         | Pending | —        |
+| Signup succeeds and browser reload restores its session              | Pending | —        |
+| Existing seeded account can log in through the real form             | Pending | —        |
+| Entry creation persists and appears in the waiting dashboard list    | Pending | —        |
+| Seeded eligible entry checks in without waiting or changing rules    | Pending | —        |
+| Statistics show saved totals and whole/fractional equivalents        | Pending | —        |
+| Logout revokes access to protected browser routes                    | Pending | —        |
+| Failure artifacts are useful, bounded, retained, and non-sensitive   | Pending | —        |
+| Repeated runs pass independently without retry-dependent success     | Pending | —        |
+| Full quality, build, migration, smoke, and security gates pass       | Pending | —        |
 
 ### Failure Artifact Record
 
-| Artifact              | Success behavior | Failure behavior                      | Sensitive-data rule |
-| --------------------- | ---------------- | ------------------------------------- | ------------------- |
-| Screenshot            | Do not retain    | Retain current page and failure point | Isolated run only   |
-| Playwright trace      | Do not retain    | Retain bounded trace                  | Upload after cleanup |
-| Browser console       | Do not retain    | Retain warnings/errors                | Redact secret-like values |
-| Frontend process log  | Do not retain    | Retain bounded startup/runtime tail   | No environment dump |
-| Backend process log   | Do not retain    | Retain bounded structured tail        | Apply DEV-021 redaction |
+| Artifact               | Success behavior | Failure behavior                      | Sensitive-data rule          |
+| ---------------------- | ---------------- | ------------------------------------- | ---------------------------- |
+| Screenshot             | Do not retain    | Retain current page and failure point | Isolated run only            |
+| Playwright trace       | Do not retain    | Retain bounded trace                  | Upload after cleanup         |
+| Browser console        | Do not retain    | Retain warnings/errors                | Redact secret-like values    |
+| Frontend process log   | Do not retain    | Retain bounded startup/runtime tail   | No environment dump          |
+| Backend process log    | Do not retain    | Retain bounded structured tail        | Apply DEV-021 redaction      |
 | Setup/cleanup manifest | Remove           | Retain secret-free summary only       | Never include password/token |
 
 DEV-023 remains incomplete until every commit gate passes, repeated runs are

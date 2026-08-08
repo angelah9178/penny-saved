@@ -15,7 +15,10 @@
     "lint": "eslint .",
     "typecheck": "tsc -b --pretty false",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "e2e:check": "node scripts/check-e2e-contract.mjs",
+    "e2e:list": "npm run e2e:check && playwright test --list",
+    "e2e:contract": "npm run e2e:check && playwright test e2e/runner-contract.spec.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "5.90.20",
@@ -27,6 +30,7 @@
   },
   "devDependencies": {
     "@eslint/js": "9.39.2",
+    "@playwright/test": "1.62.1",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",
