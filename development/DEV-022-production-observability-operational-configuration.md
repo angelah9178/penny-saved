@@ -22,7 +22,7 @@ passes.
 
 |             | Commit                                                        | Short title                    | Depends on          |
 | ----------- | ------------------------------------------------------------- | ------------------------------ | ------------------- |
-| &#91;&#160;&#93; | [1](#commit-1--define-the-production-operations-contract)     | Define the operations contract | DEV-003 and DEV-021 |
+| &#91;x&#93;      | [1](#commit-1--define-the-production-operations-contract)     | Define the operations contract | DEV-003 and DEV-021 |
 | &#91;&#160;&#93; | [2](#commit-2--add-structured-request-logging-and-correlation) | Add correlated request logs    | Commit 1            |
 | &#91;&#160;&#93; | [3](#commit-3--add-safe-application-metrics)                  | Add bounded metrics            | Commits 1–2         |
 | &#91;&#160;&#93; | [4](#commit-4--complete-health-and-process-lifecycle-behavior) | Complete health and lifecycle  | Commits 1–2         |
@@ -164,7 +164,7 @@ endpoint and the production proxy/access policy is configured.
 
 ## Commit 1 — Define the Production Operations Contract
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `03dc757`.
 
 ### In Plain English
 
@@ -218,7 +218,7 @@ git diff --check
 
 ## Commit 2 — Add Structured Request Logging and Correlation
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -227,10 +227,27 @@ completion event. If a client receives an error with request ID `abc123`, an
 operator can search the server logs for that same ID and see which general route ran,
 its status, and how long it took.
 
+“Every request” means every HTTP call the browser, a monitoring tool, or another API
+client sends to this backend. Examples include logging in, loading dashboard entries,
+creating or editing an entry, checking an entry in, loading statistics, changing an
+opportunity-cost example, calling a health endpoint, or requesting an API route that
+does not exist. It is not a tracking number for one database row or one user action;
+each individual HTTP exchange receives its own request ID.
+
+For example, the browser may send `GET /api/entries/123`. The backend returns an
+`X-Request-ID` response header such as
+`07a541df-c2db-4e26-976e-14a03b11bc49` and writes the same value in the matching
+server log. If the request fails, the user can report that ID so an operator can find
+the exact server-side evidence.
+
 The tracking number connects the public symptom to private operational evidence; it
 does not expose the evidence itself. Expected client mistakes still receive concise
 safe errors. Unexpected exceptions retain a full server-side traceback for diagnosis,
 while the browser sees only the approved generic message and correlation ID.
+
+The request ID does not identify the user and does not contain anything the user
+submitted. It only connects one response to the server events produced while handling
+that response.
 
 For example, a request for `/api/entries/8f...` is recorded under the stable route
 template `/api/entries/{entry_id}`. This lets operators group all entry-detail
@@ -553,8 +570,8 @@ backup/restore rehearsal evidence, limitations, and blockers.
 
 | Commit | Hash | Result      | Verification |
 | ------ | ---- | ----------- | ------------ |
-| 1      | —    | Implemented; awaiting commit | Ruff format/lint and 549 backend tests passed |
-| 2      | —    | Not started | —            |
+| 1      | `03dc757` | Complete | Ruff format/lint and 549 backend tests passed |
+| 2      | —    | Implemented; awaiting commit | Ruff format/lint, 555 backend tests, and security scans passed |
 | 3      | —    | Not started | —            |
 | 4      | —    | Not started | —            |
 | 5      | —    | Not started | —            |

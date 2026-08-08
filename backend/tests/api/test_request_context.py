@@ -18,7 +18,7 @@ from app.core.logging import (
     get_request_id,
 )
 from app.main import create_app
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 DATABASE_URL = "postgresql+psycopg://app:secret@localhost:5432/penny_saved"
 FRONTEND_ORIGIN = "http://localhost:5173"
@@ -107,6 +107,33 @@ async def test_invalid_inbound_request_id_is_replaced(settings: Settings) -> Non
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_request_id",
+    [
+        "07A541DF-C2DB-4E26-976E-14A03B11BC49",
+        "07a541dfc2db4e26976e14a03b11bc49",
+        "x" * 37,
+    ],
+)
+async def test_noncanonical_or_oversized_request_id_is_replaced(
+    settings: Settings,
+    invalid_request_id: str,
+) -> None:
+    app, stream = app_with_captured_logs(settings)
+
+    async with api_client(app) as client:
+        response = await client.get(
+            "/api/health",
+            headers={REQUEST_ID_HEADER: invalid_request_id},
+        )
+
+    generated_id = response.headers[REQUEST_ID_HEADER]
+    assert generated_id != invalid_request_id
+    assert str(UUID(generated_id)) == generated_id
+    assert parse_logs(stream)[0]["request_id"] == generated_id
+
+
+@pytest.mark.asyncio
 async def test_route_template_avoids_high_cardinality_identifiers(
     settings: Settings,
 ) -> None:
@@ -123,6 +150,37 @@ async def test_route_template_avoids_high_cardinality_identifiers(
     log = parse_logs(stream)[0]
     assert log["route"] == "/items/{item_id}"
     assert "sensitive-item-123" not in stream.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_unmatched_route_uses_bounded_fallback(settings: Settings) -> None:
+    app, stream = app_with_captured_logs(settings)
+
+    async with api_client(app) as client:
+        response = await client.get("/missing/private-value-123?email=private@example.com")
+
+    assert response.status_code == 404
+    log = parse_logs(stream)[0]
+    assert log["route"] == "unmatched"
+    assert "private-value-123" not in stream.getvalue()
+    assert "private@example.com" not in stream.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_resolved_user_id_is_added_to_completion_log(settings: Settings) -> None:
+    app, stream = app_with_captured_logs(settings)
+    user_id = "96f28a5b-fc31-4789-9ab0-16cd3f1b8745"
+
+    @app.get("/authenticated")
+    async def authenticated_route(request: Request) -> dict[str, bool]:
+        request.state.user_id = user_id
+        return {"ok": True}
+
+    async with api_client(app) as client:
+        response = await client.get("/authenticated")
+
+    assert response.status_code == 200
+    assert parse_logs(stream)[0]["user_id"] == user_id
 
 
 @pytest.mark.asyncio

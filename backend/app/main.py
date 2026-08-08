@@ -33,7 +33,11 @@ def create_app(
     resolved_settings = settings or get_settings()
     resolved_lifespan = lifespan or create_database_lifespan(resolved_settings)
     expose_api_docs = resolved_settings.app_env != AppEnvironment.PRODUCTION
-    configure_logging(resolved_settings.app_env, resolved_settings.log_level)
+    configure_logging(
+        resolved_settings.app_env,
+        resolved_settings.log_level,
+        log_format=resolved_settings.log_format,
+    )
 
     app = FastAPI(
         title="A Penny Saved API",
