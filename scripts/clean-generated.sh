@@ -26,6 +26,10 @@ done
 generated_directories=(
   "$repository_root/frontend/dist"
   "$repository_root/frontend/coverage"
+  "$repository_root/frontend/test-results"
+  "$repository_root/frontend/playwright-report"
+  "$repository_root/frontend/blob-report"
+  "$repository_root/frontend/e2e-artifacts"
   "$repository_root/backend/.pytest_cache"
   "$repository_root/backend/.ruff_cache"
   "$repository_root/backend/htmlcov"

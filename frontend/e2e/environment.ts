@@ -8,6 +8,8 @@ export const E2E_ENVIRONMENT_NAMES = [
   "E2E_RUN_ID",
   "E2E_EMAIL_DOMAIN",
   "E2E_PASSWORD",
+  "E2E_SETUP_AT",
+  "E2E_MANIFEST_PATH",
 ] as const;
 
 function readLoopbackUrl(name: string, fallback: string): string {

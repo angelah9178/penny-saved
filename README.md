@@ -368,6 +368,27 @@ manifest, and creates only the seeded journey account; the manifest reserves a s
 email for signup through the real browser UI. Cleanup requires that exact manifest
 and deletes only its two deterministic user identities if they exist.
 
+After creating a dedicated PostgreSQL database whose name ends in `_e2e_test`, export
+its explicit URL and run the reusable complete stack:
+
+```bash
+export E2E_DATABASE_URL='postgresql+psycopg://.../penny_saved_e2e_test'
+make e2e
+```
+
+Each invocation creates fresh run credentials and data, migrates the dedicated
+database, builds and starts FastAPI and the production frontend bundle on loopback
+ports, waits for real readiness, runs Chromium, stops only its child processes, and
+removes its records. `make e2e-prepare` performs validation, migration, build, and test
+listing without starting persistent servers. `make e2e-cleanup-check` runs the
+supervision and cleanup safety tests.
+
+If `make e2e` reports that a port is occupied, stop the program using that port or set
+different explicit `E2E_FRONTEND_URL` and `E2E_BACKEND_URL` loopback origins. A
+readiness timeout preserves bounded redacted logs under `frontend/e2e-artifacts/`.
+Database guard failures mean the URL is missing, matches an ordinary database, uses a
+non-loopback local host, or lacks the required `_e2e_test` suffix.
+
 ## Database migrations
 
 Alembic migrations are the only supported way to change a shared database schema.

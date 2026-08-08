@@ -22,6 +22,7 @@ POSTGRES_VOLUME := penny_saved_postgres_data
 	rehearse-restore \
 	frontend-security-check backend-security-check security-check \
 	frontend-dev backend-dev dev \
+	e2e-prepare e2e e2e-cleanup-check \
 	db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision seed-demo \
 	check-frontend check-backend check-backend-env check-docker check-alembic
 
@@ -168,6 +169,17 @@ dev: check-frontend check-backend-env check-docker check-alembic ## Start Postgr
 	$(MAKE) db-up
 	$(MAKE) db-upgrade
 	./scripts/run-dev.sh
+
+e2e-prepare: check-frontend check-backend ## Validate, migrate, build, and list the isolated browser suite.
+	@test -n "$${E2E_DATABASE_URL:-}" || { echo "Export a dedicated E2E_DATABASE_URL ending in _e2e_test." >&2; exit 1; }
+	$(VENV_PYTHON) scripts/e2e_stack.py prepare
+
+e2e: check-frontend check-backend ## Run the complete isolated browser stack and clean it up.
+	@test -n "$${E2E_DATABASE_URL:-}" || { echo "Export a dedicated E2E_DATABASE_URL ending in _e2e_test." >&2; exit 1; }
+	$(VENV_PYTHON) scripts/e2e_stack.py run
+
+e2e-cleanup-check: check-backend ## Verify E2E supervision, redaction, and cleanup safeguards.
+	cd backend && $(BACKEND_PYTHON) -m pytest tests/tooling/test_e2e_stack.py tests/scripts/test_e2e_data.py
 
 check-docker:
 	@command -v docker >/dev/null || { echo "Docker Engine with Compose v2 is required." >&2; exit 1; }

@@ -24,7 +24,7 @@ passes.
 |                  | Commit                                                    | Short title                   | Depends on              |
 | ---------------- | --------------------------------------------------------- | ----------------------------- | ----------------------- |
 | &#91;x&#93;      | [1](#commit-1--define-the-browser-smoke-contract)         | Define smoke-test rules       | DEV-020 and DEV-021     |
-| &#91;&#160;&#93; | [2](#commit-2--add-isolated-end-to-end-test-data)         | Add isolated browser data     | Commit 1 and DEV-007    |
+| &#91;x&#93;      | [2](#commit-2--add-isolated-end-to-end-test-data)         | Add isolated browser data     | Commit 1 and DEV-007    |
 | &#91;&#160;&#93; | [3](#commit-3--start-and-stop-the-complete-test-stack)    | Orchestrate the live stack    | Commits 1–2 and DEV-022 |
 | &#91;&#160;&#93; | [4](#commit-4--cover-authentication-and-entry-creation)   | Test auth and entry creation  | Commit 3                |
 | &#91;&#160;&#93; | [5](#commit-5--cover-check-in-statistics-and-logout)      | Test the completed journey    | Commit 4                |
@@ -225,7 +225,7 @@ git diff --check
 
 ## Commit 2 — Add Isolated End-to-End Test Data
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete in `b029216`.
 
 ### In Plain English
 
@@ -313,7 +313,7 @@ git diff --check
 
 ## Commit 3 — Start and Stop the Complete Test Stack
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -331,6 +331,25 @@ logs.
 When testing ends, the orchestrator stops only the process IDs it started, waits for
 graceful shutdown, cleans the run's database records, and keeps failure artifacts when
 needed. This cleanup runs even when a browser assertion fails or CI cancels the job.
+
+The reusable entry point added by this commit is:
+
+```bash
+make e2e
+```
+
+This is not a one-time setup command. Every invocation creates a fresh run ID and
+ephemeral password, migrates and seeds the explicitly configured `_e2e_test` database,
+builds and starts the application, runs Chromium, stops the exact child processes, and
+removes that run's data. Developers can run it repeatedly, and Commit 6 will call the
+same command in CI.
+
+`make e2e-prepare` is the focused diagnostic command: it validates the environment and
+free ports, applies migrations to the dedicated database, builds the frontend, and
+lists the browser tests without leaving application servers running. `make
+e2e-cleanup-check` runs the supervision, redaction, and cleanup safety contracts. In
+contrast, `make seed-demo` only writes persistent sample data for manual development;
+it does not manage servers, Chromium, or automatic cleanup.
 
 Suggested commit message:
 
@@ -586,31 +605,31 @@ database names, cleanup evidence, limitations, and deferrals.
 | Commit | Hash      | Result                       | Verification                                                                                                                                            |
 | ------ | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1      | `d9834be` | Complete                     | Playwright 1.62.1 contract passed in pinned Chromium; formatting, lint, typecheck, static contract, test listing, security, and whitespace gates passed |
-| 2      | —         | Implemented; awaiting commit | Ruff formatting/lint, 589 backend tests, Alembic drift check, and whitespace gate passed                                                                |
-| 3      | —         | Not started                  | —                                                                                                                                                       |
+| 2      | `b029216` | Complete                     | Ruff formatting/lint, 589 backend tests, Alembic drift check, and whitespace gate passed                                                                |
+| 3      | —         | Implemented; awaiting commit | `make e2e` run `run-20260808152536-98c2bd11` passed; prior rehearsal left zero run-owned users; 429 frontend and 599 backend tests passed               |
 | 4      | —         | Not started                  | —                                                                                                                                                       |
 | 5      | —         | Not started                  | —                                                                                                                                                       |
 | 6      | —         | Not started                  | —                                                                                                                                                       |
 
 ### Smoke Verification Checklist
 
-| Check                                                                | Result  | Evidence |
-| -------------------------------------------------------------------- | ------- | -------- |
-| Real pinned browser runs against live React, FastAPI, and PostgreSQL | Pending | —        |
-| Local and CI targets refuse development/staging/production data      | Pending | —        |
-| Setup creates only deterministic run-owned data at Alembic head      | Pending | —        |
-| Cleanup removes only run-owned data and is safe when repeated        | Pending | —        |
-| Stack startup uses readiness rather than fixed sleeps                | Pending | —        |
-| Stack shutdown leaves no child process or occupied test port         | Pending | —        |
-| Signup succeeds and browser reload restores its session              | Pending | —        |
-| Existing seeded account can log in through the real form             | Pending | —        |
-| Entry creation persists and appears in the waiting dashboard list    | Pending | —        |
-| Seeded eligible entry checks in without waiting or changing rules    | Pending | —        |
-| Statistics show saved totals and whole/fractional equivalents        | Pending | —        |
-| Logout revokes access to protected browser routes                    | Pending | —        |
-| Failure artifacts are useful, bounded, retained, and non-sensitive   | Pending | —        |
-| Repeated runs pass independently without retry-dependent success     | Pending | —        |
-| Full quality, build, migration, smoke, and security gates pass       | Pending | —        |
+| Check                                                                | Result  | Evidence                                                                                |
+| -------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------- |
+| Real pinned browser runs against live React, FastAPI, and PostgreSQL | Pending | —                                                                                       |
+| Local and CI targets refuse development/staging/production data      | Pass    | URL, database suffix, ordinary-database, production-domain, and explicit CI-host guards |
+| Setup creates only deterministic run-owned data at Alembic head      | Pending | —                                                                                       |
+| Cleanup removes only run-owned data and is safe when repeated        | Pass    | Exact-manifest tests and zero users after live rehearsal                                |
+| Stack startup uses readiness rather than fixed sleeps                | Pass    | Live readiness plus timeout and early-exit tooling tests                                |
+| Stack shutdown leaves no child process or occupied test port         | Pass    | Exact process-group and real-child reap tests; live stack run passed                    |
+| Signup succeeds and browser reload restores its session              | Pending | —                                                                                       |
+| Existing seeded account can log in through the real form             | Pending | —                                                                                       |
+| Entry creation persists and appears in the waiting dashboard list    | Pending | —                                                                                       |
+| Seeded eligible entry checks in without waiting or changing rules    | Pending | —                                                                                       |
+| Statistics show saved totals and whole/fractional equivalents        | Pending | —                                                                                       |
+| Logout revokes access to protected browser routes                    | Pending | —                                                                                       |
+| Failure artifacts are useful, bounded, retained, and non-sensitive   | Pass    | Bounded failure-log and secret/header/cookie/database redaction tests                   |
+| Repeated runs pass independently without retry-dependent success     | Pending | —                                                                                       |
+| Full quality, build, migration, smoke, and security gates pass       | Pending | —                                                                                       |
 
 ### Failure Artifact Record
 
