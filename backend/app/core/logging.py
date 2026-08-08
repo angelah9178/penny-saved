@@ -15,11 +15,11 @@ from typing import TextIO
 from uuid import UUID, uuid4
 
 from app.core.config import AppEnvironment, LogLevel
+from app.core.operations import REQUEST_ID_HEADER, UNMATCHED_ROUTE_TEMPLATE
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 LOGGER_NAME = "penny_saved"
-REQUEST_ID_HEADER = "X-Request-ID"
 _request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
 _SENSITIVE_VALUE_PATTERN = re.compile(
     r"(?i)\b(password|passwd|pwd|cookie|set[-_]?cookie|authorization|auth[-_]?token|"
@@ -146,7 +146,7 @@ def _route_template(scope: Scope) -> str:
     route = scope.get("route")
     route_path = getattr(route, "path", None)
     if route_path is None:
-        return "unmatched"
+        return UNMATCHED_ROUTE_TEMPLATE
 
     root_path = scope.get("root_path", "")
     if root_path and not route_path.startswith(root_path):

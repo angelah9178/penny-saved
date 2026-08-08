@@ -41,6 +41,13 @@ class LogLevel(StrEnum):
     CRITICAL = "CRITICAL"
 
 
+class LogFormat(StrEnum):
+    """Supported application log encodings."""
+
+    JSON = "json"
+    TEXT = "text"
+
+
 class Settings(BaseSettings):
     """Configuration validated before application startup."""
 
@@ -61,6 +68,10 @@ class Settings(BaseSettings):
     session_ttl_seconds: int = Field(default=2_592_000, gt=0)
     session_cookie_secure: bool = False
     log_level: LogLevel = LogLevel.INFO
+    log_format: LogFormat = LogFormat.JSON
+    health_check_timeout_seconds: float = Field(default=2.0, ge=0.1, le=30.0)
+    metrics_enabled: bool = False
+    graceful_shutdown_timeout_seconds: int = Field(default=30, ge=1, le=300)
     trusted_hosts: tuple[str, ...] = ("localhost", "127.0.0.1")
     trusted_proxy_networks: tuple[str, ...] = ()
     max_request_body_bytes: int = Field(default=1_048_576, ge=1_024, le=10_485_760)
@@ -93,6 +104,8 @@ class Settings(BaseSettings):
 
         if self.app_env == AppEnvironment.PRODUCTION and not self.session_cookie_secure:
             raise ValueError("SESSION_COOKIE_SECURE must be true in production")
+        if self.app_env == AppEnvironment.PRODUCTION and self.log_format is not LogFormat.JSON:
+            raise ValueError("LOG_FORMAT must be json in production")
         if (
             self.app_env == AppEnvironment.PRODUCTION
             and self.frontend_origin is not None

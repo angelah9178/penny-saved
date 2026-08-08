@@ -5,6 +5,7 @@
 - [Commit Tracker](#commit-tracker)
 - [Objective](#objective)
 - [Operational Rules](#operational-rules)
+- [Commit 1 Contracts](#commit-1-contracts)
 - [Commit 1 — Define the Production Operations Contract](#commit-1--define-the-production-operations-contract)
 - [Commit 2 — Add Structured Request Logging and Correlation](#commit-2--add-structured-request-logging-and-correlation)
 - [Commit 3 — Add Safe Application Metrics](#commit-3--add-safe-application-metrics)
@@ -83,9 +84,87 @@ These rules apply throughout the implementation:
   but DEV-022 does not provision infrastructure, change DNS, obtain certificates,
   access production data, or deploy a release.
 
+## Commit 1 Contracts
+
+Commit 1 establishes five promises that the later implementation commits must keep.
+
+### 1. Structured Logging Contract
+
+Every completed HTTP request will produce one structured event with these required
+fields: `timestamp`, `level`, `environment`, `event`, `request_id`, `method`,
+`route`, `status`, and `duration_ms`. A safely resolved `user_id` and bounded
+`context` may be present when relevant.
+
+The `route` value is a route template such as `/api/entries/{entry_id}`, never the
+raw URL. Requests that cannot be matched use the fixed value `unmatched`. Logs do
+not include query strings, request or response bodies, passwords, cookies,
+authorization values, session tokens, database credentials, emails, client IPs, or
+raw user/resource identifiers. Production uses newline-delimited JSON on standard
+output/error; collection and retention belong to the host infrastructure.
+
+### 2. Request-Correlation Contract
+
+The correlation header is `X-Request-ID`. An inbound value is accepted only when it
+is a canonical UUID no longer than 36 characters. A missing or invalid value is
+replaced with a newly generated UUID. The effective value is returned in the
+response, remains isolated between concurrent requests, and is included in all log
+events associated with that request.
+
+Expected failures keep the approved safe error response. An unexpected failure also
+returns the effective request ID so an operator can locate the private server-side
+trace without sending exception details to the client.
+
+### 3. Metrics Contract
+
+The private metrics path is `/internal/metrics`. Commit 3 will implement these
+definitions:
+
+| Metric name                            | Type      | Unit        | Allowed labels                       | Operator question                         |
+| -------------------------------------- | --------- | ----------- | ------------------------------------ | ----------------------------------------- |
+| `http_server_requests_total`           | Counter   | requests    | method, route, status class          | How much traffic is the API receiving?    |
+| `http_server_request_duration_seconds` | Histogram | seconds     | method, route                        | Which route templates are slow?           |
+| `http_server_errors_total`             | Counter   | errors      | method, route, status class          | Are safe client/server errors increasing? |
+| `database_pool_connections`            | Gauge     | connections | bounded connection state             | Is the database pool under pressure?      |
+| `authentication_failures_total`        | Counter   | failures    | operation, bounded reason            | Are login/signup failures increasing?     |
+| `entry_lifecycle_conflicts_total`      | Counter   | conflicts   | operation                            | Are state-transition conflicts rising?    |
+| `application_readiness`                | Gauge     | state       | none                                 | Is the instance ready for normal traffic? |
+
+Metric labels never contain request IDs, user IDs, emails, client IPs, entry IDs,
+raw paths, query strings, bodies, error messages, or secrets. Exact allowed values
+for labels such as status class, connection state, operation, and reason must remain
+small and enumerated when Commit 3 instruments them.
+
+### 4. Health-Check Contract
+
+`GET /api/health` is the liveness endpoint. It returns `200` with
+`{"status":"ok"}` when the application process can answer HTTP. It deliberately
+does not query PostgreSQL, so a separate database outage does not tell the process
+supervisor to restart a live application.
+
+`GET /api/ready` is the readiness endpoint. It performs a database probe within the
+configured timeout. It returns `200` with `{"status":"ready"}` when ordinary work
+can be served and `503` with `{"status":"unavailable"}` when the dependency is not
+ready. Neither response exposes versions, addresses, credentials, or error details.
+
+### 5. Configuration Contract
+
+The operational settings are:
+
+| Environment variable                 | Type    | Default | Valid range/values        | Production rule                 |
+| ------------------------------------ | ------- | ------- | ------------------------- | ------------------------------- |
+| `LOG_LEVEL`                          | enum    | `INFO`  | DEBUG–CRITICAL            | Explicit supported level        |
+| `LOG_FORMAT`                         | enum    | `json`  | `json`, `text`            | Must be `json`                  |
+| `HEALTH_CHECK_TIMEOUT_SECONDS`       | decimal | `2.0`   | 0.1 through 30.0 seconds  | Must remain within bounds       |
+| `METRICS_ENABLED`                    | boolean | `false` | `true`, `false`           | Safe opt-in exposure            |
+| `GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS`  | integer | `30`    | 1 through 300 seconds     | Must remain within bounds       |
+
+Unsupported enum values and out-of-range timeouts fail settings validation before
+the application starts. Metrics remain disabled until Commit 3 supplies the private
+endpoint and the production proxy/access policy is configured.
+
 ## Commit 1 — Define the Production Operations Contract
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -474,7 +553,7 @@ backup/restore rehearsal evidence, limitations, and blockers.
 
 | Commit | Hash | Result      | Verification |
 | ------ | ---- | ----------- | ------------ |
-| 1      | —    | Not started | —            |
+| 1      | —    | Implemented; awaiting commit | Ruff format/lint and 549 backend tests passed |
 | 2      | —    | Not started | —            |
 | 3      | —    | Not started | —            |
 | 4      | —    | Not started | —            |
