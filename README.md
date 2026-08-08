@@ -351,6 +351,23 @@ the production origin. Later live-stack commits will also require an isolated
 `E2E_PASSWORD`. Failure screenshots and traces go under `frontend/test-results/` and
 are ignored by Git.
 
+The live-stack work in later commits calls the guarded data command automatically.
+When diagnosing that setup directly, export `APP_ENV=test` plus the dedicated
+`E2E_DATABASE_URL`, `E2E_RUN_ID`, `E2E_EMAIL_DOMAIN`, `E2E_PASSWORD`, UTC
+`E2E_SETUP_AT`, and absolute `E2E_MANIFEST_PATH`, then run:
+
+```bash
+cd backend
+../.venv/bin/python -m app.scripts.e2e_data setup
+../.venv/bin/python -m app.scripts.e2e_data cleanup
+```
+
+The command refuses ordinary test/development databases and any local database whose
+name does not end in `_e2e_test`. Setup checks Alembic head, writes a secret-free
+manifest, and creates only the seeded journey account; the manifest reserves a second
+email for signup through the real browser UI. Cleanup requires that exact manifest
+and deletes only its two deterministic user identities if they exist.
+
 ## Database migrations
 
 Alembic migrations are the only supported way to change a shared database schema.

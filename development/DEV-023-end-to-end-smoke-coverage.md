@@ -23,7 +23,7 @@ passes.
 
 |                  | Commit                                                    | Short title                   | Depends on              |
 | ---------------- | --------------------------------------------------------- | ----------------------------- | ----------------------- |
-| &#91;&#160;&#93; | [1](#commit-1--define-the-browser-smoke-contract)         | Define smoke-test rules       | DEV-020 and DEV-021     |
+| &#91;x&#93;      | [1](#commit-1--define-the-browser-smoke-contract)         | Define smoke-test rules       | DEV-020 and DEV-021     |
 | &#91;&#160;&#93; | [2](#commit-2--add-isolated-end-to-end-test-data)         | Add isolated browser data     | Commit 1 and DEV-007    |
 | &#91;&#160;&#93; | [3](#commit-3--start-and-stop-the-complete-test-stack)    | Orchestrate the live stack    | Commits 1–2 and DEV-022 |
 | &#91;&#160;&#93; | [4](#commit-4--cover-authentication-and-entry-creation)   | Test auth and entry creation  | Commit 3                |
@@ -161,7 +161,7 @@ and opportunity-cost examples without adding a test-only API.
 
 ## Commit 1 — Define the Browser Smoke Contract
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete in `d9834be`.
 
 ### In Plain English
 
@@ -225,7 +225,7 @@ git diff --check
 
 ## Commit 2 — Add Isolated End-to-End Test Data
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -245,6 +245,25 @@ Every row is tied to one unique run. Cleanup deletes only the run-owned user rec
 which cascade to their sessions, entries, and opportunity-cost examples. A setup or
 cleanup command refuses to run if the database guard, migration revision, or run ID
 is unsafe.
+
+In practical terms, Commit 2 gives every browser run its own predictable starting
+point:
+
+- It reserves a unique signup email that does not exist yet, so the browser can test
+  real account creation.
+- It creates a separate journey account that can test the existing-user login form.
+- That journey account owns an entry created 49 hours earlier, so it is immediately
+  eligible for check-in without changing the real 48-hour rule.
+- It includes saved history and two opportunity-cost examples so later tests can
+  verify both whole and fractional statistics results.
+- A secret-free manifest tells the browser exactly which email, item, totals, and
+  labels belong to its run.
+
+The run ID is the ownership label. It appears in deterministic IDs, emails, entry
+names, and opportunity-cost labels. Cleanup reads the matching manifest and removes
+only those exact run-owned users; it never truncates a table or deletes everything in
+a shared test email domain. The password is supplied temporarily, stored only as its
+normal hash, and never written to the manifest or command output.
 
 Suggested commit message:
 
@@ -564,14 +583,14 @@ database names, cleanup evidence, limitations, and deferrals.
 
 ### Commit Evidence
 
-| Commit | Hash | Result                       | Verification                                                                                                                                            |
-| ------ | ---- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1      | —    | Implemented; awaiting commit | Playwright 1.62.1 contract passed in pinned Chromium; formatting, lint, typecheck, static contract, test listing, security, and whitespace gates passed |
-| 2      | —    | Not started                  | —                                                                                                                                                       |
-| 3      | —    | Not started                  | —                                                                                                                                                       |
-| 4      | —    | Not started                  | —                                                                                                                                                       |
-| 5      | —    | Not started                  | —                                                                                                                                                       |
-| 6      | —    | Not started                  | —                                                                                                                                                       |
+| Commit | Hash      | Result                       | Verification                                                                                                                                            |
+| ------ | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1      | `d9834be` | Complete                     | Playwright 1.62.1 contract passed in pinned Chromium; formatting, lint, typecheck, static contract, test listing, security, and whitespace gates passed |
+| 2      | —         | Implemented; awaiting commit | Ruff formatting/lint, 589 backend tests, Alembic drift check, and whitespace gate passed                                                                |
+| 3      | —         | Not started                  | —                                                                                                                                                       |
+| 4      | —         | Not started                  | —                                                                                                                                                       |
+| 5      | —         | Not started                  | —                                                                                                                                                       |
+| 6      | —         | Not started                  | —                                                                                                                                                       |
 
 ### Smoke Verification Checklist
 
