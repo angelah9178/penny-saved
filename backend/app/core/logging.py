@@ -175,7 +175,8 @@ def _resolve_request_id(scope: Scope) -> str:
     return str(uuid4())
 
 
-def _route_template(scope: Scope) -> str:
+def get_route_template(scope: Scope) -> str:
+    """Return a bounded route template without raw user-controlled path values."""
     route = scope.get("route")
     route_path = getattr(route, "path", None)
     if route_path is None:
@@ -237,7 +238,7 @@ class RequestContextMiddleware:
                     "environment": self.environment,
                     "request_id": request_id,
                     "method": scope.get("method", "unknown"),
-                    "route": _route_template(scope),
+                    "route": get_route_template(scope),
                     "status": response_status,
                     "duration_ms": duration_ms,
                     "user_id": scope.get("state", {}).get("user_id"),

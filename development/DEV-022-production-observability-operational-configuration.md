@@ -23,7 +23,7 @@ passes.
 |             | Commit                                                        | Short title                    | Depends on          |
 | ----------- | ------------------------------------------------------------- | ------------------------------ | ------------------- |
 | &#91;x&#93;      | [1](#commit-1--define-the-production-operations-contract)     | Define the operations contract | DEV-003 and DEV-021 |
-| &#91;&#160;&#93; | [2](#commit-2--add-structured-request-logging-and-correlation) | Add correlated request logs    | Commit 1            |
+| &#91;x&#93;      | [2](#commit-2--add-structured-request-logging-and-correlation) | Add correlated request logs    | Commit 1            |
 | &#91;&#160;&#93; | [3](#commit-3--add-safe-application-metrics)                  | Add bounded metrics            | Commits 1–2         |
 | &#91;&#160;&#93; | [4](#commit-4--complete-health-and-process-lifecycle-behavior) | Complete health and lifecycle  | Commits 1–2         |
 | &#91;&#160;&#93; | [5](#commit-5--document-the-production-configuration-and-runbook) | Document production operations | Commits 1–4      |
@@ -218,7 +218,7 @@ git diff --check
 
 ## Commit 2 — Add Structured Request Logging and Correlation
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `900cba4`.
 
 ### In Plain English
 
@@ -294,13 +294,26 @@ git diff --check
 
 ## Commit 3 — Add Safe Application Metrics
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
 Commit 3 adds counters and timings that show trends without requiring an operator to
 read every log line. Metrics can answer “Are errors increasing?”, “Which kind of
 request is slow?”, and “Is the database connection pool under pressure?”
+
+Commit 2 creates a detailed record for one individual request. Commit 3 summarizes
+many requests. For example, it can report that the backend handled 142 successful
+`GET /api/entries/{entry_id}` requests without identifying any of the 142 request
+IDs, entry IDs, or users. A monitoring system can use the duration measurements to
+calculate typical response time and identify unusually slow route templates.
+
+The measurements cover request volume, request duration, HTTP errors, database-pool
+state, authentication failures, entry lifecycle conflicts, and the most recently
+observed readiness state. They are exposed only when `METRICS_ENABLED=true` through
+the private `/internal/metrics` endpoint. That endpoint is intended for a monitoring
+service on the server’s private network, not for ordinary users or the public
+internet.
 
 Metrics are deliberately less detailed than logs. They group requests by a small set
 of stable values such as route template, method, and status class. They must not use
@@ -571,8 +584,8 @@ backup/restore rehearsal evidence, limitations, and blockers.
 | Commit | Hash | Result      | Verification |
 | ------ | ---- | ----------- | ------------ |
 | 1      | `03dc757` | Complete | Ruff format/lint and 549 backend tests passed |
-| 2      | —    | Implemented; awaiting commit | Ruff format/lint, 555 backend tests, and security scans passed |
-| 3      | —    | Not started | —            |
+| 2      | `900cba4` | Complete | Ruff format/lint, 555 backend tests, and security scans passed |
+| 3      | —    | Implemented; awaiting commit | Ruff format/lint, 560 backend tests, and security scans passed |
 | 4      | —    | Not started | —            |
 | 5      | —    | Not started | —            |
 | 6      | —    | Not started | —            |
