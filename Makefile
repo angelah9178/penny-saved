@@ -19,6 +19,7 @@ POSTGRES_VOLUME := penny_saved_postgres_data
 	frontend-test backend-test test \
 	frontend-build backend-build build check clean \
 	operations-check \
+	rehearse-restore \
 	frontend-security-check backend-security-check security-check \
 	frontend-dev backend-dev dev \
 	db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision seed-demo \
@@ -138,6 +139,10 @@ check: ## Run all frontend and backend quality checks.
 
 operations-check: check-backend ## Validate secret-free production operations examples.
 	$(VENV_PYTHON) scripts/check_operations.py
+
+rehearse-restore: check-backend-env ## Rehearse backup/restore against the guarded local test database.
+	cd backend && set -a && source .env && set +a && \
+		ALLOW_DISPOSABLE_RESTORE_REHEARSAL=yes $(BACKEND_PYTHON) ../scripts/rehearse_database_restore.py
 
 frontend-security-check: check-frontend ## Audit the locked frontend dependency graph for high-severity advisories.
 	node scripts/audit-frontend.mjs

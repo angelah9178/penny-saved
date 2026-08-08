@@ -41,6 +41,7 @@ def test_makefile_exposes_focused_and_combined_quality_targets() -> None:
         "backend-security-check",
         "security-check",
         "operations-check",
+        "rehearse-restore",
     }
     phony = makefile.split(".PHONY:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
 

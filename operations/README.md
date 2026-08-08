@@ -202,7 +202,7 @@ createdb "$restore_database"
 pg_restore --exit-on-error --no-owner --no-acl --dbname="$restore_database" "$backup_file"
 psql --dbname="$restore_database" --command='SELECT version_num FROM alembic_version;'
 psql --dbname="$restore_database" --command='SELECT count(*) FROM users;'
-psql --dbname="$restore_database" --command='SELECT count(*) FROM entries;'
+psql --dbname="$restore_database" --command='SELECT count(*) FROM impulse_purchase_entries;'
 psql --dbname="$restore_database" --command='SELECT count(*) FROM sessions;'
 ```
 
@@ -216,6 +216,20 @@ dropdb --if-exists penny_saved_restore_verify
 ```
 
 Backup success is not accepted until this isolated restore verification passes.
+
+For the repository's local PostgreSQL Compose service, the guarded rehearsal uses the
+PostgreSQL 16 client tools inside that container so the dump/restore client major
+matches the server. The host's PostgreSQL client may be newer and is not assumed to
+be archive-compatible:
+
+```bash
+make rehearse-restore
+```
+
+This command accepts only a loopback `TEST_DATABASE_URL` whose database name ends in
+`_test`, refuses to overwrite an existing target, creates only
+`penny_saved_dev022_restore_verify`, compares the Alembic revision and representative
+table counts, and removes the disposable target in a `finally` cleanup.
 
 ## Rollback Boundary
 

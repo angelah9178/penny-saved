@@ -26,7 +26,7 @@ passes.
 | &#91;x&#93;      | [2](#commit-2--add-structured-request-logging-and-correlation) | Add correlated request logs    | Commit 1            |
 | &#91;x&#93;      | [3](#commit-3--add-safe-application-metrics)                  | Add bounded metrics            | Commits 1–2         |
 | &#91;x&#93;      | [4](#commit-4--complete-health-and-process-lifecycle-behavior) | Complete health and lifecycle  | Commits 1–2         |
-| &#91;&#160;&#93; | [5](#commit-5--document-the-production-configuration-and-runbook) | Document production operations | Commits 1–4      |
+| &#91;x&#93;      | [5](#commit-5--document-the-production-configuration-and-runbook) | Document production operations | Commits 1–4      |
 | &#91;&#160;&#93; | [6](#commit-6--verify-the-complete-operational-boundary)      | Verify operational behavior    | Commits 1–5         |
 
 ## Objective
@@ -452,7 +452,7 @@ git diff --check
 
 ## Commit 5 — Document the Production Configuration and Runbook
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete — `bdd9ce0`.
 
 ### In Plain English
 
@@ -539,7 +539,7 @@ git diff --check
 
 ## Commit 6 — Verify the Complete Operational Boundary
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -641,25 +641,65 @@ backup/restore rehearsal evidence, limitations, and blockers.
 | 2      | `900cba4` | Complete | Ruff format/lint, 555 backend tests, and security scans passed |
 | 3      | `5e7428f` | Complete | Ruff format/lint, 560 backend tests, and security scans passed |
 | 4      | `1d5bda5` | Complete | Ruff format/lint, backend construction, and 565 backend tests passed |
-| 5      | —    | Implemented; awaiting commit | Full `make check` (429 frontend and 567 backend tests), operations validation, builds, and security scans passed |
-| 6      | —    | Not started | —            |
+| 5      | `bdd9ce0` | Complete | Full `make check` (429 frontend and 567 backend tests), operations validation, builds, and security scans passed |
+| 6      | —    | Implemented; awaiting commit | Clean install; 429 frontend and 573 backend tests; builds, restore rehearsal, operations/security checks, and Alembic drift passed |
 
 ### Operational Verification Checklist
 
 | Check                                                                    | Result  | Evidence |
 | ------------------------------------------------------------------------ | ------- | -------- |
-| Safe client errors carry a request ID that matches server logs           | Pending | —        |
-| Unexpected exception details remain server-side                          | Pending | —        |
-| Request logs use route templates and the documented stable schema        | Pending | —        |
-| Logs preserve DEV-021 redaction under representative failures            | Pending | —        |
-| Metrics use bounded labels and contain no user or resource identifiers   | Pending | —        |
-| Liveness remains independent of PostgreSQL                                | Pending | —        |
-| Readiness returns `503` during database loss and recovers afterward       | Pending | —        |
-| Startup validation and graceful shutdown follow the documented lifecycle | Pending | —        |
+| Safe client errors carry a request ID that matches server logs           | Pass    | Assembled expected/unexpected/middleware error correlation test |
+| Unexpected exception details remain server-side                          | Pass    | Safe `500` response matched private exception event and stack frames |
+| Request logs use route templates and the documented stable schema        | Pass    | Concurrent, parameterized, authenticated, and unmatched routes verified |
+| Logs preserve DEV-021 redaction under representative failures            | Pass    | Seeded headers, body, URL, email, IP, token, cookie, and database secret absent |
+| Metrics use bounded labels and contain no user or resource identifiers   | Pass    | Exact concurrent counts and combined privacy assertion passed |
+| Liveness remains independent of PostgreSQL                                | Pass    | Liveness stayed `200` during simulated readiness failure |
+| Readiness returns `503` during database loss and recovers afterward       | Pass    | Assembled loss/recovery test ended ready with gauge `1` |
+| Startup validation and graceful shutdown follow the documented lifecycle | Pass    | Lifecycle, timeout, disposal-order, and assembled production settings tests |
 | Production examples contain no real secrets and pass available checks    | Pass    | Typed settings test and `make operations-check` |
-| Backup and isolated restore procedures have been successfully rehearsed  | Pending | —        |
+| Backup and isolated restore procedures have been successfully rehearsed  | Pass    | PostgreSQL 16 custom archive restored to and removed from guarded disposable database |
 | Unresolved infrastructure choices are explicit DEV-024 blockers          | Pass    | Runbook required-decisions section and table below |
-| Full repository quality, migration, build, and security gates pass       | Pending | —        |
+| Full repository quality, migration, build, and security gates pass       | Pass    | Clean install, `make check`, `make security-check`, and Alembic check |
+
+### Commit 6 Verification
+
+On 2026-08-08, the prescribed verification completed against local, disposable
+resources only:
+
+- `make clean` removed generated artifacts, and `make install` restored the pinned
+  Python and locked npm dependencies.
+- The PostgreSQL Compose service reported healthy, the local development database was
+  upgraded to `head`, and Alembic reported no new upgrade operations.
+- `make check` passed formatting, Ruff/ESLint, TypeScript, 429 frontend tests, 573
+  backend tests, frontend production build, backend construction, and the static
+  production operations validator.
+- The assembled operational test covered concurrent success, authenticated context,
+  expected `409`, unexpected `500`, hostile host rejection, unmatched route,
+  database loss/recovery, liveness during loss, request correlation, log privacy,
+  exact-once metrics, and bounded labels in one production-configured application.
+- `make security-check` found no known Python vulnerability and no untriaged
+  high/critical frontend advisory. The existing React Router advisory remains under
+  the DEV-021 time-bounded triage rather than being silently suppressed.
+- The guarded restore rehearsal accepted only the loopback `penny_saved_test` source,
+  created a PostgreSQL 16 custom archive, restored it into the exact disposable
+  database `penny_saved_dev022_restore_verify`, and matched migration revision
+  `0002_rate_limit_counters` plus counts for `users`,
+  `impulse_purchase_entries`, and `sessions` (all zero in the clean test source).
+  The disposable database and temporary archive were removed. The transient archive
+  SHA-256 was
+  `dcbbca70f65d74a389e191b4e80d8b6a3a0e876943b706afdad40e20d8eaa8b4`.
+- The first rehearsal attempts exposed and then corrected two useful runbook/tooling
+  defects: the physical entry table name and a PostgreSQL 18-client/16-server archive
+  incompatibility. The final command now uses the matching PostgreSQL 16 tools inside
+  the local Compose container and retains cleanup in a `finally` block.
+
+Verification used Node.js 22.23.1, npm 10.9.8, Python 3.14.4, Ruff 0.15.22, pytest
+9.0.2, and local PostgreSQL 16 container tools. Nginx was not installed, and the
+candidate systemd unit references service users and release paths that do not exist
+in this development environment. Therefore repository static validation passed, but
+`nginx -t`, `systemd-analyze verify` against the installed unit, private metric
+scraping through the real network boundary, TLS renewal, and real supervisor start/
+stop behavior remain explicit DEV-024 host-level blockers below.
 
 ### Infrastructure Decisions and Release Blockers
 
