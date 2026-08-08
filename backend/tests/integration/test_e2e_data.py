@@ -21,6 +21,7 @@ from app.scripts.e2e_data import (
     run_cleanup,
     run_setup,
     setup_data,
+    verify_auth_entry_data,
 )
 from sqlalchemy import Connection, func, select
 from sqlalchemy.engine import URL
@@ -127,6 +128,40 @@ def test_cleanup_is_exact_preserves_unrelated_rows_and_is_idempotent(
         db_connection.execute(select(func.count()).select_from(OpportunityCostExample)).scalar_one()
         == 0
     )
+
+
+def test_auth_entry_verification_accepts_api_assigned_signup_id_and_cleanup(
+    db_connection: Connection, tmp_path: Path
+) -> None:
+    config = _config(tmp_path)
+    manifest = setup_data(db_connection, config)
+    signup_id = uuid4()
+    db_connection.execute(
+        User.__table__.insert().values(
+            id=signup_id,
+            email=manifest.signup_user.email,
+            password_hash="normal-hash-placeholder",
+            created_at=SETUP_AT,
+            updated_at=SETUP_AT,
+        )
+    )
+    db_connection.execute(
+        ImpulsePurchaseEntry.__table__.insert().values(
+            id=uuid4(),
+            user_id=signup_id,
+            item_name=manifest.signup_entry_item_name,
+            price_cents=manifest.signup_entry_price_cents,
+            reason_wanted=manifest.signup_entry_reason,
+            status=EntryStatus.WAITING,
+            comment=None,
+            created_at=SETUP_AT,
+            checked_in_at=None,
+            updated_at=SETUP_AT,
+        )
+    )
+
+    verify_auth_entry_data(db_connection, manifest)
+    assert cleanup_data(db_connection, manifest) == 2
 
 
 def test_guarded_run_writes_secret_free_manifest_and_cleans_committed_data(

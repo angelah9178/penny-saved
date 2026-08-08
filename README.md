@@ -383,6 +383,12 @@ removes its records. `make e2e-prepare` performs validation, migration, build, a
 listing without starting persistent servers. `make e2e-cleanup-check` runs the
 supervision and cleanup safety tests.
 
+`make e2e-auth-entry` runs the first half of the real browser journey: signup,
+session restoration after reload, waiting-entry creation and persistence, logout with
+protected-route rejection, and seeded-account login. The complete `make e2e` command
+includes this journey along with the isolated Chromium runner contract. Both commands
+verify expected account and entry ownership in PostgreSQL before removing the run data.
+
 If `make e2e` reports that a port is occupied, stop the program using that port or set
 different explicit `E2E_FRONTEND_URL` and `E2E_BACKEND_URL` loopback origins. A
 readiness timeout preserves bounded redacted logs under `frontend/e2e-artifacts/`.

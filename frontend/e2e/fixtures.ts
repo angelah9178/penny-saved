@@ -9,6 +9,14 @@ export const test = base.extend({
 
     await use(page);
 
+    const ephemeralPassword = process.env.E2E_PASSWORD;
+    if (
+      ephemeralPassword &&
+      consoleMessages.some((message) => message.includes(ephemeralPassword))
+    ) {
+      throw new Error("Browser console exposed the ephemeral E2E password");
+    }
+
     if (
       testInfo.status !== testInfo.expectedStatus &&
       consoleMessages.length > 0

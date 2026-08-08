@@ -18,7 +18,9 @@
     "format:check": "prettier --check .",
     "e2e:check": "node scripts/check-e2e-contract.mjs",
     "e2e:list": "npm run e2e:check && playwright test --list",
-    "e2e:contract": "npm run e2e:check && playwright test e2e/runner-contract.spec.ts"
+    "e2e:contract": "npm run e2e:check && playwright test e2e/runner-contract.spec.ts",
+    "e2e:auth-entry": "npm run e2e:check && playwright test e2e/auth-entry.spec.ts",
+    "e2e:smoke": "npm run e2e:check && playwright test"
   },
   "dependencies": {
     "@tanstack/react-query": "5.90.20",

@@ -37,6 +37,7 @@ from app.scripts.e2e_data import (  # noqa: E402
     load_config,
     run_cleanup,
     run_setup,
+    run_verify_auth_entry,
 )
 
 DEFAULT_FRONTEND_URL = "http://127.0.0.1:4173"
@@ -359,9 +360,12 @@ def _run_browser_with_live_servers(
     failure_log: Path,
 ) -> None:
     """Run Chromium while failing promptly if either application server exits."""
+    playwright_script = environment.get("E2E_PLAYWRIGHT_SCRIPT", "e2e:smoke")
+    if playwright_script not in {"e2e:contract", "e2e:auth-entry", "e2e:smoke"}:
+        raise StackError("E2E_PLAYWRIGHT_SCRIPT is not an approved browser command.")
     browser = _start_process(
         "browser",
-        ["npm", "--prefix", "frontend", "run", "e2e:contract"],
+        ["npm", "--prefix", "frontend", "run", playwright_script],
         cwd=REPOSITORY_ROOT,
         environment=environment,
         secrets_to_remove=secrets_to_remove,
@@ -492,6 +496,16 @@ def run_stack(config: E2EDataConfig, environment: dict[str, str]) -> None:
             secrets_to_remove=secrets_to_remove,
             failure_log=artifact_directory / "browser.log",
         )
+        default_verification = (
+            "false"
+            if environment.get("E2E_PLAYWRIGHT_SCRIPT") == "e2e:contract"
+            else "true"
+        )
+        if (
+            environment.get("E2E_VERIFY_AUTH_ENTRY", default_verification).lower()
+            == "true"
+        ):
+            run_verify_auth_entry(config)
     except BaseException as error:
         failure = error
     finally:

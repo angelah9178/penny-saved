@@ -215,7 +215,7 @@ def test_real_child_group_is_reaped_without_an_orphan() -> None:
 def test_makefile_exposes_reusable_e2e_commands() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
 
-    for target in ("e2e-prepare", "e2e", "e2e-cleanup-check"):
+    for target in ("e2e-prepare", "e2e", "e2e-auth-entry", "e2e-cleanup-check"):
         assert f"{target}:" in makefile
     e2e_recipe = makefile.split("\ne2e:", maxsplit=1)[1].split("\n\n", maxsplit=1)[0]
     assert "scripts/e2e_stack.py run" in e2e_recipe

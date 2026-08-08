@@ -52,7 +52,7 @@ class E2EDataConfig:
 
 @dataclass(frozen=True, slots=True)
 class E2EUserManifest:
-    id: str
+    id: str | None
     email: str
 
 
@@ -67,6 +67,9 @@ class E2EDataManifest:
     journey_user: E2EUserManifest
     eligible_entry_id: str
     eligible_item_name: str
+    signup_entry_item_name: str
+    signup_entry_price_cents: int
+    signup_entry_reason: str
     initial_saved_total_cents: int
     expected_saved_total_cents: int
     whole_equivalent_label: str
@@ -165,17 +168,20 @@ def _identity(run_id: str, role: str, domain: str) -> tuple[UUID, str]:
 
 def build_manifest(config: E2EDataConfig) -> E2EDataManifest:
     """Build stable identifiers and browser-visible expectations for one run."""
-    signup_id, signup_email = _identity(config.run_id, "signup", config.email_domain)
+    _, signup_email = _identity(config.run_id, "signup", config.email_domain)
     journey_id, journey_email = _identity(config.run_id, "journey", config.email_domain)
     eligible_id = uuid5(E2E_NAMESPACE, f"{config.run_id}:eligible-entry")
     return E2EDataManifest(
         version=MANIFEST_VERSION,
         run_id=config.run_id,
         setup_at=config.setup_at.isoformat(),
-        signup_user=E2EUserManifest(id=str(signup_id), email=signup_email),
+        signup_user=E2EUserManifest(id=None, email=signup_email),
         journey_user=E2EUserManifest(id=str(journey_id), email=journey_email),
         eligible_entry_id=str(eligible_id),
         eligible_item_name=f"Eligible headphones [{config.run_id}]",
+        signup_entry_item_name=f"Smoke test notebook [{config.run_id}]",
+        signup_entry_price_cents=4_321,
+        signup_entry_reason=f"First-half browser journey [{config.run_id}]",
         initial_saved_total_cents=5_000,
         expected_saved_total_cents=12_500,
         whole_equivalent_label=f"Transit rides [{config.run_id}]",
@@ -241,6 +247,8 @@ def setup_data(connection: Connection, config: E2EDataConfig) -> E2EDataManifest
         password=config.password,
         now=config.setup_at,
     )
+    if manifest.journey_user.id is None:
+        raise E2EDataSafetyError("Journey manifest must contain its deterministic user ID.")
     journey_id = UUID(manifest.journey_user.id)
 
     _insert_or_verify(
@@ -302,13 +310,53 @@ def cleanup_data(connection: Connection, manifest: E2EDataManifest) -> int:
     expected = (manifest.signup_user, manifest.journey_user)
     deleted = 0
     for user in expected:
-        result = connection.execute(
-            User.__table__.delete().where(
-                User.__table__.c.id == UUID(user.id), User.__table__.c.email == user.email
-            )
-        )
+        condition = User.__table__.c.email == user.email
+        if user.id is not None:
+            condition = condition & (User.__table__.c.id == UUID(user.id))
+        result = connection.execute(User.__table__.delete().where(condition))
         deleted += result.rowcount
     return deleted
+
+
+def verify_auth_entry_data(connection: Connection, manifest: E2EDataManifest) -> None:
+    """Prove the first-half browser flow persisted only its expected owned records."""
+    users = User.__table__
+    entries = ImpulsePurchaseEntry.__table__
+    signup_rows = (
+        connection.execute(select(users.c.id).where(users.c.email == manifest.signup_user.email))
+        .scalars()
+        .all()
+    )
+    if len(signup_rows) != 1:
+        raise E2EDataSafetyError("Signup smoke flow did not create exactly one run-owned user.")
+    if manifest.journey_user.id is None:
+        raise E2EDataSafetyError("Journey manifest must contain its deterministic user ID.")
+    journey_exists = connection.execute(
+        select(users.c.id).where(
+            users.c.id == UUID(manifest.journey_user.id),
+            users.c.email == manifest.journey_user.email,
+        )
+    ).scalar_one_or_none()
+    if journey_exists is None:
+        raise E2EDataSafetyError("Seeded journey account is missing after the browser flow.")
+
+    created_entries = (
+        connection.execute(
+            select(entries.c.id).where(
+                entries.c.user_id == signup_rows[0],
+                entries.c.item_name == manifest.signup_entry_item_name,
+                entries.c.price_cents == manifest.signup_entry_price_cents,
+                entries.c.reason_wanted == manifest.signup_entry_reason,
+                entries.c.status == EntryStatus.WAITING,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if len(created_entries) != 1:
+        raise E2EDataSafetyError(
+            "Entry-creation smoke flow did not persist exactly one expected waiting entry."
+        )
 
 
 def _write_manifest(path: Path, manifest: E2EDataManifest) -> None:
@@ -331,6 +379,9 @@ def _read_manifest(path: Path, config: E2EDataConfig) -> E2EDataManifest:
             journey_user=E2EUserManifest(**raw["journey_user"]),
             eligible_entry_id=raw["eligible_entry_id"],
             eligible_item_name=raw["eligible_item_name"],
+            signup_entry_item_name=raw["signup_entry_item_name"],
+            signup_entry_price_cents=raw["signup_entry_price_cents"],
+            signup_entry_reason=raw["signup_entry_reason"],
             initial_saved_total_cents=raw["initial_saved_total_cents"],
             expected_saved_total_cents=raw["expected_saved_total_cents"],
             whole_equivalent_label=raw["whole_equivalent_label"],
@@ -377,6 +428,25 @@ def run_cleanup(
         with engine.begin() as connection:
             head_verifier(connection)
             return cleanup_data(connection, manifest)
+    except SeedSafetyError as error:
+        raise E2EDataSafetyError(str(error)) from error
+    finally:
+        engine.dispose()
+
+
+def run_verify_auth_entry(
+    config: E2EDataConfig,
+    *,
+    engine_factory: EngineFactory = create_engine,
+    head_verifier: HeadVerifier = require_migration_head,
+) -> None:
+    """Verify the committed first-half browser outcome before guarded cleanup."""
+    manifest = _read_manifest(config.manifest_path, config)
+    engine = engine_factory(config.database_url)
+    try:
+        with engine.connect() as connection:
+            head_verifier(connection)
+            verify_auth_entry_data(connection, manifest)
     except SeedSafetyError as error:
         raise E2EDataSafetyError(str(error)) from error
     finally:

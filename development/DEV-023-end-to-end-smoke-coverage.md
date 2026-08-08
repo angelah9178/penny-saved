@@ -25,7 +25,7 @@ passes.
 | ---------------- | --------------------------------------------------------- | ----------------------------- | ----------------------- |
 | &#91;x&#93;      | [1](#commit-1--define-the-browser-smoke-contract)         | Define smoke-test rules       | DEV-020 and DEV-021     |
 | &#91;x&#93;      | [2](#commit-2--add-isolated-end-to-end-test-data)         | Add isolated browser data     | Commit 1 and DEV-007    |
-| &#91;&#160;&#93; | [3](#commit-3--start-and-stop-the-complete-test-stack)    | Orchestrate the live stack    | Commits 1–2 and DEV-022 |
+| &#91;x&#93;      | [3](#commit-3--start-and-stop-the-complete-test-stack)    | Orchestrate the live stack    | Commits 1–2 and DEV-022 |
 | &#91;&#160;&#93; | [4](#commit-4--cover-authentication-and-entry-creation)   | Test auth and entry creation  | Commit 3                |
 | &#91;&#160;&#93; | [5](#commit-5--cover-check-in-statistics-and-logout)      | Test the completed journey    | Commit 4                |
 | &#91;&#160;&#93; | [6](#commit-6--add-ci-and-verify-reliable-smoke-coverage) | Add CI and verify reliability | Commits 1–5             |
@@ -313,7 +313,7 @@ git diff --check
 
 ## Commit 3 — Start and Stop the Complete Test Stack
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete in `7a7c842`.
 
 ### In Plain English
 
@@ -394,7 +394,7 @@ git diff --check
 
 ## Commit 4 — Cover Authentication and Entry Creation
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -402,6 +402,17 @@ Commit 4 automates the first half of the user journey in the real browser. One t
 opens the signup page, creates a new account, reaches the protected dashboard, reloads
 the page, and proves the server-backed session still works. It then creates a waiting
 entry through the same form a person uses and confirms the dashboard displays it.
+
+This is the first half of actual product testing. Commits 1–3 built the safe browser,
+data, and live-stack infrastructure; Commit 4 is where Chromium first behaves like a
+real Penny Saved user:
+
+```text
+sign up → reload the signed-in session → create an entry → see it persist → log out
+```
+
+Commit 5 supplies the second half: return through login, check in the seeded eligible
+entry, verify statistics and opportunity-cost equivalents, and log out again.
 
 A second path proves that the separately seeded account can log in through the real
 login form. This matters because signup and login use different backend operations;
@@ -606,8 +617,8 @@ database names, cleanup evidence, limitations, and deferrals.
 | ------ | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1      | `d9834be` | Complete                     | Playwright 1.62.1 contract passed in pinned Chromium; formatting, lint, typecheck, static contract, test listing, security, and whitespace gates passed |
 | 2      | `b029216` | Complete                     | Ruff formatting/lint, 589 backend tests, Alembic drift check, and whitespace gate passed                                                                |
-| 3      | —         | Implemented; awaiting commit | `make e2e` run `run-20260808152536-98c2bd11` passed; prior rehearsal left zero run-owned users; 429 frontend and 599 backend tests passed               |
-| 4      | —         | Not started                  | —                                                                                                                                                       |
+| 3      | `7a7c842` | Complete                     | `make e2e` run `run-20260808152536-98c2bd11` passed; prior rehearsal left zero run-owned users; 429 frontend and 599 backend tests passed               |
+| 4      | —         | Implemented; awaiting commit | First-half run `run-20260808154334-3cc82342` and combined run `run-20260808155113-a2f60614` passed; 600 backend tests and zero residual users           |
 | 5      | —         | Not started                  | —                                                                                                                                                       |
 | 6      | —         | Not started                  | —                                                                                                                                                       |
 
@@ -615,20 +626,20 @@ database names, cleanup evidence, limitations, and deferrals.
 
 | Check                                                                | Result  | Evidence                                                                                |
 | -------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------- |
-| Real pinned browser runs against live React, FastAPI, and PostgreSQL | Pending | —                                                                                       |
+| Real pinned browser runs against live React, FastAPI, and PostgreSQL | Pass    | Combined Chromium run `run-20260808155113-a2f60614`                                     |
 | Local and CI targets refuse development/staging/production data      | Pass    | URL, database suffix, ordinary-database, production-domain, and explicit CI-host guards |
-| Setup creates only deterministic run-owned data at Alembic head      | Pending | —                                                                                       |
+| Setup creates only deterministic run-owned data at Alembic head      | Pass    | Live manifest setup, migration verification, and post-run ownership assertion           |
 | Cleanup removes only run-owned data and is safe when repeated        | Pass    | Exact-manifest tests and zero users after live rehearsal                                |
 | Stack startup uses readiness rather than fixed sleeps                | Pass    | Live readiness plus timeout and early-exit tooling tests                                |
 | Stack shutdown leaves no child process or occupied test port         | Pass    | Exact process-group and real-child reap tests; live stack run passed                    |
-| Signup succeeds and browser reload restores its session              | Pending | —                                                                                       |
-| Existing seeded account can log in through the real form             | Pending | —                                                                                       |
-| Entry creation persists and appears in the waiting dashboard list    | Pending | —                                                                                       |
+| Signup succeeds and browser reload restores its session              | Pass    | Signup reached dashboard; reload restored the protected session                         |
+| Existing seeded account can log in through the real form             | Pass    | Seeded journey account displayed its unique eligible entry                              |
+| Entry creation persists and appears in the waiting dashboard list    | Pass    | Entry survived reload and passed the PostgreSQL ownership assertion                     |
 | Seeded eligible entry checks in without waiting or changing rules    | Pending | —                                                                                       |
 | Statistics show saved totals and whole/fractional equivalents        | Pending | —                                                                                       |
-| Logout revokes access to protected browser routes                    | Pending | —                                                                                       |
+| Logout revokes access to protected browser routes                    | Pass    | Logout made direct protected navigation return to login                                 |
 | Failure artifacts are useful, bounded, retained, and non-sensitive   | Pass    | Bounded failure-log and secret/header/cookie/database redaction tests                   |
-| Repeated runs pass independently without retry-dependent success     | Pending | —                                                                                       |
+| Repeated runs pass independently without retry-dependent success     | Pass    | Focused and combined runs passed with fresh IDs and no retries                          |
 | Full quality, build, migration, smoke, and security gates pass       | Pending | —                                                                                       |
 
 ### Failure Artifact Record
