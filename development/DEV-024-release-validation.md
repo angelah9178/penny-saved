@@ -23,7 +23,7 @@ passes.
 |                  | Commit                                                | Short title                 | Depends on                  |
 | ---------------- | ----------------------------------------------------- | --------------------------- | --------------------------- |
 | &#91;x&#93;      | [1](#commit-1--inventory-decisions-and-blockers)      | Inventory release decisions | DEV-006, DEV-021, DEV-022   |
-| &#91;&#160;&#93; | [2](#commit-2--prove-a-clean-build-and-startup)       | Prove clean startup         | Commit 1 and DEV-023        |
+| &#91;x&#93;      | [2](#commit-2--prove-a-clean-build-and-startup)       | Prove clean startup         | Commit 1 and DEV-023        |
 | &#91;&#160;&#93; | [3](#commit-3--rehearse-data-safety-and-rollback)     | Rehearse recovery           | Commit 2 and DEV-022        |
 | &#91;&#160;&#93; | [4](#commit-4--complete-manual-product-acceptance)    | Complete manual acceptance  | Commit 2 and DEV-020        |
 | &#91;&#160;&#93; | [5](#commit-5--finalize-the-release-runbook)          | Finalize release procedure  | Commits 1–4 and DEV-022     |
@@ -182,7 +182,7 @@ git diff --check
 
 ## Commit 2 — Prove a Clean Build and Startup
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete in `0c8f44e`.
 
 ### In Plain English
 
@@ -198,6 +198,25 @@ browser journey and shuts everything down cleanly.
 
 This is a reproducibility test, not a deployment. It uses only local/disposable
 resources and safe example configuration.
+
+### What Commit 2 Tested
+
+Commit 2 is primarily testing and verification. It does not add a user-facing feature
+or deploy the application. It proves that a clean environment can:
+
+- install the pinned Python dependencies and locked npm packages;
+- start PostgreSQL 16 and apply the complete migration history;
+- create the deterministic local demo data safely;
+- pass formatting, linting, TypeScript, frontend tests, and backend tests;
+- build the production frontend and construct the configured backend;
+- start the assembled frontend and backend on loopback;
+- complete the real Chromium signup-to-logout journey; and
+- stop its processes and remove all isolated browser-test data afterward.
+
+In plain English, it asks: “If this exact repository revision were given to a clean
+machine, could it build and run correctly without relying on leftover developer files?”
+The recorded rehearsal answered yes for the tested local/disposable environment. It
+does not prove that an unconfigured production server is ready for deployment.
 
 Suggested commit message:
 
@@ -236,12 +255,23 @@ git diff --check
 
 ## Commit 3 — Rehearse Data Safety and Rollback
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
 Commit 3 proves that data can be protected before a release and explains what rollback
 actually means.
+
+Commit 3 is also primarily testing, but it focuses specifically on protecting and
+recovering database data. Commit 2 asked whether a clean machine could build and run
+the application. Commit 3 asks: “If a release changes the database or something goes
+wrong, can the data be protected and recovered safely?”
+
+It tests upgrading an empty PostgreSQL database to the latest migration, downgrading
+the disposable database through the migration history, re-upgrading it, checking that
+the application models and migrations agree, creating a PostgreSQL backup, restoring
+that backup into a separate disposable database, verifying the restored schema and row
+counts, and removing the temporary backup and restored database.
 
 First, an empty disposable database is upgraded to the current migration head,
 downgraded through the supported migration history, re-upgraded, and checked for model
@@ -252,6 +282,16 @@ Finally, the guide records the application rollback boundary: stop the new artif
 start the previously approved immutable artifact only if it is compatible with the
 current schema, and keep the database forward unless a separately approved recovery
 decision requires restoring or reversing data.
+
+The distinction is important:
+
+- **Application rollback:** restart the previously approved application artifact, but
+  only when it is compatible with the database schema already in place.
+- **Database rollback:** reverse migrations or restore data. This is more destructive,
+  can discard writes, and requires a separate operator decision and verified backup.
+
+Commit 3 rehearses these operations only on disposable local PostgreSQL databases. It
+does not downgrade, restore, delete, or otherwise change production data.
 
 Suggested commit message:
 
@@ -477,28 +517,28 @@ results, decisions, deferrals, and blockers.
 | Commit | Hash      | Result                       | Verification                                                                                                                                           |
 | ------ | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1      | `df87f5f` | Complete                     | Validated 15-item decision register; operations checks, 609 backend tests, and dependency security scans passed; `e595c5d` made Markdown authoritative |
-| 2      | —         | Implemented; awaiting commit | Clean install, PostgreSQL 16 migration/seed, all checks/builds, Chromium run `run-20260812190432-5c87f8bd`, cleanup, and security passed               |
-| 3      | —         | Not started                  | —                                                                                                                                                      |
+| 2      | `0c8f44e` | Complete                     | Clean install, PostgreSQL 16 migration/seed, all checks/builds, Chromium run `run-20260812190432-5c87f8bd`, cleanup, and security passed               |
+| 3      | —         | Implemented; awaiting commit | Migration cycle, seven focused safety tests, 609 backend tests, PostgreSQL 16 restore at `0002_rate_limit_counters`, and exact cleanup passed          |
 | 4      | —         | Not started                  | —                                                                                                                                                      |
 | 5      | —         | Not started                  | —                                                                                                                                                      |
 | 6      | —         | Not started                  | —                                                                                                                                                      |
 
 ### Release-Candidate Evidence
 
-| Evidence                                      | Result  | Record |
-| --------------------------------------------- | ------- | ------ |
-| Immutable revision and artifact identity      | Pending | —      |
-| CI and complete clean-room quality gate       | Pending | —      |
-| Migration upgrade/downgrade/re-upgrade/drift  | Pending | —      |
-| Backup and isolated restore rehearsal         | Pending | —      |
-| Production build and loopback startup         | Pending | —      |
-| Repeated live Chromium smoke journey          | Pending | —      |
-| Dependency scans and advisory review          | Pending | —      |
-| Manual product and accessibility acceptance   | Pending | —      |
-| Production decision register                  | Pending | —      |
-| Release, verification, and rollback checklist | Pending | —      |
-| Approved deferrals                            | Pending | —      |
-| Final release-candidate decision              | Pending | —      |
+| Evidence                                      | Result  | Record                                                                                                              |
+| --------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| Immutable revision and artifact identity      | Pending | —                                                                                                                   |
+| CI and complete clean-room quality gate       | Pending | —                                                                                                                   |
+| Migration upgrade/downgrade/re-upgrade/drift  | Pass    | Disposable PostgreSQL completed base → head → base → head; Alembic reported no model drift                          |
+| Backup and isolated restore rehearsal         | Pass    | PostgreSQL 16 custom archive restored at `0002_rate_limit_counters`; revision/counts matched and target was removed |
+| Production build and loopback startup         | Pending | —                                                                                                                   |
+| Repeated live Chromium smoke journey          | Pending | —                                                                                                                   |
+| Dependency scans and advisory review          | Pending | —                                                                                                                   |
+| Manual product and accessibility acceptance   | Pending | —                                                                                                                   |
+| Production decision register                  | Pending | —                                                                                                                   |
+| Release, verification, and rollback checklist | Pending | —                                                                                                                   |
+| Approved deferrals                            | Pending | —                                                                                                                   |
+| Final release-candidate decision              | Pending | —                                                                                                                   |
 
 ### Commit 2 Clean-Room Evidence
 
@@ -526,6 +566,38 @@ On 2026-08-12, revision `e595c5d` was rehearsed using local and disposable resou
 Versions: Node.js 22.23.1, npm 10.9.8, Python 3.14.4, Ruff 0.15.22, pytest
 9.0.2, Playwright 1.62.1, and PostgreSQL 16.14. This was a reproducibility rehearsal;
 it did not access or change a production host, DNS, TLS, secrets, or production data.
+
+### Commit 3 Data-Recovery Evidence
+
+On 2026-08-12, the guarded data-safety rehearsal completed against the dedicated local
+`penny_saved_test` database and a separately named disposable restore database:
+
+- The migration integration test upgraded an empty PostgreSQL database to head,
+  downgraded it to base, re-upgraded it to `0002_rate_limit_counters`, and confirmed
+  the SQLAlchemy models require no additional Alembic operation.
+- Revision `0001_initial_schema` creates all core account, session, entry, and
+  opportunity-cost tables. Its downgrade drops those tables and their contents, so it
+  is destructive and is not an ordinary production rollback step.
+- Revision `0002_rate_limit_counters` creates only the shared rate-limit table and its
+  expiry index. Its downgrade drops that table and its counters. Both revisions take
+  PostgreSQL DDL locks; actual production duration and lock impact must be reviewed
+  against the real database size before release authorization.
+- The matching PostgreSQL 16 tools created a custom-format archive and restored it into
+  `penny_saved_dev022_restore_verify`. Source and target both reported migration
+  revision `0002_rate_limit_counters` and matching representative counts:
+  `users=0`, `impulse_purchase_entries=0`, and `sessions=0`.
+- The transient archive SHA-256 was
+  `36119345707822346658486a26082ca6580b759c30a5c7ee64ac2b763cfba963`.
+  The disposable database and temporary archive directory were removed afterward;
+  an explicit database query returned zero matching restore databases.
+- Seven focused migration/restore safety tests, all 609 backend tests, and the
+  production operations validator passed.
+
+The rehearsal proves the repository procedure on disposable local resources. The
+release control sheet still blocks production until backup destination, encryption,
+off-host copy, retention, restore owner, recovery-point objective, and recovery-time
+expectation are approved. Application rollback keeps the database forward unless a
+separately authorized recovery decision says otherwise.
 
 ### Required Production Decisions
 
