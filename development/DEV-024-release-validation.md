@@ -503,7 +503,7 @@ results, decisions, deferrals, and blockers.
 ### Required Production Decisions
 
 The machine-validated source of truth is
-[`development/release-decisions.json`](release-decisions.json). This readable summary
+[`development/release-decisions.md`](release-decisions.md). This readable summary
 must be reconciled with that register whenever a decision changes.
 
 | Decision                         | Owner                 | Approved value / blocker                                      | Status   |

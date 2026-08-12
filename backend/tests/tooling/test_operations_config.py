@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 from datetime import date
 from pathlib import Path
 
@@ -13,7 +12,7 @@ from app.core.config import AppEnvironment, LogFormat, Settings
 ROOT = Path(__file__).resolve().parents[3]
 ENV_EXAMPLE = ROOT / "operations" / "production.env.example"
 VALIDATOR_PATH = ROOT / "scripts" / "check_operations.py"
-RELEASE_DECISIONS = ROOT / "development" / "release-decisions.json"
+RELEASE_DECISIONS = ROOT / "development" / "release-decisions.md"
 
 
 def _load_validator() -> object:
@@ -50,10 +49,10 @@ def test_operations_examples_pass_repository_static_validation() -> None:
 
 def test_release_decisions_are_complete_current_and_secret_free() -> None:
     validator = _load_validator()
-    document = json.loads(RELEASE_DECISIONS.read_text())
+    decisions = validator.parse_release_decisions(RELEASE_DECISIONS.read_text())
 
-    assert validator.validate_release_decisions(document, today=date(2026, 8, 12)) == []
-    assert {item["status"] for item in document["decisions"]} == {
+    assert validator.validate_release_decisions(decisions, today=date(2026, 8, 12)) == []
+    assert {item["status"] for item in decisions} == {
         "ready",
         "deferred",
         "blocked",
@@ -73,10 +72,10 @@ def test_release_decision_validator_rejects_unsafe_or_incomplete_answers(
     field: str, value: str, message: str
 ) -> None:
     validator = _load_validator()
-    document = json.loads(RELEASE_DECISIONS.read_text())
-    document["decisions"][0][field] = value
+    decisions = validator.parse_release_decisions(RELEASE_DECISIONS.read_text())
+    decisions[0][field] = value
 
     assert any(
         message in error
-        for error in validator.validate_release_decisions(document, today=date(2026, 8, 12))
+        for error in validator.validate_release_decisions(decisions, today=date(2026, 8, 12))
     )
