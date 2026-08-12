@@ -21,14 +21,14 @@
 Change `[ ]` to `[x]` only after that commit is implemented, committed, and its gate
 passes.
 
-|                  | Commit                                                    | Short title                   | Depends on              |
-| ---------------- | --------------------------------------------------------- | ----------------------------- | ----------------------- |
-| &#91;x&#93;      | [1](#commit-1--define-the-browser-smoke-contract)         | Define smoke-test rules       | DEV-020 and DEV-021     |
-| &#91;x&#93;      | [2](#commit-2--add-isolated-end-to-end-test-data)         | Add isolated browser data     | Commit 1 and DEV-007    |
-| &#91;x&#93;      | [3](#commit-3--start-and-stop-the-complete-test-stack)    | Orchestrate the live stack    | Commits 1–2 and DEV-022 |
-| &#91;x&#93;      | [4](#commit-4--cover-authentication-and-entry-creation)   | Test auth and entry creation  | Commit 3                |
-| &#91;x&#93;      | [5](#commit-5--cover-check-in-statistics-and-logout)      | Test the completed journey    | Commit 4                |
-| &#91;&#160;&#93; | [6](#commit-6--add-ci-and-verify-reliable-smoke-coverage) | Add CI and verify reliability | Commits 1–5             |
+|             | Commit                                                    | Short title                   | Depends on              |
+| ----------- | --------------------------------------------------------- | ----------------------------- | ----------------------- |
+| &#91;x&#93; | [1](#commit-1--define-the-browser-smoke-contract)         | Define smoke-test rules       | DEV-020 and DEV-021     |
+| &#91;x&#93; | [2](#commit-2--add-isolated-end-to-end-test-data)         | Add isolated browser data     | Commit 1 and DEV-007    |
+| &#91;x&#93; | [3](#commit-3--start-and-stop-the-complete-test-stack)    | Orchestrate the live stack    | Commits 1–2 and DEV-022 |
+| &#91;x&#93; | [4](#commit-4--cover-authentication-and-entry-creation)   | Test auth and entry creation  | Commit 3                |
+| &#91;x&#93; | [5](#commit-5--cover-check-in-statistics-and-logout)      | Test the completed journey    | Commit 4                |
+| &#91;x&#93; | [6](#commit-6--add-ci-and-verify-reliable-smoke-coverage) | Add CI and verify reliability | Commits 1–5             |
 
 ## Objective
 
@@ -526,7 +526,7 @@ git diff --check
 
 ## Commit 6 — Add CI and Verify Reliable Smoke Coverage
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete in `301ea55`; cleanup-port correction in `85f457b`.
 
 ### In Plain English
 
@@ -631,14 +631,14 @@ database names, cleanup evidence, limitations, and deferrals.
 
 ### Commit Evidence
 
-| Commit | Hash      | Result                       | Verification                                                                                                                                            |
-| ------ | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1      | `d9834be` | Complete                     | Playwright 1.62.1 contract passed in pinned Chromium; formatting, lint, typecheck, static contract, test listing, security, and whitespace gates passed |
-| 2      | `b029216` | Complete                     | Ruff formatting/lint, 589 backend tests, Alembic drift check, and whitespace gate passed                                                                |
-| 3      | `7a7c842` | Complete                     | `make e2e` run `run-20260808152536-98c2bd11` passed; prior rehearsal left zero run-owned users; 429 frontend and 599 backend tests passed               |
-| 4      | `5eace49` | Complete                     | First-half run `run-20260808154334-3cc82342` and combined run `run-20260808155113-a2f60614` passed; 600 backend tests and zero residual users           |
-| 5      | `2b3b672` | Complete                     | Complete run `run-20260808161234-a810a6b2` passed all four Chromium tests and cleanup; frontend lint/typecheck and 601 backend tests passed             |
-| 6      | —         | Implemented; awaiting commit | Independent runs `run-20260808163520-1e8424af` and `run-20260808163700-05952a05` passed without retries; residue, quality, and security gates passed    |
+| Commit | Hash      | Result   | Verification                                                                                                                                            |
+| ------ | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1      | `d9834be` | Complete | Playwright 1.62.1 contract passed in pinned Chromium; formatting, lint, typecheck, static contract, test listing, security, and whitespace gates passed |
+| 2      | `b029216` | Complete | Ruff formatting/lint, 589 backend tests, Alembic drift check, and whitespace gate passed                                                                |
+| 3      | `7a7c842` | Complete | `make e2e` run `run-20260808152536-98c2bd11` passed; prior rehearsal left zero run-owned users; 429 frontend and 599 backend tests passed               |
+| 4      | `5eace49` | Complete | First-half run `run-20260808154334-3cc82342` and combined run `run-20260808155113-a2f60614` passed; 600 backend tests and zero residual users           |
+| 5      | `2b3b672` | Complete | Complete run `run-20260808161234-a810a6b2` passed all four Chromium tests and cleanup; frontend lint/typecheck and 601 backend tests passed             |
+| 6      | `301ea55` | Complete | Two independent runs passed without retries; residue, quality, and security gates passed; `85f457b` corrected TIME_WAIT port detection                  |
 
 ### Smoke Verification Checklist
 
@@ -671,6 +671,6 @@ database names, cleanup evidence, limitations, and deferrals.
 | Backend process log    | Do not retain    | Retain bounded structured tail        | Apply DEV-021 redaction      |
 | Setup/cleanup manifest | Remove           | Retain secret-free summary only       | Never include password/token |
 
-DEV-023 remains incomplete until every commit gate passes, repeated runs are
-independent, cleanup is proven, and any unresolved smoke reliability issue is either
-fixed or carried into DEV-024 as an explicit release blocker.
+DEV-023's six commits and cleanup correction are complete. The master development
+tracker remains unchanged until this branch is merged and accepted on the default
+branch, as required by the roadmap contract.
