@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -11,6 +13,7 @@ from app.core.config import AppEnvironment, LogFormat, Settings
 ROOT = Path(__file__).resolve().parents[3]
 ENV_EXAMPLE = ROOT / "operations" / "production.env.example"
 VALIDATOR_PATH = ROOT / "scripts" / "check_operations.py"
+RELEASE_DECISIONS = ROOT / "development" / "release-decisions.json"
 
 
 def _load_validator() -> object:
@@ -43,3 +46,37 @@ def test_operations_examples_pass_repository_static_validation() -> None:
     validator = _load_validator()
 
     assert validator.validate() == []
+
+
+def test_release_decisions_are_complete_current_and_secret_free() -> None:
+    validator = _load_validator()
+    document = json.loads(RELEASE_DECISIONS.read_text())
+
+    assert validator.validate_release_decisions(document, today=date(2026, 8, 12)) == []
+    assert {item["status"] for item in document["decisions"]} == {
+        "ready",
+        "deferred",
+        "blocked",
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("owner", "", "blank owner"),
+        ("status", "unknown", "invalid status"),
+        ("deadline", "2026-08-11", "expired deadline"),
+        ("decision", "password=production-value", "secret-like material"),
+    ],
+)
+def test_release_decision_validator_rejects_unsafe_or_incomplete_answers(
+    field: str, value: str, message: str
+) -> None:
+    validator = _load_validator()
+    document = json.loads(RELEASE_DECISIONS.read_text())
+    document["decisions"][0][field] = value
+
+    assert any(
+        message in error
+        for error in validator.validate_release_decisions(document, today=date(2026, 8, 12))
+    )

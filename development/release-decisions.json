@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "candidate": "DEV-024",
+  "last_reviewed": "2026-08-12",
+  "allowed_statuses": ["ready", "deferred", "blocked"],
+  "decisions": [
+    {
+      "id": "oracle-vps-os",
+      "question": "Which supported Oracle VPS operating system and patch policy will production use?",
+      "owner": "DEV-024 release owner",
+      "decision": "No production host image or patch policy has been approved.",
+      "evidence": "Record the installed supported OS version and named patch owner.",
+      "source": "DEV-022 infrastructure decisions",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "domain-dns",
+      "question": "Who owns the production domain and DNS changes?",
+      "owner": "Product owner",
+      "decision": "stopimpulsebuying.us is the configured canonical origin, but DNS ownership and records are unverified.",
+      "evidence": "Named owner plus verified production DNS records and rollback values.",
+      "source": "operations/production.env.example and DEV-022",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "reverse-proxy",
+      "question": "Which reverse proxy and version will terminate public traffic?",
+      "owner": "DEV-024 release owner",
+      "decision": "Nginx is the documented candidate; no installed production version is approved.",
+      "evidence": "Installed version, reviewed configuration, and successful nginx -t output.",
+      "source": "operations/nginx/penny-saved.conf.example and DEV-022",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "service-supervisor",
+      "question": "Which supervisor and unprivileged service account will run the backend?",
+      "owner": "DEV-024 release owner",
+      "decision": "systemd and penny-saved are documented candidates; the real account, paths, and unit are unverified.",
+      "evidence": "Installed unit validation plus graceful start, stop, restart, and permission tests.",
+      "source": "operations/systemd/penny-saved.service.example and DEV-022",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "tls-renewal",
+      "question": "Which TLS client renews the certificate and who responds to renewal failure?",
+      "owner": "DEV-024 release owner",
+      "decision": "No ACME client, renewal schedule, or renewal owner is approved.",
+      "evidence": "Certificate issuance evidence, renewal dry run, expiry alert, and named owner.",
+      "source": "DEV-022 infrastructure decisions",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "secret-delivery",
+      "question": "How are production secrets delivered and who may read them?",
+      "owner": "DEV-024 release owner",
+      "decision": "A placeholder-only environment file is documented; no real delivery mechanism or reader set is approved.",
+      "evidence": "Secret source, rotation owner, file permissions, service access, and recovery procedure without secret values.",
+      "source": "operations/production.env.example and DEV-022",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "postgresql-ownership",
+      "question": "Which PostgreSQL version, host, role, and operator own production data?",
+      "owner": "DEV-024 release owner",
+      "decision": "PostgreSQL 16 on a non-public local interface is the V1 target; production roles and operator are unverified.",
+      "evidence": "Version, local binding, least-privilege role review, disk ownership, and named database operator.",
+      "source": "DEV-005, DEV-022, and the PostgreSQL 16 CI/service configuration",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "backup-retention",
+      "question": "Where are encrypted backups stored, for how long, and who verifies restores?",
+      "owner": "DEV-024 release owner",
+      "decision": "The guarded PostgreSQL 16 restore procedure passes locally; destination, encryption, off-host copy, retention, RPO, and RTO are unapproved.",
+      "evidence": "Approved policy plus an isolated restore from the selected destination.",
+      "source": "operations/README.md and DEV-022 restore rehearsal",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "log-retention",
+      "question": "Where are production logs retained and who may read them?",
+      "owner": "DEV-024 release owner",
+      "decision": "Structured journal logging is the candidate; retention limits, storage budget, and readers are unapproved.",
+      "evidence": "Rotation/retention configuration, disk threshold, access review, and redaction check.",
+      "source": "operations/README.md and DEV-022",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "metrics-access",
+      "question": "Which private collector reads metrics and who responds to alerts?",
+      "owner": "DEV-024 release owner",
+      "decision": "The bounded metrics endpoint is loopback-only; no collector, retention, alerts, or responders are approved.",
+      "evidence": "Private scrape test, collector identity, retention, thresholds, and named responder.",
+      "source": "operations/nginx/penny-saved.conf.example and DEV-022",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "incident-escalation",
+      "question": "Who owns incidents and what conditions trigger escalation or rollback?",
+      "owner": "Product owner",
+      "decision": "No production incident contact, response window, or escalation threshold is approved.",
+      "evidence": "Validated contact path, response threshold, rollback authority, and backup contact.",
+      "source": "DEV-022 infrastructure decisions",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "usd-scope",
+      "question": "Which currency does V1 accept and display?",
+      "owner": "Product owner",
+      "decision": "V1 accepts and displays USD only; multi-currency behavior is out of scope.",
+      "evidence": "Integer-cent API/model constraints, USD frontend formatting tests, and V1 roadmap scope.",
+      "source": "DEV-001 product contract and DEV-010/DEV-018 implementation evidence",
+      "deadline": "approved-for-v1",
+      "status": "ready"
+    },
+    {
+      "id": "session-policy",
+      "question": "How long do sessions last and how are expired sessions retained or removed?",
+      "owner": "DEV-024 release owner",
+      "decision": "Sessions have a 30-day absolute lifetime, secure SameSite=Lax production cookies, and delete on resolution after expiry; a scheduled stale-session cleanup owner and retention policy are unapproved.",
+      "evidence": "SESSION_TTL_SECONDS=2592000, cookie/config tests, expiry tests, and an approved cleanup schedule/owner.",
+      "source": "operations/production.env.example, DEV-008, and DEV-021",
+      "deadline": "before-release-authorization",
+      "status": "blocked"
+    },
+    {
+      "id": "email-feature-scope",
+      "question": "Which email-dependent account features are included in V1?",
+      "owner": "Product owner",
+      "decision": "V1 has no password reset, email verification, MFA, outbound account email, or email-dependent recovery promise.",
+      "evidence": "V1 roadmap and DEV-021 out-of-scope contract.",
+      "source": "DEV-021 security scope and DEV-024 release rules",
+      "deadline": "approved-for-v1",
+      "status": "ready"
+    },
+    {
+      "id": "react-router-advisory",
+      "question": "How is GHSA-qwww-vcr4-c8h2 handled for the release candidate?",
+      "owner": "DEV-024 release owner",
+      "decision": "Temporarily accepted only because this client-rendered SPA does not import or enable the affected unstable RSC APIs; React Router 7.18.1 has no patched 7.x release.",
+      "evidence": "Current dependency scan, absence of RSC imports/configuration, official advisory review, and upgrade or renewed risk decision.",
+      "source": "development/security-advisory-triage.json and GitHub Advisory Database",
+      "deadline": "2026-09-07",
+      "status": "deferred"
+    }
+  ]
+}

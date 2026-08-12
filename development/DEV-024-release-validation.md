@@ -98,12 +98,21 @@ outcome when it is recorded honestly; silently assuming an answer is not.
 
 ## Commit 1 — Inventory Decisions and Blockers
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
 Commit 1 creates the release control sheet. It gathers every unfinished choice from
 the roadmap, security review, manual audit, and operations runbook into one place.
+
+A release control sheet is one organized checklist containing every decision that
+must be made before releasing the application. For Penny Saved, it records who manages
+the server, domain and DNS settings, TLS renewal, secret storage, PostgreSQL ownership,
+backup location and retention, log and metric access, incident response, session
+lifetime, USD-only scope, and excluded email features. Each item contains a responsible
+owner, the approved answer or current blocker, the evidence needed to verify it, a
+deadline, and a status such as ready, deferred, or blocked. It prevents “the code
+passes” from being mistaken for “production responsibilities are settled.”
 
 This commit does not fix or approve those choices. It prevents a release from moving
 forward while important details are scattered across documents or left implicit. Each
@@ -116,6 +125,28 @@ client and renewal owner, secret delivery, PostgreSQL ownership, backup destinat
 and retention, log retention/access, metrics collection/access, incident contact,
 USD-only product scope, session lifetime and cleanup retention, and email-dependent
 features that remain outside V1.
+
+### Where the Answers Come From
+
+The implementation does not guess these answers. Each answer must come from one of
+three places:
+
+1. **Existing approved evidence:** Repository requirements and completed DEV guides
+   already establish some answers. For example, V1 is USD-only, PostgreSQL 16 is the
+   current target, the application uses same-origin secure cookies, and production
+   migrations normally move forward.
+2. **The responsible owner:** Infrastructure and business decisions must be supplied
+   and approved by the person who owns them. For example, the server owner chooses the
+   supported Oracle VPS operating system, the domain owner confirms DNS, and the
+   operations owner approves backup retention and incident escalation.
+3. **An explicit blocker:** If no approved answer or evidence exists, the sheet says
+   `Blocked`. It records who must answer, what evidence is required, and the deadline.
+   A proposed example configuration is not silently promoted to a production decision.
+
+The source is recorded beside every answer. Code and documentation can validate facts
+such as configuration shape, dependency versions, migration behavior, and test
+results. They cannot decide ownership, acceptable business risk, recovery targets,
+retention policy, or real infrastructure details on behalf of the responsible person.
 
 Suggested commit message:
 
@@ -443,14 +474,14 @@ results, decisions, deferrals, and blockers.
 
 ### Commit Evidence
 
-| Commit | Hash | Result      | Verification |
-| ------ | ---- | ----------- | ------------ |
-| 1      | —    | Not started | —            |
-| 2      | —    | Not started | —            |
-| 3      | —    | Not started | —            |
-| 4      | —    | Not started | —            |
-| 5      | —    | Not started | —            |
-| 6      | —    | Not started | —            |
+| Commit | Hash | Result                       | Verification                                                                                                    |
+| ------ | ---- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1      | —    | Implemented; awaiting commit | Validated 15-item decision register; operations checks, 609 backend tests, and dependency security scans passed |
+| 2      | —    | Not started                  | —                                                                                                               |
+| 3      | —    | Not started                  | —                                                                                                               |
+| 4      | —    | Not started                  | —                                                                                                               |
+| 5      | —    | Not started                  | —                                                                                                               |
+| 6      | —    | Not started                  | —                                                                                                               |
 
 ### Release-Candidate Evidence
 
@@ -471,22 +502,27 @@ results, decisions, deferrals, and blockers.
 
 ### Required Production Decisions
 
-| Decision                         | Owner | Approved value / blocker | Evidence | Status  |
-| -------------------------------- | ----- | ------------------------ | -------- | ------- |
-| Oracle VPS OS and patch policy   | —     | —                        | —        | Pending |
-| Domain and DNS ownership         | —     | —                        | —        | Pending |
-| Reverse proxy and version        | —     | —                        | —        | Pending |
-| Service supervisor and user      | —     | —                        | —        | Pending |
-| TLS client and renewal owner     | —     | —                        | —        | Pending |
-| Secret delivery and permissions  | —     | —                        | —        | Pending |
-| PostgreSQL version and ownership | —     | —                        | —        | Pending |
-| Backup destination and retention | —     | —                        | —        | Pending |
-| Log retention and access         | —     | —                        | —        | Pending |
-| Metrics collection and access    | —     | —                        | —        | Pending |
-| Incident contact and escalation  | —     | —                        | —        | Pending |
-| USD-only V1 scope                | —     | —                        | —        | Pending |
-| Session lifetime and retention   | —     | —                        | —        | Pending |
-| Email-dependent feature scope    | —     | —                        | —        | Pending |
+The machine-validated source of truth is
+[`development/release-decisions.json`](release-decisions.json). This readable summary
+must be reconciled with that register whenever a decision changes.
+
+| Decision                         | Owner                 | Approved value / blocker                                      | Status   |
+| -------------------------------- | --------------------- | ------------------------------------------------------------- | -------- |
+| Oracle VPS OS and patch policy   | DEV-024 release owner | No host image or patch policy approved                        | Blocked  |
+| Domain and DNS ownership         | Product owner         | Canonical origin known; ownership and records unverified      | Blocked  |
+| Reverse proxy and version        | DEV-024 release owner | Nginx candidate; installed version unverified                 | Blocked  |
+| Service supervisor and user      | DEV-024 release owner | systemd/service-user candidates; host behavior unverified     | Blocked  |
+| TLS client and renewal owner     | DEV-024 release owner | Client, schedule, alert, and owner unapproved                 | Blocked  |
+| Secret delivery and permissions  | DEV-024 release owner | Placeholder contract exists; delivery/readers unapproved      | Blocked  |
+| PostgreSQL version and ownership | DEV-024 release owner | PostgreSQL 16/local target; production ownership unverified   | Blocked  |
+| Backup destination and retention | DEV-024 release owner | Local restore passes; production policy unapproved            | Blocked  |
+| Log retention and access         | DEV-024 release owner | Structured journal candidate; limits/readers unapproved       | Blocked  |
+| Metrics collection and access    | DEV-024 release owner | Private endpoint exists; collector/responders unapproved      | Blocked  |
+| Incident contact and escalation  | Product owner         | No contact, response window, or threshold approved            | Blocked  |
+| USD-only V1 scope                | Product owner         | USD-only V1; multi-currency is excluded                       | Ready    |
+| Session lifetime and retention   | DEV-024 release owner | 30-day absolute sessions; cleanup ownership unapproved        | Blocked  |
+| Email-dependent feature scope    | Product owner         | Reset, verification, MFA, and outbound account email excluded | Ready    |
+| React Router advisory            | DEV-024 release owner | Non-RSC applicability exception through 2026-09-07            | Deferred |
 
 DEV-024 is complete only when the evidence supports a dated **release candidate
 ready** decision or an honest **release blocked** decision with every blocker assigned.
