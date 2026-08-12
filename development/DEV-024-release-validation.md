@@ -22,7 +22,7 @@ passes.
 
 |                  | Commit                                                | Short title                 | Depends on                  |
 | ---------------- | ----------------------------------------------------- | --------------------------- | --------------------------- |
-| &#91;&#160;&#93; | [1](#commit-1--inventory-decisions-and-blockers)      | Inventory release decisions | DEV-006, DEV-021, DEV-022   |
+| &#91;x&#93;      | [1](#commit-1--inventory-decisions-and-blockers)      | Inventory release decisions | DEV-006, DEV-021, DEV-022   |
 | &#91;&#160;&#93; | [2](#commit-2--prove-a-clean-build-and-startup)       | Prove clean startup         | Commit 1 and DEV-023        |
 | &#91;&#160;&#93; | [3](#commit-3--rehearse-data-safety-and-rollback)     | Rehearse recovery           | Commit 2 and DEV-022        |
 | &#91;&#160;&#93; | [4](#commit-4--complete-manual-product-acceptance)    | Complete manual acceptance  | Commit 2 and DEV-020        |
@@ -98,7 +98,7 @@ outcome when it is recorded honestly; silently assuming an answer is not.
 
 ## Commit 1 — Inventory Decisions and Blockers
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete in `df87f5f`; Markdown source conversion in `e595c5d`.
 
 ### In Plain English
 
@@ -182,7 +182,7 @@ git diff --check
 
 ## Commit 2 — Prove a Clean Build and Startup
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -474,14 +474,14 @@ results, decisions, deferrals, and blockers.
 
 ### Commit Evidence
 
-| Commit | Hash | Result                       | Verification                                                                                                    |
-| ------ | ---- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 1      | —    | Implemented; awaiting commit | Validated 15-item decision register; operations checks, 609 backend tests, and dependency security scans passed |
-| 2      | —    | Not started                  | —                                                                                                               |
-| 3      | —    | Not started                  | —                                                                                                               |
-| 4      | —    | Not started                  | —                                                                                                               |
-| 5      | —    | Not started                  | —                                                                                                               |
-| 6      | —    | Not started                  | —                                                                                                               |
+| Commit | Hash      | Result                       | Verification                                                                                                                                           |
+| ------ | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1      | `df87f5f` | Complete                     | Validated 15-item decision register; operations checks, 609 backend tests, and dependency security scans passed; `e595c5d` made Markdown authoritative |
+| 2      | —         | Implemented; awaiting commit | Clean install, PostgreSQL 16 migration/seed, all checks/builds, Chromium run `run-20260812190432-5c87f8bd`, cleanup, and security passed               |
+| 3      | —         | Not started                  | —                                                                                                                                                      |
+| 4      | —         | Not started                  | —                                                                                                                                                      |
+| 5      | —         | Not started                  | —                                                                                                                                                      |
+| 6      | —         | Not started                  | —                                                                                                                                                      |
 
 ### Release-Candidate Evidence
 
@@ -499,6 +499,33 @@ results, decisions, deferrals, and blockers.
 | Release, verification, and rollback checklist | Pending | —      |
 | Approved deferrals                            | Pending | —      |
 | Final release-candidate decision              | Pending | —      |
+
+### Commit 2 Clean-Room Evidence
+
+On 2026-08-12, revision `e595c5d` was rehearsed using local and disposable resources:
+
+- `make clean` removed only enumerated generated artifacts, and `make install`
+  restored the pinned backend requirements and locked frontend dependency graph.
+- PostgreSQL 16.14 reported healthy. The local database migrated to
+  `0002_rate_limit_counters`, matching the repository's sole Alembic head.
+- `make check` passed formatting, ESLint/Ruff, TypeScript, all frontend and backend
+  tests, the frontend production build, backend construction, and operations
+  validation. The backend suite contained 609 tests.
+- The documented `make seed-demo` workflow passed its local database guard, migration
+  check, single transaction, deterministic reconciliation, and unrelated-row
+  preservation contract.
+- The built React frontend and FastAPI backend started on loopback, passed readiness,
+  and completed all four Playwright Chromium smoke tests in run
+  `run-20260812190432-5c87f8bd` without retries.
+- Post-run verification found zero E2E users, sessions, entries, examples, temporary
+  manifests, or application listeners on the two test ports.
+- `make security-check` found no known backend runtime vulnerability and no untriaged
+  high/critical frontend advisory. The existing React Router non-RSC exception remains
+  time-bounded in the release control sheet.
+
+Versions: Node.js 22.23.1, npm 10.9.8, Python 3.14.4, Ruff 0.15.22, pytest
+9.0.2, Playwright 1.62.1, and PostgreSQL 16.14. This was a reproducibility rehearsal;
+it did not access or change a production host, DNS, TLS, secrets, or production data.
 
 ### Required Production Decisions
 
