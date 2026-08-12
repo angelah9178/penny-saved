@@ -26,7 +26,7 @@ passes.
 | &#91;x&#93;      | [2](#commit-2--prove-a-clean-build-and-startup)       | Prove clean startup         | Commit 1 and DEV-023        |
 | &#91;x&#93;      | [3](#commit-3--rehearse-data-safety-and-rollback)     | Rehearse recovery           | Commit 2 and DEV-022        |
 | &#91;x&#93;      | [4](#commit-4--complete-manual-product-acceptance)    | Complete manual acceptance  | Commit 2 and DEV-020        |
-| &#91;&#160;&#93; | [5](#commit-5--finalize-the-release-runbook)          | Finalize release procedure  | Commits 1–4 and DEV-022     |
+| &#91;x&#93;      | [5](#commit-5--finalize-the-release-runbook)          | Finalize release procedure  | Commits 1–4 and DEV-022     |
 | &#91;&#160;&#93; | [6](#commit-6--record-the-release-candidate-decision) | Record go/no-go evidence    | Commits 1–5 and DEV-001–023 |
 
 ## Objective
@@ -419,7 +419,7 @@ not replace human evidence.
 
 ## Commit 5 — Finalize the Release Runbook
 
-**Status:** Implemented and verified; awaiting commit.
+**Status:** Complete in `89cfbe2`.
 
 ### In Plain English
 
@@ -471,12 +471,15 @@ git diff --check
 
 ## Commit 6 — Record the Release-Candidate Decision
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
 Commit 6 performs the final audit and records a go/no-go result for one immutable
 revision. It does not declare success merely because most tests passed.
+
+In other words, Commit 6 puts everything from Commits 1–5 together in one final
+decision record. It adds no new product feature and does not deploy the application.
 
 Every DEV-001 through DEV-023 acceptance item must be complete, linked to evidence, or
 covered by an explicitly approved deferral. CI, the clean-room gate, migrations,
@@ -552,31 +555,31 @@ results, decisions, deferrals, and blockers.
 
 ### Commit Evidence
 
-| Commit | Hash      | Result                       | Verification                                                                                                                                                                                                                 |
-| ------ | --------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1      | `df87f5f` | Complete                     | Validated 15-item decision register; operations checks, 609 backend tests, and dependency security scans passed; `e595c5d` made Markdown authoritative                                                                       |
-| 2      | `0c8f44e` | Complete                     | Clean install, PostgreSQL 16 migration/seed, all checks/builds, Chromium run `run-20260812190432-5c87f8bd`, cleanup, and security passed                                                                                     |
-| 3      | `cdf8d67` | Complete                     | Migration cycle, seven focused safety tests, 609 backend tests, PostgreSQL 16 restore at `0002_rate_limit_counters`, and exact cleanup passed                                                                                |
-| 4      | `43a4662` | Complete                     | Automated accessibility/focus/state coverage and five-test Chromium run `run-20260812192653-a3b53b17` passed; user signed every manual check as Pass                                                                         |
-| 5      | —         | Implemented; awaiting commit | Ordered release/rollback checklist and static safety tests passed; restore SHA-256 `2349d0d732a81ad0bd887a9237607250a348f91943b9a29f9cdf6fc167b45092`, Chromium run `run-20260812194516-886e3e8e`, and security scans passed |
-| 6      | —         | Not started                  | —                                                                                                                                                                                                                            |
+| Commit | Hash      | Result                       | Verification                                                                                                                                                                                                                       |
+| ------ | --------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1      | `df87f5f` | Complete                     | Validated 15-item decision register; operations checks, 609 backend tests, and dependency security scans passed; `e595c5d` made Markdown authoritative                                                                             |
+| 2      | `0c8f44e` | Complete                     | Clean install, PostgreSQL 16 migration/seed, all checks/builds, Chromium run `run-20260812190432-5c87f8bd`, cleanup, and security passed                                                                                           |
+| 3      | `cdf8d67` | Complete                     | Migration cycle, seven focused safety tests, 609 backend tests, PostgreSQL 16 restore at `0002_rate_limit_counters`, and exact cleanup passed                                                                                      |
+| 4      | `43a4662` | Complete                     | Automated accessibility/focus/state coverage and five-test Chromium run `run-20260812192653-a3b53b17` passed; user signed every manual check as Pass                                                                               |
+| 5      | `89cfbe2` | Complete                     | Ordered release/rollback checklist and static safety tests passed; restore SHA-256 `2349d0d732a81ad0bd887a9237607250a348f91943b9a29f9cdf6fc167b45092`, Chromium run `run-20260812194516-886e3e8e`, and security scans passed       |
+| 6      | —         | Implemented; awaiting commit | Commits 1–5 consolidated into `DEV-024-release-candidate-decision.md`; 429 frontend and 610 backend tests, two clean Chromium runs, restore rehearsal, operations validation, and security scans passed; result is release blocked |
 
 ### Release-Candidate Evidence
 
 | Evidence                                      | Result  | Record                                                                                                              |
 | --------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| Immutable revision and artifact identity      | Pending | —                                                                                                                   |
-| CI and complete clean-room quality gate       | Pending | —                                                                                                                   |
+| Immutable revision and artifact identity      | Partial | Commit 1–5 baseline is `89cfbe20b4e2bdb1ea72304c4b0f3f9fcebb2a15`; deployment artifact/platform remains blocked     |
+| CI and complete clean-room quality gate       | Partial | Complete local clean-room gate passed; final Commit 6 CI link requires commit and push                              |
 | Migration upgrade/downgrade/re-upgrade/drift  | Pass    | Disposable PostgreSQL completed base → head → base → head; Alembic reported no model drift                          |
 | Backup and isolated restore rehearsal         | Pass    | PostgreSQL 16 custom archive restored at `0002_rate_limit_counters`; revision/counts matched and target was removed |
-| Production build and loopback startup         | Pending | —                                                                                                                   |
-| Repeated live Chromium smoke journey          | Pending | —                                                                                                                   |
-| Dependency scans and advisory review          | Pending | —                                                                                                                   |
+| Production build and loopback startup         | Pass    | Frontend/backend production builds passed; two live loopback stacks started and cleaned                             |
+| Repeated live Chromium smoke journey          | Pass    | Runs `run-20260812195221-d51d2738` and `run-20260812195241-62b76a10` passed sequentially                            |
+| Dependency scans and advisory review          | Pass    | No known backend runtime vulnerability and no untriaged high/critical frontend advisory                             |
 | Manual product and accessibility acceptance   | Pass    | User reviewer signed every check as Pass on 2026-08-12; no finding or deferral reported                             |
-| Production decision register                  | Pending | —                                                                                                                   |
+| Production decision register                  | Blocked | Twelve production decisions remain blocked with assigned owners in `release-decisions.md`                           |
 | Release, verification, and rollback checklist | Pass    | Ordered, non-deploying checklist in `operations/RELEASE.md`; static safety validation passed                        |
-| Approved deferrals                            | Pending | —                                                                                                                   |
-| Final release-candidate decision              | Pending | —                                                                                                                   |
+| Approved deferrals                            | Pass    | React Router non-RSC exception expires 2026-09-07; no other deferral is recorded                                    |
+| Final release-candidate decision              | Blocked | Dated decision and next actions recorded in `DEV-024-release-candidate-decision.md`; no deployment authorized       |
 
 ### Commit 2 Clean-Room Evidence
 
