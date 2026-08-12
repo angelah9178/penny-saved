@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[3]
 ENV_EXAMPLE = ROOT / "operations" / "production.env.example"
 VALIDATOR_PATH = ROOT / "scripts" / "check_operations.py"
 RELEASE_DECISIONS = ROOT / "development" / "release-decisions.md"
+RELEASE_RUNBOOK = ROOT / "operations" / "RELEASE.md"
 
 
 def _load_validator() -> object:
@@ -45,6 +46,18 @@ def test_operations_examples_pass_repository_static_validation() -> None:
     validator = _load_validator()
 
     assert validator.validate() == []
+
+
+def test_release_runbook_is_ordered_safe_and_non_deploying() -> None:
+    text = RELEASE_RUNBOOK.read_text()
+
+    headings = [f"## {number}." for number in range(1, 11)]
+    positions = [text.index(heading) for heading in headings]
+    assert positions == sorted(positions)
+    assert text.index("### Capacity Stop Check") < text.index("## 3. Go or No-Go")
+    assert text.count("PRODUCTION ACTION — REQUIRES SEPARATE AUTHORIZATION") >= 3
+    assert "make deploy" not in text
+    assert "Do not automatically run `alembic downgrade`" in text
 
 
 def test_release_decisions_are_complete_current_and_secret_free() -> None:

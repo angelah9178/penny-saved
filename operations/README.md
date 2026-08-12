@@ -5,6 +5,9 @@ Saved. It does not authorize a deployment or a production-data operation. Replac
 placeholders, record the operator and ticket, and review every command against the
 actual host before running it.
 
+For the final ordered release-window checklist, use
+[`RELEASE.md`](RELEASE.md). Its production actions still require separate authorization.
+
 ## Approved Topology
 
 ```text

@@ -25,7 +25,7 @@ passes.
 | &#91;x&#93;      | [1](#commit-1--inventory-decisions-and-blockers)      | Inventory release decisions | DEV-006, DEV-021, DEV-022   |
 | &#91;x&#93;      | [2](#commit-2--prove-a-clean-build-and-startup)       | Prove clean startup         | Commit 1 and DEV-023        |
 | &#91;x&#93;      | [3](#commit-3--rehearse-data-safety-and-rollback)     | Rehearse recovery           | Commit 2 and DEV-022        |
-| &#91;&#160;&#93; | [4](#commit-4--complete-manual-product-acceptance)    | Complete manual acceptance  | Commit 2 and DEV-020        |
+| &#91;x&#93;      | [4](#commit-4--complete-manual-product-acceptance)    | Complete manual acceptance  | Commit 2 and DEV-020        |
 | &#91;&#160;&#93; | [5](#commit-5--finalize-the-release-runbook)          | Finalize release procedure  | Commits 1–4 and DEV-022     |
 | &#91;&#160;&#93; | [6](#commit-6--record-the-release-candidate-decision) | Record go/no-go evidence    | Commits 1–5 and DEV-001–023 |
 
@@ -328,7 +328,7 @@ git diff --check
 
 ## Commit 4 — Complete Manual Product Acceptance
 
-**Status:** Automated verification complete; human acceptance pending.
+**Status:** Complete in `43a4662`.
 
 ### In Plain English
 
@@ -349,7 +349,8 @@ Codex can implement and verify the objective browser and code checks, but it can
 hear a real screen reader or make a person's usability judgment. The exact remaining
 steps are in
 [`development/DEV-024-manual-acceptance.md`](DEV-024-manual-acceptance.md). Commit 4
-must remain unchecked until a human completes and signs that checklist.
+was signed by the user reviewer on 2026-08-12 with every check passing and no finding
+or deferral reported.
 
 ### Automated Checks Completed
 
@@ -370,7 +371,7 @@ must remain unchecked until a human completes and signs that checklist.
   login, check-in, statistics/equivalents, reload, logout, protected-route denial, and
   cleanup against real PostgreSQL.
 
-### Human Checks Still Required
+### Human Checks Completed
 
 - Complete the whole journey with a physical keyboard and judge focus visibility/order.
 - Listen to the journey using a real screen reader/browser combination.
@@ -418,7 +419,7 @@ not replace human evidence.
 
 ## Commit 5 — Finalize the Release Runbook
 
-**Status:** Not started.
+**Status:** Implemented and verified; awaiting commit.
 
 ### In Plain English
 
@@ -551,14 +552,14 @@ results, decisions, deferrals, and blockers.
 
 ### Commit Evidence
 
-| Commit | Hash      | Result                   | Verification                                                                                                                                           |
-| ------ | --------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1      | `df87f5f` | Complete                 | Validated 15-item decision register; operations checks, 609 backend tests, and dependency security scans passed; `e595c5d` made Markdown authoritative |
-| 2      | `0c8f44e` | Complete                 | Clean install, PostgreSQL 16 migration/seed, all checks/builds, Chromium run `run-20260812190432-5c87f8bd`, cleanup, and security passed               |
-| 3      | `cdf8d67` | Complete                 | Migration cycle, seven focused safety tests, 609 backend tests, PostgreSQL 16 restore at `0002_rate_limit_counters`, and exact cleanup passed          |
-| 4      | —         | Human acceptance pending | Automated accessibility/focus/state coverage and five-test Chromium run `run-20260812192653-a3b53b17` passed; signed human checklist remains required  |
-| 5      | —         | Not started              | —                                                                                                                                                      |
-| 6      | —         | Not started              | —                                                                                                                                                      |
+| Commit | Hash      | Result                       | Verification                                                                                                                                                                                                                 |
+| ------ | --------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1      | `df87f5f` | Complete                     | Validated 15-item decision register; operations checks, 609 backend tests, and dependency security scans passed; `e595c5d` made Markdown authoritative                                                                       |
+| 2      | `0c8f44e` | Complete                     | Clean install, PostgreSQL 16 migration/seed, all checks/builds, Chromium run `run-20260812190432-5c87f8bd`, cleanup, and security passed                                                                                     |
+| 3      | `cdf8d67` | Complete                     | Migration cycle, seven focused safety tests, 609 backend tests, PostgreSQL 16 restore at `0002_rate_limit_counters`, and exact cleanup passed                                                                                |
+| 4      | `43a4662` | Complete                     | Automated accessibility/focus/state coverage and five-test Chromium run `run-20260812192653-a3b53b17` passed; user signed every manual check as Pass                                                                         |
+| 5      | —         | Implemented; awaiting commit | Ordered release/rollback checklist and static safety tests passed; restore SHA-256 `2349d0d732a81ad0bd887a9237607250a348f91943b9a29f9cdf6fc167b45092`, Chromium run `run-20260812194516-886e3e8e`, and security scans passed |
+| 6      | —         | Not started                  | —                                                                                                                                                                                                                            |
 
 ### Release-Candidate Evidence
 
@@ -571,9 +572,9 @@ results, decisions, deferrals, and blockers.
 | Production build and loopback startup         | Pending | —                                                                                                                   |
 | Repeated live Chromium smoke journey          | Pending | —                                                                                                                   |
 | Dependency scans and advisory review          | Pending | —                                                                                                                   |
-| Manual product and accessibility acceptance   | Pending | Automated portion passed; complete and sign `DEV-024-manual-acceptance.md`                                          |
+| Manual product and accessibility acceptance   | Pass    | User reviewer signed every check as Pass on 2026-08-12; no finding or deferral reported                             |
 | Production decision register                  | Pending | —                                                                                                                   |
-| Release, verification, and rollback checklist | Pending | —                                                                                                                   |
+| Release, verification, and rollback checklist | Pass    | Ordered, non-deploying checklist in `operations/RELEASE.md`; static safety validation passed                        |
 | Approved deferrals                            | Pending | —                                                                                                                   |
 | Final release-candidate decision              | Pending | —                                                                                                                   |
 

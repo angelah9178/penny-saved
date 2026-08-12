@@ -12,6 +12,7 @@ ENV_EXAMPLE = OPERATIONS / "production.env.example"
 NGINX_EXAMPLE = OPERATIONS / "nginx" / "penny-saved.conf.example"
 SYSTEMD_EXAMPLE = OPERATIONS / "systemd" / "penny-saved.service.example"
 RUNBOOK = OPERATIONS / "README.md"
+RELEASE_RUNBOOK = OPERATIONS / "RELEASE.md"
 RELEASE_DECISIONS = ROOT / "development" / "release-decisions.md"
 
 REQUIRED_ENVIRONMENT_NAMES = {
@@ -140,6 +141,7 @@ def validate() -> list[str]:
         NGINX_EXAMPLE,
         SYSTEMD_EXAMPLE,
         RUNBOOK,
+        RELEASE_RUNBOOK,
         RELEASE_DECISIONS,
     )
     for path in required_files:
@@ -147,6 +149,27 @@ def validate() -> list[str]:
             errors.append(f"Missing operations file: {path.relative_to(ROOT)}")
     if errors:
         return errors
+
+    release_text = RELEASE_RUNBOOK.read_text()
+    required_release_text = (
+        "## 1. Pre-Release Checklist",
+        "## 3. Go or No-Go Decision",
+        "## 5. Immediate Verification",
+        "## 7. Application Rollback",
+        "## 10. Post-Release Closure",
+        "20% free bytes",
+        "20% free inodes",
+        "full 40-character commit SHA",
+        "PRODUCTION ACTION — REQUIRES SEPARATE AUTHORIZATION",
+        "alembic downgrade",
+        "/health",
+        "/ready",
+    )
+    for required_text in required_release_text:
+        if required_text not in release_text:
+            errors.append(f"Release runbook is missing: {required_text}")
+    if "make deploy" in release_text or "deploy:" in release_text:
+        errors.append("Release runbook must not invent a deployment command")
 
     environment_text = ENV_EXAMPLE.read_text()
     try:
