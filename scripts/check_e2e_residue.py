@@ -30,14 +30,16 @@ def _assert_port_free(url: str) -> None:
         raise E2EDataSafetyError(
             "Residue checks require explicit loopback URLs and ports."
         )
-    family = socket.AF_INET6 if parsed.hostname == "::1" else socket.AF_INET
-    with socket.socket(family, socket.SOCK_STREAM) as probe:
-        try:
-            probe.bind((parsed.hostname, parsed.port))
-        except OSError as error:
-            raise E2EDataSafetyError(
-                f"E2E process still owns {parsed.hostname}:{parsed.port}."
-            ) from error
+    try:
+        listener = socket.create_connection((parsed.hostname, parsed.port), timeout=0.5)
+    except OSError:
+        # A refused connection means no process is listening. Unlike bind(), this is
+        # not confused by recently closed E2E connections remaining in TIME_WAIT.
+        return
+    listener.close()
+    raise E2EDataSafetyError(
+        f"E2E process still listens on {parsed.hostname}:{parsed.port}."
+    )
 
 
 def main() -> int:

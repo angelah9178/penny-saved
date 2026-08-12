@@ -208,7 +208,7 @@ def test_browser_smoke_cleanup_precedes_failure_only_bounded_artifacts() -> None
     for model in ("User", "Session", "ImpulsePurchaseEntry", "OpportunityCostExample"):
         assert f"select(func.count()).select_from({model})" in residue_script
     assert "validate_database_target" in residue_script
-    assert "probe.bind" in residue_script
+    assert "socket.create_connection" in residue_script
     assert 'glob("penny-saved-e2e-*")' in residue_script
 
 

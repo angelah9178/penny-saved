@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import signal
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -14,7 +15,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import check_e2e_residue  # noqa: E402
 import e2e_stack  # noqa: E402
+from app.scripts.e2e_data import E2EDataSafetyError  # noqa: E402
 from e2e_stack import (  # noqa: E402
     CommandError,
     StackError,
@@ -87,6 +90,18 @@ def test_occupied_port_is_rejected_without_touching_listener(
     with pytest.raises(StackError, match="already in use"):
         ensure_port_free("127.0.0.1", 4173)
     assert candidate.closed
+
+
+def test_residue_check_distinguishes_listener_from_released_port() -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        port = listener.getsockname()[1]
+
+        with pytest.raises(E2EDataSafetyError, match="still listens"):
+            check_e2e_residue._assert_port_free(f"http://127.0.0.1:{port}")
+
+    check_e2e_residue._assert_port_free(f"http://127.0.0.1:{port}")
 
 
 def test_readiness_uses_observable_checks_and_detects_early_exit() -> None:
