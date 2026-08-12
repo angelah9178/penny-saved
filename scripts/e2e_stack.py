@@ -366,6 +366,7 @@ def _run_browser_with_live_servers(
         "e2e:contract",
         "e2e:auth-entry",
         "e2e:journey",
+        "e2e:acceptance",
         "e2e:smoke",
     }:
         raise StackError("E2E_PLAYWRIGHT_SCRIPT is not an approved browser command.")
@@ -507,6 +508,7 @@ def run_stack(config: E2EDataConfig, environment: dict[str, str]) -> None:
             "e2e:contract": "none",
             "e2e:auth-entry": "auth-entry",
             "e2e:journey": "complete",
+            "e2e:acceptance": "none",
             "e2e:smoke": "smoke",
         }[playwright_script]
         verification_phase = environment.get("E2E_VERIFY_PHASE", default_phase)

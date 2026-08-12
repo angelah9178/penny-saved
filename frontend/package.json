@@ -21,6 +21,7 @@
     "e2e:contract": "npm run e2e:check && playwright test e2e/runner-contract.spec.ts",
     "e2e:auth-entry": "npm run e2e:check && playwright test e2e/auth-entry.spec.ts",
     "e2e:journey": "npm run e2e:check && playwright test e2e/complete-journey.spec.ts",
+    "e2e:acceptance": "npm run e2e:check && playwright test e2e/release-acceptance.spec.ts",
     "e2e:smoke": "npm run e2e:check && playwright test"
   },
   "dependencies": {
