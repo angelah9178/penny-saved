@@ -60,28 +60,145 @@ backup, or network choice that is not covered by Always Free.
 
 ## 3. Create the VCN
 
-Use OCI's wizard because it creates the gateway, route tables, and regional subnets as
-one consistent set.
+These instructions deliberately use the **Create VCN** option available in your OCI
+Console. No VCN wizard is required. You will create four things separately:
 
-1. Open **Networking -> Virtual cloud networks** in the production compartment.
-2. Select **Start VCN Wizard**, then **Create VCN with Internet Connectivity**.
-3. Use:
-   - VCN name: `penny-saved-vcn`
-   - IPv4 VCN CIDR: `10.0.0.0/16`
-   - Public subnet CIDR: `10.0.0.0/24`
-   - Private subnet CIDR: `10.0.1.0/24`
-   - DNS resolution: enabled
-   - IPv6: disabled for this first deployment
-4. Review and create the VCN.
-5. Open the public subnet's route table and confirm this rule exists:
+```text
+penny-saved-vcn
+  -> penny-saved-internet-gateway
+  -> penny-saved-public-route-table
+  -> penny-saved-public-subnet
+```
 
-   | Destination | Target type | Target |
-   | --- | --- | --- |
-   | `0.0.0.0/0` | Internet Gateway | the wizard-created internet gateway |
+The order matters because the route table needs the internet gateway, and the subnet
+needs the route table.
 
-The instance goes in the public subnet because it directly terminates web traffic. The
-internet gateway and default route provide internet connectivity. The unused private
-subnet is retained for a future private database or internal service.
+### 3.1 Create the empty VCN
+
+1. In the OCI Console, confirm the top-bar region is the production region selected in
+   section 1.
+2. Open the top-left navigation menu.
+3. Select **Networking -> Virtual cloud networks**.
+4. In the **Compartment** selector on the left, select
+   `penny-saved-production`. Wait for the list to refresh.
+5. Select **Create VCN**.
+6. On the **Create VCN** page or panel, enter:
+
+   | OCI field | Exact value |
+   | --- | --- |
+   | **VCN name** or **Name** | `penny-saved-vcn` |
+   | **Create in compartment** | `penny-saved-production` |
+   | **IPv4 CIDR blocks** | `10.0.0.0/16` |
+   | **Use DNS hostnames in this VCN** | selected/enabled |
+   | **DNS label** | `pennysaved` if OCI asks for one |
+
+7. Do not add another IPv4 CIDR block. Do not add an IPv6 prefix. Leave **Tags** and
+   other advanced settings empty/default.
+8. Select **Create VCN**.
+9. Wait for **Lifecycle state: Available**.
+
+At this point it is normal for the VCN to contain no subnets and have no internet
+access. `10.0.0.0/16` is the VCN's private address range; it is not a public IP address.
+
+### 3.2 Create the internet gateway
+
+1. Stay on the `penny-saved-vcn` details page.
+2. Depending on your OCI layout, either:
+   - select the **Gateways** tab and find **Internet Gateways**; or
+   - under **Resources**, select **Internet Gateways**.
+3. Select **Create Internet Gateway**.
+4. Enter:
+
+   | OCI field | Exact value |
+   | --- | --- |
+   | **Name** | `penny-saved-internet-gateway` |
+   | **Create in compartment** | `penny-saved-production` |
+
+5. If **Route Table Association** appears under advanced options, leave it empty. This
+   is a gateway-ingress feature and is not the public subnet route configured next.
+6. Select **Create Internet Gateway**.
+7. Confirm the new gateway is **Available** or **Enabled**.
+
+The internet gateway is the VCN's path to and from the public internet. Creating it is
+not enough by itself; OCI will not use it until the next route rule is added.
+
+### 3.3 Create the public route table
+
+1. Return to the `penny-saved-vcn` details page if necessary.
+2. Under **Resources**, select **Route Tables**.
+3. Select **Create Route Table**.
+4. Enter:
+
+   | OCI field | Exact value |
+   | --- | --- |
+   | **Name** | `penny-saved-public-route-table` |
+   | **Create in compartment** | `penny-saved-production` |
+
+5. Select **+ Another Route Rule**, **+ Additional Route Rule**, or **Add Route Rule**,
+   whichever label your console displays.
+6. Fill in that one rule:
+
+   | OCI route-rule field | Exact value |
+   | --- | --- |
+   | **Target Type** | `Internet Gateway` |
+   | **Destination Type** | `CIDR Block` if this field appears |
+   | **Destination CIDR Block** | `0.0.0.0/0` |
+   | **Compartment** | `penny-saved-production` |
+   | **Target Internet Gateway** or **Target** | `penny-saved-internet-gateway` |
+   | **Description** | `Send public subnet internet traffic to the internet gateway` |
+
+7. Select **Create Route Table**. If the route table was created before the rule was
+   entered, open it, select **Add Route Rules**, enter the same values, and save.
+8. Open the resulting route table and confirm it shows exactly one explicit rule with
+   destination `0.0.0.0/0` and target `penny-saved-internet-gateway`.
+
+`0.0.0.0/0` means every IPv4 destination outside the VCN. OCI also provides an implicit
+local route inside the VCN; you do not create or edit that route.
+
+### 3.4 Create the public subnet
+
+1. Return to the `penny-saved-vcn` details page.
+2. Under **Resources**, select **Subnets**.
+3. Select **Create Subnet**.
+4. Enter or select:
+
+   | OCI field | Exact value |
+   | --- | --- |
+   | **Name** | `penny-saved-public-subnet` |
+   | **Create in compartment** | `penny-saved-production` |
+   | **Subnet Type** | `Regional` if this field appears |
+   | **IPv4 CIDR Block** or **CIDR Block** | `10.0.0.0/24` |
+   | **Route Table** | `penny-saved-public-route-table` |
+   | **Subnet Access** | `Public Subnet` |
+   | **DNS Resolution** | enabled |
+   | **DNS Label** | `public` if OCI asks for one |
+   | **DHCP Options** | `Default DHCP Options for penny-saved-vcn` |
+   | **Security Lists** | `Default Security List for penny-saved-vcn` |
+
+5. The critical public-access control may instead be worded **Prohibit public IP
+   addresses on VNICs in this subnet**. If that wording appears, leave the checkbox
+   **cleared/off**. Selecting it would make this a private subnet and prevent the web
+   server from receiving a public IP address.
+6. Leave IPv6, tags, and advanced options at their defaults.
+7. Select **Create Subnet** and wait for **Lifecycle state: Available**.
+
+This deployment needs only one subnet. Do not create a private subnet now; PostgreSQL
+runs on the same VM and listens only on loopback. A separate private subnet becomes
+useful only if the database is moved to another server later.
+
+### 3.5 Verify the finished network
+
+Do not create the compute instance until all five checks pass:
+
+1. `penny-saved-vcn` shows IPv4 CIDR `10.0.0.0/16`.
+2. `penny-saved-public-subnet` shows CIDR `10.0.0.0/24` and **Public Subnet**.
+3. The subnet is associated with `penny-saved-public-route-table`.
+4. That route table contains `0.0.0.0/0 -> penny-saved-internet-gateway`.
+5. `penny-saved-internet-gateway` is enabled/available.
+
+The public subnet is where the compute instance will live. The `/24` subnet fits inside
+the larger `/16` VCN range. Neither address is exposed on the internet; OCI separately
+assigns the instance a real public IPv4 address in section 4.
 
 ### Create a network security group
 
@@ -100,10 +217,12 @@ to the whole subnet's default security list.
 
 4. Keep the default stateful egress rule allowing `0.0.0.0/0` on all protocols. It is
    needed for OS updates, Git/dependency downloads, DNS, and certificate renewal.
-5. If the wizard's **public-subnet security list** contains SSH from `0.0.0.0/0`, replace
-   it with the administrator's `/32` address or remove it after confirming the NSG rule
-   is attached. The effective permissions are the union of security lists and NSGs, so
-   an overly broad rule in either place remains open.
+5. Open `penny-saved-public-subnet`, follow its **Default Security List for
+   penny-saved-vcn** link, and inspect **Ingress Rules**. If it contains TCP port 22 from
+   `0.0.0.0/0`, replace that source with the administrator's `/32` address or remove the
+   rule after confirming the NSG rule is attached. The effective permissions are the
+   union of security lists and NSGs, so an overly broad rule in either place remains
+   open.
 
 Do **not** add ingress for 3000, 5173, 5432, or 8000. Vite is not a production server,
 PostgreSQL contains private data, and Uvicorn is reached only through Nginx.
@@ -120,7 +239,7 @@ In **Compute -> Instances -> Create instance**, choose:
 | Shape | **VM.Standard.A1.Flex** | Ampere Arm is OCI's Always Free flexible option and has much more usable memory than E2.1.Micro. |
 | OCPUs / memory | **1 OCPU / 6 GB** to start | Enough for this small app and a frontend build while staying within the documented A1 free-tier aggregate. Increase only after measuring and checking cost limits. |
 | Boot volume | **50 GB**, default performance, encryption enabled | Accommodates OS, database, logs, releases, and local backup staging; monitor free space. |
-| VCN/subnet | `penny-saved-vcn` / regional public subnet | Required for direct internet access. |
+| VCN/subnet | `penny-saved-vcn` / `penny-saved-public-subnet` | Required for direct internet access. Select the existing subnet created in section 3. |
 | Public IPv4 | temporarily assign an ephemeral IP | Needed for initial SSH; it will be replaced by a reserved IP. |
 | NSG | `penny-saved-web-nsg` | Applies only the three intended inbound ports. |
 
