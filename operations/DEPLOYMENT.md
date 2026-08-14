@@ -205,15 +205,68 @@ assigns the instance a real public IPv4 address in section 4.
 Prefer a network security group (NSG) attached only to this instance over broad edits
 to the whole subnet's default security list.
 
+#### Find your administrator public IP before creating the SSH rule
+
+`REPLACE_WITH_ADMIN_PUBLIC_IP` means the public IPv4 address of the computer or
+internet connection from which you will SSH into Oracle Cloud. It is **not** the OCI
+instance's public IP and it is **not** a local address such as `192.168.x.x`.
+
+On your own computer—not in the OCI Console, Cloud Shell, or compute instance—open a
+terminal and run:
+
+```bash
+curl -4 https://icanhazip.com
+```
+
+For example, if the command prints:
+
+```text
+73.184.25.91
+```
+
+then use this value as the SSH rule's source:
+
+```text
+73.184.25.91/32
+```
+
+The `/32` is required. It means that only that one IPv4 address is allowed to attempt
+an SSH connection. Do not literally enter `REPLACE_WITH_ADMIN_PUBLIC_IP/32` in OCI.
+
+If `curl` is unavailable, visit `https://icanhazip.com` in a browser on the computer
+you will use for SSH and copy the displayed IPv4 address. If the site shows an address
+containing colons, that is IPv6; use the `curl -4` command or another "what is my IPv4"
+service to obtain IPv4 for this rule.
+
+If you use a VPN, run the command while connected to the VPN and remain connected when
+using SSH. If you disconnect, the source address may change. Many home internet
+providers also change public IP addresses periodically. If SSH works initially and
+later times out, run the command again and update the port 22 source in both the OCI
+NSG and the server's UFW rule. Never solve this by permanently opening SSH to
+`0.0.0.0/0`.
+
 1. In the VCN, open **Network Security Groups -> Create network security group**.
 2. Name it `penny-saved-web-nsg`.
-3. Add these **stateful ingress** rules. Leave source port as **All**:
+3. Add these **stateful ingress** rules. Leave **Stateless** unchecked and leave source
+   port as **All**:
 
    | Source CIDR | Protocol | Destination port | Purpose |
    | --- | --- | --- | --- |
-   | `REPLACE_WITH_ADMIN_PUBLIC_IP/32` | TCP | `22` | SSH administration only from a known address. |
+   | your result plus `/32`, such as `73.184.25.91/32` | TCP | `22` | SSH administration only from your current public IPv4 address. |
    | `0.0.0.0/0` | TCP | `80` | HTTP redirect and ACME certificate validation. |
    | `0.0.0.0/0` | TCP | `443` | Public HTTPS application traffic. |
+
+For the SSH rule, the complete OCI form should be:
+
+| OCI field | Value |
+| --- | --- |
+| **Stateless** | unchecked |
+| **Source Type** | `CIDR` |
+| **Source CIDR** | your public IPv4 plus `/32`, such as `73.184.25.91/32` |
+| **IP Protocol** | `TCP` |
+| **Source Port Range** | leave blank or `All` |
+| **Destination Port Range** | `22` |
+| **Description** | `SSH from my administrator computer` |
 
 4. Keep the default stateful egress rule allowing `0.0.0.0/0` on all protocols. It is
    needed for OS updates, Git/dependency downloads, DNS, and certificate renewal.
