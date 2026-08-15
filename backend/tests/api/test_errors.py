@@ -226,7 +226,7 @@ async def test_unexpected_error_is_safe_and_request_correlated(
     assert "unexpected-exception-secret" not in response.text
 
     logs = [json.loads(line) for line in stream.getvalue().splitlines()]
-    error_log = next(log for log in logs if log["message"] == "request.unhandled_exception")
+    error_log = next(log for log in logs if log["event"] == "request.unhandled_exception")
     assert error_log["request_id"] == request_id
     assert error_log["exception_type"] == "RuntimeError"
     assert error_log["stack_trace"]

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.errors import register_error_handlers
@@ -19,7 +20,18 @@ from app.core.logging import (
     RequestContextMiddleware,
     configure_logging,
 )
-from app.db.session import ApplicationLifespan, create_database_lifespan
+from app.core.metrics import MetricsMiddleware, MetricsRegistry
+from app.core.operations import METRICS_PATH
+from app.db.session import (
+    ENGINE_STATE_KEY,
+    LIFECYCLE_STATE_KEY,
+    READINESS_STATE_KEY,
+    ApplicationLifecycleState,
+    ApplicationLifespan,
+    DependencyReadinessState,
+    create_database_lifespan,
+    create_operational_lifespan,
+)
 
 API_PREFIX = "/api"
 
@@ -31,9 +43,14 @@ def create_app(
 ) -> FastAPI:
     """Create one fully configured FastAPI application."""
     resolved_settings = settings or get_settings()
-    resolved_lifespan = lifespan or create_database_lifespan(resolved_settings)
+    resource_lifespan = lifespan or create_database_lifespan(resolved_settings)
+    resolved_lifespan = create_operational_lifespan(resource_lifespan)
     expose_api_docs = resolved_settings.app_env != AppEnvironment.PRODUCTION
-    configure_logging(resolved_settings.app_env, resolved_settings.log_level)
+    configure_logging(
+        resolved_settings.app_env,
+        resolved_settings.log_level,
+        log_format=resolved_settings.log_format,
+    )
 
     app = FastAPI(
         title="A Penny Saved API",
@@ -44,7 +61,21 @@ def create_app(
         redoc_url="/redoc" if expose_api_docs else None,
     )
     app.state.settings = resolved_settings
+    app.state.metrics_registry = MetricsRegistry()
+    setattr(app.state, LIFECYCLE_STATE_KEY, ApplicationLifecycleState.STARTING)
+    setattr(app.state, READINESS_STATE_KEY, DependencyReadinessState.UNKNOWN)
     register_error_handlers(app)
+    if resolved_settings.metrics_enabled:
+
+        @app.get(METRICS_PATH, include_in_schema=False)
+        async def get_metrics(request: Request) -> PlainTextResponse:
+            engine = getattr(request.app.state, ENGINE_STATE_KEY, None)
+            database_pool = getattr(engine, "pool", None)
+            return PlainTextResponse(
+                request.app.state.metrics_registry.render(database_pool=database_pool),
+                media_type="text/plain; version=0.0.4",
+            )
+
     if resolved_settings.frontend_origin is not None:
         app.add_middleware(
             CORSMiddleware,
@@ -74,6 +105,11 @@ def create_app(
         RequestContextMiddleware,
         environment=resolved_settings.app_env,
     )
+    if resolved_settings.metrics_enabled:
+        app.add_middleware(
+            MetricsMiddleware,
+            registry=app.state.metrics_registry,
+        )
     app.add_middleware(
         SecurityHeadersMiddleware,
         environment=resolved_settings.app_env,

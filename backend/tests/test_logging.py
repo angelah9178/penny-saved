@@ -6,7 +6,7 @@ import json
 import logging
 from io import StringIO
 
-from app.core.config import AppEnvironment, LogLevel
+from app.core.config import AppEnvironment, LogFormat, LogLevel
 from app.core.logging import LOGGER_NAME, configure_logging, redact_sensitive_value
 
 
@@ -30,7 +30,7 @@ def test_configured_logger_emits_stable_json_fields() -> None:
         "timestamp": payload["timestamp"],
         "level": "INFO",
         "environment": "test",
-        "message": "request.completed",
+        "event": "request.completed",
         "request_id": "420bd8d8-79e4-4c9c-8d80-eaf03ef5c4c3",
         "method": "GET",
         "route": "/api/health",
@@ -49,7 +49,28 @@ def test_configured_logger_respects_log_level() -> None:
 
     payload = json.loads(stream.getvalue())
     assert payload["level"] == "WARNING"
-    assert payload["message"] == "emitted"
+    assert payload["event"] == "emitted"
+
+
+def test_text_log_format_is_readable_and_preserves_stable_fields() -> None:
+    stream = StringIO()
+    logger = configure_logging(
+        AppEnvironment.DEVELOPMENT,
+        LogLevel.INFO,
+        log_format=LogFormat.TEXT,
+        stream=stream,
+    )
+
+    logger.info(
+        "request.completed",
+        extra={"request_id": "safe-id", "method": "GET", "route": "/api/health"},
+    )
+
+    output = stream.getvalue()
+    assert 'environment="development"' in output
+    assert 'event="request.completed"' in output
+    assert 'request_id="safe-id"' in output
+    assert 'route="/api/health"' in output
 
 
 def test_formatter_omits_unapproved_sensitive_extra_fields() -> None:

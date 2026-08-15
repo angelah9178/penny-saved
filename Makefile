@@ -18,8 +18,11 @@ POSTGRES_VOLUME := penny_saved_postgres_data
 	frontend-typecheck typecheck \
 	frontend-test backend-test test \
 	frontend-build backend-build build check clean \
+	operations-check \
+	rehearse-restore \
 	frontend-security-check backend-security-check security-check \
 	frontend-dev backend-dev dev \
+	e2e-prepare e2e e2e-auth-entry e2e-cleanup-check \
 	db-up db-down db-logs db-reset db-upgrade db-downgrade db-revision seed-demo \
 	check-frontend check-backend check-backend-env check-docker check-alembic
 
@@ -133,6 +136,14 @@ check: ## Run all frontend and backend quality checks.
 	$(MAKE) typecheck
 	$(MAKE) test
 	$(MAKE) build
+	$(MAKE) operations-check
+
+operations-check: check-backend ## Validate secret-free production operations examples.
+	$(VENV_PYTHON) scripts/check_operations.py
+
+rehearse-restore: check-backend-env ## Rehearse backup/restore against the guarded local test database.
+	cd backend && set -a && source .env && set +a && \
+		ALLOW_DISPOSABLE_RESTORE_REHEARSAL=yes $(BACKEND_PYTHON) ../scripts/rehearse_database_restore.py
 
 frontend-security-check: check-frontend ## Audit the locked frontend dependency graph for high-severity advisories.
 	node scripts/audit-frontend.mjs
@@ -158,6 +169,21 @@ dev: check-frontend check-backend-env check-docker check-alembic ## Start Postgr
 	$(MAKE) db-up
 	$(MAKE) db-upgrade
 	./scripts/run-dev.sh
+
+e2e-prepare: check-frontend check-backend ## Validate, migrate, build, and list the isolated browser suite.
+	@test -n "$${E2E_DATABASE_URL:-}" || { echo "Export a dedicated E2E_DATABASE_URL ending in _e2e_test." >&2; exit 1; }
+	$(VENV_PYTHON) scripts/e2e_stack.py prepare
+
+e2e: check-frontend check-backend ## Run the complete isolated browser stack and clean it up.
+	@test -n "$${E2E_DATABASE_URL:-}" || { echo "Export a dedicated E2E_DATABASE_URL ending in _e2e_test." >&2; exit 1; }
+	$(VENV_PYTHON) scripts/e2e_stack.py run
+
+e2e-auth-entry: check-frontend check-backend ## Run the first-half signup, entry, and login browser journey.
+	@test -n "$${E2E_DATABASE_URL:-}" || { echo "Export a dedicated E2E_DATABASE_URL ending in _e2e_test." >&2; exit 1; }
+	E2E_PLAYWRIGHT_SCRIPT=e2e:auth-entry E2E_VERIFY_PHASE=auth-entry $(VENV_PYTHON) scripts/e2e_stack.py run
+
+e2e-cleanup-check: check-backend ## Verify E2E supervision, redaction, and cleanup safeguards.
+	cd backend && $(BACKEND_PYTHON) -m pytest tests/tooling/test_e2e_stack.py tests/scripts/test_e2e_data.py
 
 check-docker:
 	@command -v docker >/dev/null || { echo "Docker Engine with Compose v2 is required." >&2; exit 1; }

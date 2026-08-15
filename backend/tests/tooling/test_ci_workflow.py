@@ -153,6 +153,65 @@ def test_migrations_job_cycles_postgresql_schema_and_checks_drift() -> None:
     assert "tests/integration/test_migrations.py" in focused_tests
 
 
+def test_browser_smoke_job_runs_twice_with_an_isolated_pinned_stack() -> None:
+    smoke = _workflow()["jobs"]["browser-smoke"]
+    steps = _steps(smoke)
+    postgres = smoke["services"]["postgres"]
+
+    assert smoke["name"] == "browser-smoke"
+    assert smoke["timeout-minutes"] == "20"
+    assert smoke["env"]["APP_ENV"] == "test"
+    assert smoke["env"]["CI"] == "true"
+    assert smoke["env"]["E2E_DATABASE_URL"].endswith("/penny_saved_e2e_test")
+    assert smoke["env"]["E2E_DATABASE_URL"] not in {
+        smoke["env"]["DATABASE_URL"],
+        smoke["env"]["TEST_DATABASE_URL"],
+    }
+    assert smoke["env"]["E2E_CI_DATABASE_HOST"] == "localhost"
+    assert postgres["image"] == "postgres:16"
+    assert postgres["env"]["POSTGRES_DB"] == "penny_saved_e2e_test"
+    assert "pg_isready" in postgres["options"]
+
+    assert steps["Check out repository"]["uses"] == "actions/checkout@v6"
+    assert steps["Set up Node.js"]["uses"] == "actions/setup-node@v6"
+    assert steps["Set up Python"]["uses"] == "actions/setup-python@v6"
+    assert steps["Restore pinned Chromium cache"]["uses"] == "actions/cache@v5"
+    assert "frontend/package-lock.json" in steps["Restore pinned Chromium cache"]["with"]["key"]
+    assert steps["Install locked frontend dependencies"]["run"] == "npm ci"
+    assert steps["Install pinned Chromium"]["run"] == (
+        "npm exec -- playwright install --with-deps chromium"
+    )
+    assert steps["Run complete smoke journey twice"]["run"].count("make e2e") == 2
+
+
+def test_browser_smoke_cleanup_precedes_failure_only_bounded_artifacts() -> None:
+    smoke = _workflow()["jobs"]["browser-smoke"]
+    steps = _steps(smoke)
+    step_names = [step["name"] for step in smoke["steps"]]
+    cleanup = steps["Prove E2E database and ports are clean"]
+    upload = steps["Upload failure evidence after cleanup"]
+
+    assert cleanup["if"] == "always()"
+    assert cleanup["run"] == ".venv/bin/python scripts/check_e2e_residue.py"
+    assert upload["if"] == "failure()"
+    assert upload["uses"] == "actions/upload-artifact@v7"
+    assert upload["with"]["retention-days"] == "7"
+    assert "frontend/test-results/" in upload["with"]["path"]
+    assert "frontend/e2e-artifacts/" in upload["with"]["path"]
+    assert step_names.index(cleanup["name"]) < step_names.index(upload["name"])
+
+    playwright_config = (ROOT / "frontend" / "playwright.config.ts").read_text()
+    assert "workers: 1" in playwright_config
+    assert "retries: 0" in playwright_config
+
+    residue_script = (ROOT / "scripts" / "check_e2e_residue.py").read_text()
+    for model in ("User", "Session", "ImpulsePurchaseEntry", "OpportunityCostExample"):
+        assert f"select(func.count()).select_from({model})" in residue_script
+    assert "validate_database_target" in residue_script
+    assert "socket.create_connection" in residue_script
+    assert 'glob("penny-saved-e2e-*")' in residue_script
+
+
 def test_workflow_needs_no_secrets_and_never_uses_sqlite() -> None:
     workflow_text = WORKFLOW_PATH.read_text().lower()
 

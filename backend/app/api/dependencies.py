@@ -141,6 +141,7 @@ async def get_current_user(
     resolved = await resolve_session(db, raw_token=raw_token, clock=clock)
     if resolved is None:
         raise unauthorized_error()
+    request.state.user_id = str(resolved.user.id)
     return resolved.user
 
 

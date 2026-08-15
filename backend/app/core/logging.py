@@ -14,12 +14,12 @@ from time import perf_counter
 from typing import TextIO
 from uuid import UUID, uuid4
 
-from app.core.config import AppEnvironment, LogLevel
+from app.core.config import AppEnvironment, LogFormat, LogLevel
+from app.core.operations import REQUEST_ID_HEADER, REQUEST_ID_MAX_LENGTH, UNMATCHED_ROUTE_TEMPLATE
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 LOGGER_NAME = "penny_saved"
-REQUEST_ID_HEADER = "X-Request-ID"
 _request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
 _SENSITIVE_VALUE_PATTERN = re.compile(
     r"(?i)\b(password|passwd|pwd|cookie|set[-_]?cookie|authorization|auth[-_]?token|"
@@ -70,7 +70,7 @@ class JsonFormatter(logging.Formatter):
             "timestamp": timestamp,
             "level": record.levelname,
             "environment": getattr(record, "environment", self.environment),
-            "message": redact_sensitive_text(record.getMessage()),
+            "event": redact_sensitive_text(record.getMessage()),
         }
         for field in (
             "request_id",
@@ -98,10 +98,38 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
 
 
+class TextFormatter(JsonFormatter):
+    """Format a safe, readable development log line from the stable schema."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = json.loads(super().format(record))
+        ordered_fields = (
+            "timestamp",
+            "level",
+            "environment",
+            "event",
+            "request_id",
+            "method",
+            "route",
+            "status",
+            "duration_ms",
+            "user_id",
+            "context",
+            "exception_type",
+            "stack_trace",
+        )
+        return " ".join(
+            f"{field}={json.dumps(payload[field], separators=(',', ':'), ensure_ascii=False)}"
+            for field in ordered_fields
+            if field in payload
+        )
+
+
 def configure_logging(
     environment: AppEnvironment,
     log_level: LogLevel,
     *,
+    log_format: LogFormat = LogFormat.JSON,
     stream: TextIO | None = None,
 ) -> logging.Logger:
     """Configure the isolated application logger."""
@@ -114,7 +142,10 @@ def configure_logging(
     logger.handlers.clear()
 
     handler = logging.StreamHandler(stream or sys.stderr)
-    handler.setFormatter(JsonFormatter(environment))
+    formatter = (
+        JsonFormatter(environment) if log_format is LogFormat.JSON else TextFormatter(environment)
+    )
+    handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
 
@@ -134,19 +165,22 @@ def _reset_request_id(token: Token[str | None]) -> None:
 
 def _resolve_request_id(scope: Scope) -> str:
     candidate = Headers(scope=scope).get(REQUEST_ID_HEADER)
-    if candidate:
+    if candidate and len(candidate) <= REQUEST_ID_MAX_LENGTH:
         try:
-            return str(UUID(candidate))
+            canonical = str(UUID(candidate))
+            if candidate == canonical:
+                return canonical
         except (ValueError, AttributeError):
             pass
     return str(uuid4())
 
 
-def _route_template(scope: Scope) -> str:
+def get_route_template(scope: Scope) -> str:
+    """Return a bounded route template without raw user-controlled path values."""
     route = scope.get("route")
     route_path = getattr(route, "path", None)
     if route_path is None:
-        return "unmatched"
+        return UNMATCHED_ROUTE_TEMPLATE
 
     root_path = scope.get("root_path", "")
     if root_path and not route_path.startswith(root_path):
@@ -204,9 +238,10 @@ class RequestContextMiddleware:
                     "environment": self.environment,
                     "request_id": request_id,
                     "method": scope.get("method", "unknown"),
-                    "route": _route_template(scope),
+                    "route": get_route_template(scope),
                     "status": response_status,
                     "duration_ms": duration_ms,
+                    "user_id": scope.get("state", {}).get("user_id"),
                 },
             )
             _reset_request_id(token)

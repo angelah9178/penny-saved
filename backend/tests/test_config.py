@@ -7,6 +7,7 @@ from collections.abc import Iterator
 import pytest
 from app.core.config import (
     AppEnvironment,
+    LogFormat,
     LogLevel,
     Settings,
     clear_settings_cache,
@@ -24,6 +25,10 @@ SETTING_NAMES = (
     "SESSION_TTL_SECONDS",
     "SESSION_COOKIE_SECURE",
     "LOG_LEVEL",
+    "LOG_FORMAT",
+    "HEALTH_CHECK_TIMEOUT_SECONDS",
+    "METRICS_ENABLED",
+    "GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS",
     "TRUSTED_HOSTS",
     "TRUSTED_PROXY_NETWORKS",
     "MAX_REQUEST_BODY_BYTES",
@@ -64,6 +69,10 @@ def test_development_defaults_are_typed() -> None:
     assert settings.session_ttl_seconds == 2_592_000
     assert settings.session_cookie_secure is False
     assert settings.log_level is LogLevel.INFO
+    assert settings.log_format is LogFormat.JSON
+    assert settings.health_check_timeout_seconds == 2.0
+    assert settings.metrics_enabled is False
+    assert settings.graceful_shutdown_timeout_seconds == 30
     assert settings.trusted_hosts == ("localhost", "127.0.0.1")
     assert settings.trusted_proxy_networks == ()
     assert settings.max_request_body_bytes == 1_048_576
@@ -86,6 +95,10 @@ def test_environment_values_are_parsed_into_expected_types(
     monkeypatch.setenv("SESSION_TTL_SECONDS", "3600")
     monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("LOG_FORMAT", "text")
+    monkeypatch.setenv("HEALTH_CHECK_TIMEOUT_SECONDS", "1.5")
+    monkeypatch.setenv("METRICS_ENABLED", "true")
+    monkeypatch.setenv("GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS", "45")
     monkeypatch.setenv("TRUSTED_HOSTS", '["api.example.com"]')
     monkeypatch.setenv("TRUSTED_PROXY_NETWORKS", '["10.0.0.7/24"]')
     monkeypatch.setenv("MAX_REQUEST_BODY_BYTES", "2097152")
@@ -99,6 +112,10 @@ def test_environment_values_are_parsed_into_expected_types(
     assert settings.session_ttl_seconds == 3600
     assert settings.session_cookie_secure is True
     assert settings.log_level is LogLevel.DEBUG
+    assert settings.log_format is LogFormat.TEXT
+    assert settings.health_check_timeout_seconds == 1.5
+    assert settings.metrics_enabled is True
+    assert settings.graceful_shutdown_timeout_seconds == 45
     assert settings.trusted_hosts == ("api.example.com",)
     assert settings.trusted_proxy_networks == ("10.0.0.0/24",)
     assert settings.max_request_body_bytes == 2_097_152
@@ -171,6 +188,11 @@ def test_frontend_origin_trailing_slash_is_normalized() -> None:
         ("session_cookie_name", ""),
         ("session_cookie_name", "invalid cookie"),
         ("log_level", "TRACE"),
+        ("log_format", "xml"),
+        ("health_check_timeout_seconds", 0.09),
+        ("health_check_timeout_seconds", 30.1),
+        ("graceful_shutdown_timeout_seconds", 0),
+        ("graceful_shutdown_timeout_seconds", 301),
         ("max_request_body_bytes", 1_023),
         ("max_request_body_bytes", 10_485_761),
         ("auth_rate_limit_window_seconds", 0),
@@ -249,6 +271,20 @@ def test_valid_production_configuration() -> None:
 
     assert settings.app_env is AppEnvironment.PRODUCTION
     assert settings.session_cookie_secure is True
+
+
+def test_production_requires_json_log_format() -> None:
+    with pytest.raises(ValidationError, match="LOG_FORMAT"):
+        Settings(
+            _env_file=None,
+            app_env=AppEnvironment.PRODUCTION,
+            database_url=DATABASE_URL,
+            frontend_origin="https://stopimpulsebuying.us",
+            session_cookie_secure=True,
+            log_format=LogFormat.TEXT,
+            trusted_hosts=("stopimpulsebuying.us",),
+            rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
+        )
 
 
 @pytest.mark.parametrize(

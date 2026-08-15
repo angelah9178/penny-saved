@@ -6,6 +6,7 @@ import logging
 from collections.abc import Mapping, Sequence
 
 from app.core.logging import LOGGER_NAME, REQUEST_ID_HEADER, get_request_id
+from app.core.metrics import MetricsRegistry
 from app.schemas.common import ErrorDetail, ErrorResponse
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -63,7 +64,7 @@ async def application_error_handler(
     error: ApplicationError,
 ) -> JSONResponse:
     """Translate an expected application failure."""
-    del request
+    _record_bounded_application_error(request, error)
     return error_response(
         status_code=error.status_code,
         code=error.code,
@@ -165,3 +166,38 @@ def _safe_validation_message(error_type: str) -> str:
     if "uuid" in error_type:
         return "Enter a valid identifier."
     return "Enter a valid value."
+
+
+def _record_bounded_application_error(request: Request, error: ApplicationError) -> None:
+    registry: MetricsRegistry | None = getattr(request.app.state, "metrics_registry", None)
+    if registry is None:
+        return
+
+    route = getattr(request.scope.get("route"), "path", None)
+    auth_operations = {
+        "/api/auth/login": "login",
+        "/api/auth/signup": "signup",
+        "/api/auth/me": "session",
+    }
+    auth_reasons = {
+        "duplicate_email": "duplicate",
+        "invalid_credentials": "invalid_credentials",
+        "rate_limited": "rate_limited",
+        "unauthorized": "unauthorized",
+    }
+    if route in auth_operations and error.code in auth_reasons:
+        registry.record_authentication_failure(
+            operation=auth_operations[route],
+            reason=auth_reasons[error.code],
+        )
+
+    if error.status_code != status.HTTP_409_CONFLICT:
+        return
+    lifecycle_operations = {
+        "/api/entries/{entry_id}": "entry_mutation",
+        "/api/entries/{entry_id}/check-in": "check_in",
+        "/api/entries/{entry_id}/comment": "comment_update",
+    }
+    operation = lifecycle_operations.get(route)
+    if operation is not None and error.code in {"early_check_in", "invalid_entry_status"}:
+        registry.record_lifecycle_conflict(operation=operation)

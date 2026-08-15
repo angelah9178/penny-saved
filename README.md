@@ -328,6 +328,73 @@ passwords, session values, database URLs, API secrets, or other credentials in a
 - Login, signup, dashboard entry lists, entry management, and the complete check-in
   experience are implemented. Statistics screens arrive in later development tasks.
 
+### Browser smoke tests
+
+Vitest and MSW test frontend units and components in a simulated browser and may mock
+HTTP responses. Playwright smoke tests use a real pinned Chromium browser. The
+completed smoke suite will connect the built frontend to live FastAPI and PostgreSQL;
+its initial contract test deliberately uses a controlled in-browser fixture and does
+not start or contact the product stack.
+
+Install the pinned browser runtime after `npm ci`, then inspect or run the contract:
+
+```bash
+npm --prefix frontend exec playwright install chromium
+npm --prefix frontend run e2e:list
+npm --prefix frontend run e2e:contract
+```
+
+Browser-test URLs default to loopback addresses and can be set with
+`E2E_FRONTEND_URL` and `E2E_BACKEND_URL`. The runner rejects non-loopback targets and
+the production origin. Later live-stack commits will also require an isolated
+`E2E_DATABASE_URL`, unique `E2E_RUN_ID`, `E2E_EMAIL_DOMAIN`, and ephemeral
+`E2E_PASSWORD`. Failure screenshots and traces go under `frontend/test-results/` and
+are ignored by Git.
+
+The live-stack work in later commits calls the guarded data command automatically.
+When diagnosing that setup directly, export `APP_ENV=test` plus the dedicated
+`E2E_DATABASE_URL`, `E2E_RUN_ID`, `E2E_EMAIL_DOMAIN`, `E2E_PASSWORD`, UTC
+`E2E_SETUP_AT`, and absolute `E2E_MANIFEST_PATH`, then run:
+
+```bash
+cd backend
+../.venv/bin/python -m app.scripts.e2e_data setup
+../.venv/bin/python -m app.scripts.e2e_data cleanup
+```
+
+The command refuses ordinary test/development databases and any local database whose
+name does not end in `_e2e_test`. Setup checks Alembic head, writes a secret-free
+manifest, and creates only the seeded journey account; the manifest reserves a second
+email for signup through the real browser UI. Cleanup requires that exact manifest
+and deletes only its two deterministic user identities if they exist.
+
+After creating a dedicated PostgreSQL database whose name ends in `_e2e_test`, export
+its explicit URL and run the reusable complete stack:
+
+```bash
+export E2E_DATABASE_URL='postgresql+psycopg://.../penny_saved_e2e_test'
+make e2e
+```
+
+Each invocation creates fresh run credentials and data, migrates the dedicated
+database, builds and starts FastAPI and the production frontend bundle on loopback
+ports, waits for real readiness, runs Chromium, stops only its child processes, and
+removes its records. `make e2e-prepare` performs validation, migration, build, and test
+listing without starting persistent servers. `make e2e-cleanup-check` runs the
+supervision and cleanup safety tests.
+
+`make e2e-auth-entry` runs the first half of the real browser journey: signup,
+session restoration after reload, waiting-entry creation and persistence, logout with
+protected-route rejection, and seeded-account login. The complete `make e2e` command
+includes this journey along with the isolated Chromium runner contract. Both commands
+verify expected account and entry ownership in PostgreSQL before removing the run data.
+
+If `make e2e` reports that a port is occupied, stop the program using that port or set
+different explicit `E2E_FRONTEND_URL` and `E2E_BACKEND_URL` loopback origins. A
+readiness timeout preserves bounded redacted logs under `frontend/e2e-artifacts/`.
+Database guard failures mean the URL is missing, matches an ordinary database, uses a
+non-loopback local host, or lacks the required `_e2e_test` suffix.
+
 ## Database migrations
 
 Alembic migrations are the only supported way to change a shared database schema.
