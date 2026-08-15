@@ -49,12 +49,12 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 | &#91;x&#93;      | [DEV-016](#dev-016--implement-statistics-aggregate-api)                         | Implement statistics aggregate API                         | Statistics     | DEV-013                            |
 | &#91;x&#93;      | [DEV-017](#dev-017--implement-opportunity-cost-example-api)                     | Implement opportunity-cost example API                     | Statistics     | DEV-005, DEV-008                   |
 | &#91;x&#93;      | [DEV-018](#dev-018--build-statistics-and-equivalents-ui)                        | Build statistics and equivalents UI                        | Statistics     | DEV-016, DEV-017                   |
-| &#91;&#160;&#93; | [DEV-019](#dev-019--build-opportunity-cost-settings-ui)                         | Build opportunity-cost settings UI                         | Statistics     | DEV-017, DEV-018                   |
-| &#91;&#160;&#93; | [DEV-020](#dev-020--complete-shared-ux-accessibility-and-responsive-behavior)   | Complete shared UX, accessibility, and responsive behavior | Hardening      | DEV-012, DEV-015, DEV-018, DEV-019 |
-| &#91;&#160;&#93; | [DEV-021](#dev-021--add-security-and-abuse-protections)                         | Add security and abuse protections                         | Hardening      | DEV-008, DEV-010, DEV-017          |
-| &#91;&#160;&#93; | [DEV-022](#dev-022--add-production-observability-and-operational-configuration) | Add production observability and operational configuration | Release        | DEV-003, DEV-021                   |
-| &#91;&#160;&#93; | [DEV-023](#dev-023--add-end-to-end-smoke-coverage)                              | Add end-to-end smoke coverage                              | Release        | DEV-007, DEV-020, DEV-021          |
-| &#91;&#160;&#93; | [DEV-024](#dev-024--validate-release-and-document-operations)                   | Validate release and document operations                   | Release        | DEV-006, DEV-022, DEV-023          |
+| &#91;x&#93;      | [DEV-019](#dev-019--build-opportunity-cost-settings-ui)                         | Build opportunity-cost settings UI                         | Statistics     | DEV-017, DEV-018                   |
+| &#91;x&#93;      | [DEV-020](#dev-020--complete-shared-ux-accessibility-and-responsive-behavior)   | Complete shared UX, accessibility, and responsive behavior | Hardening      | DEV-012, DEV-015, DEV-018, DEV-019 |
+| &#91;x&#93;      | [DEV-021](#dev-021--add-security-and-abuse-protections)                         | Add security and abuse protections                         | Hardening      | DEV-008, DEV-010, DEV-017          |
+| &#91;x&#93;      | [DEV-022](#dev-022--add-production-observability-and-operational-configuration) | Add production observability and operational configuration | Release        | DEV-003, DEV-021                   |
+| &#91;x&#93;      | [DEV-023](#dev-023--add-end-to-end-smoke-coverage)                              | Add end-to-end smoke coverage                              | Release        | DEV-007, DEV-020, DEV-021          |
+| &#91;x&#93;      | [DEV-024](#dev-024--validate-release-and-document-operations)                   | Validate release and document operations                   | Release        | DEV-006, DEV-022, DEV-023          |
 
 ## Delivery Milestones
 
@@ -64,8 +64,8 @@ Update this table as the canonical portfolio-level view. Detailed acceptance cri
 | M2 — Accounts          | DEV-008–DEV-009 | Signup/login/logout/session restoration pass API and UI tests                        | Complete    |
 | M3 — Entry management  | DEV-010–DEV-012 | Owned CRUD and all dashboard buckets work without full-page reloads                  | Complete    |
 | M4 — Check-in          | DEV-013–DEV-015 | Exact 48-hour and concurrent-transition tests pass; resolved comments are editable   | Complete    |
-| M5 — Insights          | DEV-016–DEV-019 | Date-boundary aggregates, equivalents, and example management pass                   | In progress |
-| M6 — Release candidate | DEV-020–DEV-024 | Full CI and smoke suite pass; migration and release checklists are complete          | Not started |
+| M5 — Insights          | DEV-016–DEV-019 | Date-boundary aggregates, equivalents, and example management pass                   | Complete    |
+| M6 — Release candidate | DEV-020–DEV-024 | Full CI and smoke suite pass; migration and release checklists are complete          | Complete    |
 
 ## Recommended Merge Order
 
