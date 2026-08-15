@@ -14,7 +14,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: browserEnvironment.frontendUrl,
-    headless: false,
+    headless: true,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "off",
