@@ -1134,7 +1134,73 @@ bash /tmp/install-nvm.sh
 source "$HOME/.nvm/nvm.sh"
 ```
 
-Clone and check out the exact reviewed commit:
+The repository is private, so configure a read-only GitHub deploy key before cloning.
+This key is separate from the OCI key stored on the Mac: the OCI key lets the Mac log
+in to the VM, while this GitHub key lets the VM read this one repository. In the Ubuntu
+SSH window, create it with no passphrase (press Enter twice when prompted):
+
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+ssh-keygen -t ed25519 -C "penny-saved production deploy key" \
+  -f ~/.ssh/penny-saved-github-deploy
+cat ~/.ssh/penny-saved-github-deploy.pub
+```
+
+Copy the entire single line printed by `cat`; it starts with `ssh-ed25519`. This is the
+**public** key and is safe to give to GitHub. Never copy or display the file without
+the `.pub` suffix because that is the private key.
+
+In a browser on the Mac:
+
+1. Open the `angelah9178/penny-saved` repository on GitHub.
+2. Select **Settings**, then **Deploy keys**, then **Add deploy key**.
+3. For **Title**, enter `penny-saved production VM`.
+4. Paste the copied `.pub` line into **Key**.
+5. Leave **Allow write access** unchecked; production only needs to download code.
+6. Select **Add key** and complete GitHub authentication if requested.
+
+Back in the Ubuntu SSH window, create a host-specific SSH configuration:
+
+```bash
+sudo apt-get update
+sudo apt-get install --yes vim
+vim ~/.ssh/config
+```
+
+The Minimal Ubuntu image does not include Vim by default, so the first two commands
+install it on the VM. If `vim --version` already works, those installation commands
+may be skipped.
+
+Press **i** to enter insert mode, then enter exactly this text:
+
+```text
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/penny-saved-github-deploy
+    IdentitiesOnly yes
+```
+
+Press **Escape**, type `:wq`, and press **Enter**. This saves the file and exits Vim.
+
+Protect the configuration and test it:
+
+```bash
+chmod 600 ~/.ssh/config ~/.ssh/penny-saved-github-deploy
+ssh -T git@github.com
+```
+
+On the first connection, SSH may ask whether to trust GitHub's host key. Compare the
+displayed fingerprint with GitHub's published SSH host-key fingerprints before typing
+`yes`. A message saying authentication succeeded but GitHub does not provide shell
+access is the expected successful result.
+
+Now clone and check out the exact reviewed commit. For this deployment,
+`REPLACE_WITH_REPOSITORY_URL` is `git@github.com:angelah9178/penny-saved.git`. Replace
+`REPLACE_WITH_FULL_COMMIT_SHA` with the full 40-character commit shown by
+`git rev-parse HEAD` on the trusted local checkout; it changes when a new release is
+selected.
 
 ```bash
 cd /srv/penny-saved/releases
