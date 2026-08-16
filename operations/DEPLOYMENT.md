@@ -6,7 +6,7 @@ Cloud Infrastructure (OCI) virtual machine, with DNS hosted by GoDaddy.
 The production path is:
 
 ```text
-browser -> GoDaddy DNS -> OCI reserved public IP -> Nginx :80/:443
+browser -> GoDaddy DNS -> OCI ephemeral public IP -> Nginx :80/:443
                                                     |-> React static files
                                                     `-> FastAPI 127.0.0.1:8000
                                                           `-> PostgreSQL 127.0.0.1:5432
@@ -19,9 +19,10 @@ available: an instance, boot-volume, or availability-domain failure can take dow
 the app and database. Use tested, encrypted, off-host backups.
 
 This guide uses one compute profile throughout: **VM.Standard.E2.1.Micro** with the
-**Canonical Ubuntu 24.04 LTS Minimal x86_64/AMD64** image, a 2 GB swap file, and one
-Uvicorn worker. It is intentionally sized for approximately one or two simultaneous
-users. Do not substitute an Arm/aarch64 image.
+**Canonical Ubuntu 24.04 Minimal** image (the entry without `aarch64`), a 2 GB swap
+file, and one Uvicorn worker. It is intentionally sized for approximately one or two
+simultaneous users. Do not select **Canonical Ubuntu 24.04 Minimal aarch64**; that image
+is for an Arm shape, not the AMD-based E2.1.Micro shape.
 
 > **Before production:** replace every value shown as `REPLACE_WITH_...`, choose named
 > owners for deployment, incidents, TLS renewal, and database restores, and resolve the
@@ -34,14 +35,14 @@ Keep these in a password manager or deployment record, not in Git:
 
 | Value | Example in this repository | Why it is needed |
 | --- | --- | --- |
-| OCI region | closest region to most users | Region affects latency, capacity, and where the reserved IP exists. |
+| OCI region | closest home region to most users | Region affects latency, capacity, and where the instance and public IP exist. |
 | OCI compartment | `penny-saved-production` | Keeps production resources grouped for IAM, billing, and cleanup. |
 | Canonical domain | `stopimpulsebuying.us` | Used by DNS, TLS, Nginx, cookies, CORS, and trusted-host checks. |
 | Admin email | `REPLACE_WITH_ADMIN_EMAIL` | Let's Encrypt expiry and recovery contact. |
 | Administrator public IPv4/CIDR | `198.51.100.10/32` | Restricts SSH to the administrator instead of the whole internet. |
 | Repository URL | `REPLACE_WITH_REPOSITORY_URL` | Source used to create immutable releases. |
 | Release commit | full 40-character Git SHA | Makes deployments and rollbacks reproducible. |
-| Reserved public IPv4 | assigned later by OCI | Stable address used by GoDaddy DNS. |
+| Public IPv4 | assigned by OCI to the instance | Ephemeral internet address used by SSH and GoDaddy DNS. |
 
 The instructions use the repository's configured domain. If the domain changes,
 replace it in `operations/production.env.example`,
@@ -50,7 +51,7 @@ replace it in `operations/production.env.example`,
 ## 2. Create the OCI compartment and budget
 
 1. Sign in to the OCI Console and select the intended home region. Do not casually
-   change regions later: instances, VCNs, and reserved public IPs are regional.
+   change regions later: instances, VCNs, and public IP resources are regional.
 2. Open **Identity & Security -> Compartments**, select the parent compartment, and
    create `penny-saved-production`.
 3. Open **Billing & Cost Management -> Budgets**, create a small monthly budget for the
@@ -293,12 +294,12 @@ In **Compute -> Instances -> Create instance**, choose:
 | --- | --- | --- |
 | Name | `penny-saved-prod-1` | Clear operational identity. |
 | Placement | the AD in which OCI offers `VM.Standard.E2.1.Micro`; fault domain set to **Let Oracle choose** | OCI offers E2.1.Micro in only one AD in multi-AD regions. A single VM has no cross-AD failover. |
-| Image | **Canonical Ubuntu 24.04 LTS Minimal, x86_64/AMD64** | Ubuntu 24.04 supplies Python 3.12 and PostgreSQL 16; the AMD64 image matches the E2 processor. Do not select an Arm/aarch64 image. |
+| Image | **Canonical Ubuntu 24.04 Minimal**—specifically the entry without `aarch64` | Ubuntu 24.04 supplies Python 3.12 and PostgreSQL 16. The generic entry is the correct x86_64 image for E2.1.Micro; the separately labeled `aarch64` entry is not. |
 | Shape | **VM.Standard.E2.1.Micro** | This is OCI's fixed-size Always Free AMD micro shape and is sufficient for the expected one or two simultaneous users. |
 | OCPUs / memory | fixed by OCI: burstable **1/8 OCPU and 1 GB RAM** | These values are not editable for E2.1.Micro. The required swap and one-worker configuration later in this guide accommodate the small memory limit. |
 | Boot volume | **50 GB**, default performance, encryption enabled | Accommodates OS, database, logs, releases, and local backup staging; monitor free space. |
 | VCN/subnet | `penny-saved-vcn` / `penny-saved-public-subnet` | Required for direct internet access. Select the existing subnet created in section 3. |
-| Public IPv4 | temporarily assign an ephemeral IP | Needed for initial SSH; it will be replaced by a reserved IP. |
+| Public IPv4 | automatically assign an ephemeral IP | Needed for SSH and public web traffic. Keep and record this address in section 5. |
 | NSG | `penny-saved-web-nsg` | Applies only the three intended inbound ports. |
 
 ### Complete Step 3: Primary VNIC information / Networking
@@ -380,8 +381,8 @@ NSG:             penny-saved-web-nsg
 Custom route:    none
 ```
 
-The public IPv4 created here is temporary. Section 5 replaces it with the stable
-reserved public IP that will be placed in GoDaddy DNS.
+The public IPv4 created here is ephemeral. Section 5 verifies it and records it for
+GoDaddy DNS.
 
 ### Complete the SSH keys section
 
@@ -557,9 +558,23 @@ username is wrong, or the private-key file permissions are too broad.
 
 ### Confirm the E2 image, shape, and placement
 
-In **Image and shape**, select **Change image**, choose **Canonical Ubuntu**, select
-Ubuntu 24.04 Minimal, and confirm the displayed architecture is **x86_64** or **AMD64**.
-Then select **Change shape -> Specialty and previous generation ->
+In **Image and shape**, select **Change image** and choose exactly:
+
+```text
+Canonical Ubuntu 24.04 Minimal
+```
+
+OCI may show these two similar choices:
+
+```text
+Canonical Ubuntu 24.04 Minimal aarch64  <- do not select for E2.1.Micro
+Canonical Ubuntu 24.04 Minimal          <- select this one
+```
+
+The unlabeled/generic second entry is the x86_64 image used by the AMD-based
+E2.1.Micro shape. If OCI displays image details, confirm **Architecture** says
+`x86_64` or `AMD64`; the absence of `aarch64` in the image name is the important
+distinction in the picker. Then select **Change shape -> Specialty and previous generation ->
 VM.Standard.E2.1.Micro** (the shape-category wording can vary).
 
 Confirm the shape row says **Always Free eligible** before creating the instance. Do
@@ -568,31 +583,150 @@ E2.1.Micro as 1 GB RAM, burstable 1/8 OCPU, and limited public bandwidth. It is 
 cost-conscious fit for one or two simultaneous users, but updates and frontend builds
 will be slow.
 
+#### If OCI says "Some resource limit is critical"
+
+This banner is a generic tenancy-limit warning, not the name of the exhausted resource.
+Do not assume it means E2.1.Micro is unavailable, and do not upgrade to a paid shape
+just to dismiss it.
+
+1. Select **View all limits, quotas and usage** in the warning. If that link does not
+   open the page, use **Governance & Administration -> Tenancy Management -> Limits,
+   Quotas and Usage**.
+2. Confirm the page's region is the same home region where the instance is being
+   created.
+3. Select **Edit filters** if the filter controls are hidden.
+4. Set:
+   - **Service:** `Compute`;
+   - **Scope:** the availability domain selected for the instance;
+   - **Compartment:** `penny-saved-production` (also inspect the tenancy/root scope if
+     the page reports limits there); and
+   - **Resource:** search for `E2`, `Micro`, or the limit name
+     `standard-e2-micro-core-count`.
+5. Inspect the row's **Service Limit**, **Usage**, and **Available** values.
+
+Interpret the E2 row as follows:
+
+| What the page shows | What to do |
+| --- | --- |
+| **Available** is at least enough for one E2.1.Micro instance | Return to the instance form and continue. The generic warning refers to another resource or merely says the account is approaching a limit. |
+| **Available** is `0` and an existing E2.1.Micro instance is listed under **Compute -> Instances** | Use the existing instance if appropriate, or terminate it only if you are certain it is disposable and its data is backed up. Do not delete an unfamiliar instance. |
+| **Available** is `0`, but there is no existing E2.1.Micro instance | Confirm the correct AD and home region. If they are correct, the tenancy limit/quota blocks creation; request a limit increase through Oracle Support or wait/contact Oracle. |
+| A compartment quota is `0` or exhausted while the tenancy service limit has space | An administrator must change the compartment quota; switching shapes does not fix it. |
+
+Also check **Block Volume** limits because every instance creates a boot volume:
+
+1. Change **Service** to **Block Volume**.
+2. Inspect total boot/block volume storage and boot-volume counts in the home region.
+3. This guide requests one 50 GB boot volume. Oracle documents 200 GB total of Always
+   Free boot plus block-volume storage in the home region. Existing volumes—including
+   volumes left behind by terminated instances—count against storage usage.
+
+Finally, return to the create-instance page and expand the warning if OCI identifies a
+specific limit. Continue only when the E2 Micro row has availability and at least 50 GB
+of eligible boot-volume capacity remains. A yellow/critical banner by itself is not a
+billing authorization; the selected shape must still say **Always Free eligible**, and
+the cost estimate should not show an unexpected compute charge.
+
 Oracle makes E2.1.Micro available in only one availability domain in regions that have
 multiple ADs. If OCI changes or restricts **Placement**, accept the AD where
 E2.1.Micro is available. Set **Fault domain** to **Let Oracle choose the best fault
 domain** or **No preference**. If OCI reports E2 capacity is unavailable even in the
 allowed AD, retry later; do not silently select a paid shape.
 
-## 5. Assign a reserved public IP
+## 5. Verify and record the ephemeral public IP
 
-An ephemeral address is tied to its assignment. A reserved address survives instance
-replacement and lets DNS remain stable.
+After instance creation, OCI displays two different addresses. For example:
 
-1. Open **Networking -> IP management -> Reserved public IPs**.
-2. Select **Reserve public IP address**, name it `penny-saved-prod-ip`, select the
-   production compartment and Oracle's default IP pool, then reserve it.
-3. Open the compute instance -> **Attached VNICs** -> primary VNIC -> **IPv4 addresses**.
-4. Edit the primary private IP's public-IP assignment. Unassign the ephemeral public IP,
-   then assign the reserved public IP. Confirm the exact console prompt before saving.
-5. Record the reserved IPv4 as `REPLACE_WITH_RESERVED_IP` and reconnect with SSH.
+```text
+Public IPv4 address:  132.145.167.20
+Private IPv4 address: 10.0.0.220
+```
 
-Stopping an instance does not require changing DNS. If the instance is rebuilt, the
-same reserved IP can be reassigned to the replacement in the same region.
+- `10.0.0.220` is the VM's internal VCN address. Keep it automatically assigned and do
+  not put it in GoDaddy DNS.
+- `132.145.167.20` is an example **ephemeral public IP** used for SSH and public web
+  traffic. Keep the actual ephemeral IP currently assigned to the VM.
+
+A **reserved public IP** is another public IPv4 address allocated by OCI that persists
+until you explicitly delete it. It can later be moved to a replacement VM in the same
+region, allowing GoDaddy DNS to keep the same address if this VM must be rebuilt.
+
+An **ephemeral public IP** is an internet-facing IPv4 address that OCI temporarily
+attaches to this VM's private IP. "Ephemeral" means the address belongs to the current
+VM/VNIC assignment rather than being a separately retained address in the account. It
+allows a computer on the internet—such as the administrator's Mac or a visitor's web
+browser—to reach the VM. The private `10.0.0.x` address works only inside the OCI VCN,
+so without a public IP the Mac cannot SSH directly to the VM and GoDaddy cannot direct
+public visitors to it.
+
+This deployment uses an ephemeral IP only because OCI rejected creation of a reserved
+IP with the `reserved-public-ip-count` service limit. An ephemeral IP provides the same
+SSH, HTTP, and HTTPS connectivity while it remains assigned. The tradeoff is lifecycle:
+
+| Address type | What happens |
+| --- | --- |
+| **Ephemeral public IP** | Remains attached through ordinary VM reboots and stops/starts, but is deleted if the instance, VNIC, or private-IP assignment is terminated. A replacement VM usually receives a different public IP, requiring a GoDaddy A-record update. |
+| **Reserved public IP** | Exists independently until explicitly deleted and can be moved to a replacement VM in the same region, allowing DNS to keep the same address. |
+
+"Ephemeral" does not mean the address changes every few minutes or on every reboot. It
+means OCI does not promise to retain it after the underlying instance/VNIC is deleted.
+
+### 5.1 Confirm or restore the ephemeral public IP
+
+If the instance details already show an ephemeral **Public IPv4 address**, keep it; do
+not delete or replace it. If **Public IPv4 address** says **Not Assigned**—for example,
+because a failed reserved-IP attempt removed the original address—restore one:
+
+1. Open **Compute -> Instances -> penny-saved-prod-1 -> Networking -> Attached
+   VNICs**.
+2. Select `penny-saved-prod-1-vnic`, then open **IP administration**.
+3. On the `10.0.0.220 (Primary IP)` row (or the actual private IP shown by OCI), select
+   **Actions -> Edit**.
+4. Under **Public IP type**, select **Ephemeral public IP**.
+5. Enter `penny-saved-prod-ephemeral-ip` if OCI requests a name.
+6. Select **Update**, wait for OCI to display a new **Public IPv4 address**, and copy
+   that new address.
+
+### 5.2 Verify the ephemeral public IP and finish this step
+
+From Terminal on the Mac, replace the placeholder below with the public IP currently
+displayed by OCI:
+
+```bash
+ssh -i "/Users/angelahu/Downloads/ssh-key-2026-08-16.key" \
+  ubuntu@REPLACE_WITH_PUBLIC_IP
+```
+
+If SSH works, run `exit` and continue to GoDaddy. From this point forward, use only the
+new public IP in SSH commands and DNS. Do not use `132.145.167.20` unless OCI shows
+that exact number as the newly assigned address.
+
+A successful SSH login with the new public IP completes this part of the deployment.
+It proves all of the following are working together:
+
+- the compute instance is running;
+- the primary VNIC has a public IP;
+- `penny-saved-public-subnet` routes through the internet gateway;
+- the NSG/security-list and local image allow SSH on TCP port 22;
+- the administrator's current public IP is allowed by the SSH rule; and
+- the private SSH key on the Mac matches the public key installed on Ubuntu.
+
+Before continuing, record the public IPv4 address in the deployment record as
+`REPLACE_WITH_PUBLIC_IP`. Run `exit` to return from the Ubuntu shell to the Mac, then
+proceed to section 6 and put this exact public IP in GoDaddy's `@` A record.
+
+Do not terminate the instance or delete its VNIC without first planning a DNS update.
+If the VM is rebuilt, OCI normally assigns a different ephemeral IP; update GoDaddy's A
+record to the replacement public IP and re-verify HTTPS. An ordinary reboot or
+stop/start keeps the ephemeral address while it remains attached to this instance.
+
+If OCI later grants reserved-IP capacity, migration to a reserved address can be
+planned separately with a controlled DNS update. It is not required to continue now.
 
 ## 6. Point GoDaddy DNS at OCI
 
-Do this after the reserved address answers SSH and before requesting TLS.
+Do this after the final public address (reserved when available, otherwise ephemeral)
+answers SSH and before requesting TLS.
 
 1. Sign in to GoDaddy, open **Domain Portfolio**, select `stopimpulsebuying.us`, then
    open **DNS**.
@@ -601,7 +735,7 @@ Do this after the reserved address answers SSH and before requesting TLS.
 
    | Type | Name | Value | TTL |
    | --- | --- | --- | --- |
-   | A | `@` | `REPLACE_WITH_RESERVED_IP` | 600 seconds if offered, otherwise 1 hour |
+   | A | `@` | `REPLACE_WITH_PUBLIC_IP` | 600 seconds if offered, otherwise 1 hour |
 
 4. Add or edit `www`:
 
@@ -620,13 +754,13 @@ dig +short CNAME www.stopimpulsebuying.us
 dig +short A www.stopimpulsebuying.us
 ```
 
-Both names must ultimately resolve to the reserved IP. GoDaddy says most changes are
+Both names must ultimately resolve to the final public IP. GoDaddy says most changes are
 visible within an hour but global propagation can take up to 48 hours. DNS maps names
 to the VM; it does not provide TLS or open a firewall.
 
 ## 7. Patch and secure Ubuntu
 
-SSH to the reserved address.
+SSH to the final public address assigned in section 5.
 
 ### Add swap before installing or building
 
