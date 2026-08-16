@@ -1198,16 +1198,17 @@ access is the expected successful result.
 
 Now clone and check out the exact reviewed commit. For this deployment,
 `REPLACE_WITH_REPOSITORY_URL` is `git@github.com:angelah9178/penny-saved.git`. Replace
-`REPLACE_WITH_FULL_COMMIT_SHA` with the full 40-character commit shown by
-`git rev-parse HEAD` on the trusted local checkout; it changes when a new release is
-selected.
+The exact commit selected for this first deployment is
+`530edfae6f435bccd1314447e0a48d77bb4ab8c0`. For a later release, replace that value
+throughout the release commands with the new full 40-character commit shown by
+`git rev-parse HEAD` on the trusted local checkout.
 
 ```bash
 cd /srv/penny-saved/releases
-git clone REPLACE_WITH_REPOSITORY_URL REPLACE_WITH_FULL_COMMIT_SHA
-cd REPLACE_WITH_FULL_COMMIT_SHA
-git checkout --detach REPLACE_WITH_FULL_COMMIT_SHA
-test "$(git rev-parse HEAD)" = "REPLACE_WITH_FULL_COMMIT_SHA"
+git clone git@github.com:angelah9178/penny-saved.git 530edfae6f435bccd1314447e0a48d77bb4ab8c0
+cd 530edfae6f435bccd1314447e0a48d77bb4ab8c0
+git checkout --detach 530edfae6f435bccd1314447e0a48d77bb4ab8c0
+test "$(git rev-parse HEAD)" = "530edfae6f435bccd1314447e0a48d77bb4ab8c0"
 nvm install "$(cat .nvmrc)"
 npm --prefix frontend ci
 npm --prefix frontend run build
@@ -1259,12 +1260,12 @@ trusted hosts, proxy restrictions, JSON logs, and request-size/rate limits for
 Validate configuration construction without printing secrets:
 
 ```bash
-cd /srv/penny-saved/releases/REPLACE_WITH_FULL_COMMIT_SHA/backend
+cd /srv/penny-saved/releases/530edfae6f435bccd1314447e0a48d77bb4ab8c0/backend
 sudo systemd-run --wait --pipe --collect --unit=penny-saved-config-check \
   --uid=penny-saved --gid=penny-saved \
   --property=WorkingDirectory="$PWD" \
   --property=EnvironmentFile=/etc/penny-saved/backend.env \
-  /srv/penny-saved/releases/REPLACE_WITH_FULL_COMMIT_SHA/.venv/bin/python \
+  /srv/penny-saved/releases/530edfae6f435bccd1314447e0a48d77bb4ab8c0/.venv/bin/python \
   -c 'from app.main import create_app; create_app(); print("configuration valid")'
 ```
 
@@ -1277,25 +1278,25 @@ Apply migrations in transient systemd units that read the protected environment 
 This avoids expanding database credentials into the command line or interactive shell:
 
 ```bash
-cd /srv/penny-saved/releases/REPLACE_WITH_FULL_COMMIT_SHA/backend
+cd /srv/penny-saved/releases/530edfae6f435bccd1314447e0a48d77bb4ab8c0/backend
 sudo systemd-run --wait --pipe --collect --unit=penny-saved-migrate \
   --uid=penny-saved --gid=penny-saved \
   --property=WorkingDirectory="$PWD" \
   --property=EnvironmentFile=/etc/penny-saved/backend.env \
-  /srv/penny-saved/releases/REPLACE_WITH_FULL_COMMIT_SHA/.venv/bin/python \
+  /srv/penny-saved/releases/530edfae6f435bccd1314447e0a48d77bb4ab8c0/.venv/bin/python \
   -m alembic upgrade head
 sudo systemd-run --wait --pipe --collect --unit=penny-saved-migration-status \
   --uid=penny-saved --gid=penny-saved \
   --property=WorkingDirectory="$PWD" \
   --property=EnvironmentFile=/etc/penny-saved/backend.env \
-  /srv/penny-saved/releases/REPLACE_WITH_FULL_COMMIT_SHA/.venv/bin/python \
+  /srv/penny-saved/releases/530edfae6f435bccd1314447e0a48d77bb4ab8c0/.venv/bin/python \
   -m alembic current
 ```
 
 Activate the release with an atomic symlink:
 
 ```bash
-sudo ln -s /srv/penny-saved/releases/REPLACE_WITH_FULL_COMMIT_SHA \
+sudo ln -s /srv/penny-saved/releases/530edfae6f435bccd1314447e0a48d77bb4ab8c0 \
   /srv/penny-saved/current.next
 sudo mv -T /srv/penny-saved/current.next /srv/penny-saved/current
 ```
@@ -1336,9 +1337,25 @@ For either shape, continue with:
 sudo systemd-analyze verify /etc/systemd/system/penny-saved.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now penny-saved
-sudo systemctl status penny-saved --no-pager
-curl --fail --silent --show-error http://127.0.0.1:8000/api/health
-curl --fail --silent --show-error http://127.0.0.1:8000/api/ready
+timeout 30 bash -c \
+  'until curl --fail --silent --header "Host: stopimpulsebuying.online" http://127.0.0.1:8000/api/health; do sleep 1; done'
+curl --fail --silent --show-error --header 'Host: stopimpulsebuying.online' \
+  http://127.0.0.1:8000/api/ready
+sudo ss -lntp | grep 8000
+sudo systemctl status penny-saved --no-pager --full
+```
+
+The request connects directly to loopback but sends the production domain in the HTTP
+`Host` header because the application deliberately rejects untrusted hosts. Without
+that header, a correctly running production application returns `400`. The bounded
+loop gives Uvicorn up to 30 seconds to import the application and begin listening. A
+connection-refused response during the first second or two can be a normal startup
+race. If the loop exits without printing a successful health response, do not
+continue; inspect the service's current state and boot logs:
+
+```bash
+sudo systemctl status penny-saved --no-pager --full
+sudo journalctl --unit=penny-saved --boot --no-pager --lines=100
 sudo ss -lntp | grep 8000
 ```
 
@@ -1444,7 +1461,8 @@ On the server, confirm only intended public listeners and private app/database p
 
 ```bash
 sudo ss -lntp
-curl --fail --silent --show-error http://127.0.0.1:8000/internal/metrics | head
+curl --fail --silent --show-error --header 'Host: stopimpulsebuying.online' \
+  http://127.0.0.1:8000/internal/metrics | head
 curl --fail --silent --show-error --output /dev/null --write-out '%{http_code}\n' \
   https://stopimpulsebuying.online/internal/metrics
 ```
