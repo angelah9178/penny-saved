@@ -42,7 +42,7 @@ Keep these in a password manager or deployment record, not in Git:
 | Administrator public IPv4/CIDR | `198.51.100.10/32` | Restricts SSH to the administrator instead of the whole internet. |
 | Repository URL | `REPLACE_WITH_REPOSITORY_URL` | Source used to create immutable releases. |
 | Release commit | full 40-character Git SHA | Makes deployments and rollbacks reproducible. |
-| Public IPv4 | assigned by OCI to the instance | Ephemeral internet address used by SSH and GoDaddy DNS. |
+| Public IPv4 | `132.145.170.34` | Current ephemeral internet address used by SSH and GoDaddy DNS. Public IPs are not secrets, but this value must be updated if the VM/VNIC is replaced. |
 
 The instructions use the repository's configured domain. If the domain changes,
 replace it in `operations/production.env.example`,
@@ -448,8 +448,8 @@ instance's **State** or **Lifecycle state** becomes **Running**. Then:
 
 1. Open **Compute -> Instances -> penny-saved-prod-1**.
 2. On the instance details page, find **Public IPv4 address** or **Public IP address**.
-3. Copy that address. This is the value represented below by
-   `REPLACE_WITH_EPHEMERAL_IP`. It will look like `129.146.12.34`, not `10.0.0.x`.
+3. Copy that address. For this deployment it is currently `132.145.170.34`. It is a
+   public address, not the private `10.0.0.x` address.
 
 Do not use the **Private IPv4 address** beginning with `10.`. That private address is
 not reachable directly from your personal computer.
@@ -506,19 +506,18 @@ SSH is a connection between two different computers: the Mac's SSH client reads 
 private key locally, and the Ubuntu VM checks it against the corresponding public key
 OCI installed on the VM. Never upload the private key to the Ubuntu VM.
 
-Connect using the public IPv4 copied from the OCI instance page. For example, if OCI
-shows `129.146.12.34`, run:
+Connect using the current public IPv4 copied from the OCI instance page:
 
 ```bash
-ssh -i "$HOME/.ssh/penny-saved-oci.key" ubuntu@129.146.12.34
+ssh -i "$HOME/.ssh/penny-saved-oci.key" ubuntu@132.145.170.34
 ```
 
-Therefore, the placeholders mean:
+For this deployment, these values mean:
 
 ```text
-REPLACE_WITH_PRIVATE_KEY_PATH = $HOME/.ssh/penny-saved-oci.key
-REPLACE_WITH_EPHEMERAL_IP     = the instance's Public IPv4 address, such as 129.146.12.34
-ubuntu                        = the login username for the recommended Ubuntu image
+Private key path = $HOME/.ssh/penny-saved-oci.key
+Ephemeral IP     = 132.145.170.34
+Login username   = ubuntu
 ```
 
 The first connection normally asks whether to trust the host fingerprint. Confirm the
@@ -530,7 +529,7 @@ path. For example:
 
 ```bash
 chmod 600 "$HOME/.ssh/id_ed25519"
-ssh -i "$HOME/.ssh/id_ed25519" ubuntu@129.146.12.34
+ssh -i "$HOME/.ssh/id_ed25519" ubuntu@132.145.170.34
 ```
 
 #### Connect from Windows PowerShell
@@ -543,7 +542,7 @@ New-Item -ItemType Directory -Force "$HOME\.ssh"
 Move-Item "$HOME\Downloads\ssh-key-2026-08-15.key" "$HOME\.ssh\penny-saved-oci.key"
 icacls "$HOME\.ssh\penny-saved-oci.key" /inheritance:r
 icacls "$HOME\.ssh\penny-saved-oci.key" /grant:r "$($env:USERNAME):(R)"
-ssh -i "$HOME\.ssh\penny-saved-oci.key" ubuntu@129.146.12.34
+ssh -i "$HOME\.ssh\penny-saved-oci.key" ubuntu@132.145.170.34
 ```
 
 Windows uses `icacls` rather than `chmod` to restrict the key. Recent Windows versions
@@ -638,14 +637,14 @@ allowed AD, retry later; do not silently select a paid shape.
 After instance creation, OCI displays two different addresses. For example:
 
 ```text
-Public IPv4 address:  132.145.167.20
+Public IPv4 address:  132.145.170.34
 Private IPv4 address: 10.0.0.220
 ```
 
 - `10.0.0.220` is the VM's internal VCN address. Keep it automatically assigned and do
   not put it in GoDaddy DNS.
-- `132.145.167.20` is an example **ephemeral public IP** used for SSH and public web
-  traffic. Keep the actual ephemeral IP currently assigned to the VM.
+- `132.145.170.34` is this deployment's current **ephemeral public IP** used for SSH
+  and public web traffic. Keep it while it remains assigned to the VM.
 
 A **reserved public IP** is another public IPv4 address allocated by OCI that persists
 until you explicitly delete it. It can later be moved to a replacement VM in the same
@@ -689,17 +688,14 @@ because a failed reserved-IP attempt removed the original address—restore one:
 
 ### 5.2 Verify the ephemeral public IP and finish this step
 
-From Terminal on the Mac, replace the placeholder below with the public IP currently
-displayed by OCI:
+From Terminal on the Mac, use the private key in `.ssh` and the current public IP:
 
 ```bash
-ssh -i "/Users/angelahu/Downloads/ssh-key-2026-08-16.key" \
-  ubuntu@REPLACE_WITH_PUBLIC_IP
+ssh -i "/Users/angelahu/.ssh/penny-saved-oci.key" ubuntu@132.145.170.34
 ```
 
 If SSH works, run `exit` and continue to GoDaddy. From this point forward, use only the
-new public IP in SSH commands and DNS. Do not use `132.145.167.20` unless OCI shows
-that exact number as the newly assigned address.
+current `132.145.170.34` address in SSH commands and DNS.
 
 A successful SSH login with the new public IP completes this part of the deployment.
 It proves all of the following are working together:
@@ -711,9 +707,9 @@ It proves all of the following are working together:
 - the administrator's current public IP is allowed by the SSH rule; and
 - the private SSH key on the Mac matches the public key installed on Ubuntu.
 
-Before continuing, record the public IPv4 address in the deployment record as
-`REPLACE_WITH_PUBLIC_IP`. Run `exit` to return from the Ubuntu shell to the Mac, then
-proceed to section 6 and put this exact public IP in GoDaddy's `@` A record.
+Before continuing, record `132.145.170.34` as the current ephemeral public IPv4. Run
+`exit` to return from the Ubuntu shell to the Mac, then proceed to section 6 and put
+this exact public IP in GoDaddy's `@` A record.
 
 Do not terminate the instance or delete its VNIC without first planning a DNS update.
 If the VM is rebuilt, OCI normally assigns a different ephemeral IP; update GoDaddy's A
@@ -730,12 +726,48 @@ answers SSH and before requesting TLS.
 
 1. Sign in to GoDaddy, open **Domain Portfolio**, select `stopimpulsebuying.online`, then
    open **DNS**.
-2. Record the old values before changing them; this is the DNS rollback record.
+2. Before editing anything, create a DNS rollback record on the Mac. This can be:
+   - a note in Apple Notes named `stopimpulsebuying.online DNS rollback`;
+   - a secure note in a password manager; or
+   - a text/Markdown file such as
+     `/Users/angelahu/Documents/stopimpulsebuying-online-dns-before-deployment.md`.
+
+   Keep this record outside the `penny-saved` Git repository. DNS values are generally
+   public, but the note is operational evidence and does not belong in application
+   source control.
+
+   In the note, record the date/time and copy every existing GoDaddy row whose **Name**
+   is `@` or `www`. Capture all four displayed fields: **Type**, **Name**, **Data/Value**,
+   and **TTL**. Use this template:
+
+   ```text
+   Domain: stopimpulsebuying.online
+   Recorded at: REPLACE_WITH_DATE_AND_TIME
+
+   BEFORE DEPLOYMENT
+   Type: REPLACE_WITH_TYPE
+   Name: @
+   Data/Value: REPLACE_WITH_OLD_VALUE
+   TTL: REPLACE_WITH_OLD_TTL
+
+   Type: REPLACE_WITH_TYPE
+   Name: www
+   Data/Value: REPLACE_WITH_OLD_VALUE
+   TTL: REPLACE_WITH_OLD_TTL
+   ```
+
+   Also take a screenshot of the GoDaddy DNS table and save it with the note. If no `@`
+   or `www` row exists, write `No existing @ record` or `No existing www record` rather
+   than inventing a value.
+
+   This record is the rollback plan: if the new site must be disconnected, recreate the
+   previous rows exactly as recorded. Do not change or delete MX, email-related CNAME,
+   TXT, DKIM, SPF, or domain-verification records.
 3. Add or edit the apex record:
 
    | Type | Name | Value | TTL |
    | --- | --- | --- | --- |
-   | A | `@` | `REPLACE_WITH_PUBLIC_IP` | 600 seconds if offered, otherwise 1 hour |
+   | A | `@` | `132.145.170.34` | 600 seconds if offered, otherwise 1 hour |
 
 4. Add or edit `www`:
 
