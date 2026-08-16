@@ -378,14 +378,177 @@ Custom route:    none
 The public IPv4 created here is temporary. Section 5 replaces it with the stable
 reserved public IP that will be placed in GoDaddy DNS.
 
-Under SSH keys, upload an existing **Ed25519 public key** or let OCI generate a key and
-download the private key immediately. OCI cannot show a generated private key again.
-Never email or commit it. On the administrator's computer:
+### Complete the SSH keys section
+
+The SSH key proves to the server that your computer is authorized to log in. It has two
+parts:
+
+- the **public key** is safe to place on the OCI instance; and
+- the **private key** must remain secret on your personal computer.
+
+The order of operations is:
+
+```text
+1. Download/save the private key while filling out the OCI instance form.
+2. Finish the form and select Create.
+3. Wait for the OCI instance to show Running.
+4. Copy the instance's Public IPv4 address from OCI.
+5. Open Terminal on your Mac and run ssh using the private key and public IP.
+```
+
+Do not try to SSH immediately after downloading the key while the instance form is
+still open. The key file exists at that point, but there is no running server or public
+IP to connect to yet.
+
+Choose exactly one of the following OCI options.
+
+#### Option A: Let OCI generate the key pair (recommended if you do not have a key)
+
+1. In the instance form's **Add SSH keys** section, select **Generate a key pair for
+   me**.
+2. Select **Save private key** and download the private-key file.
+3. You may also select **Save public key** for your records, but it is not required for
+   connecting. OCI automatically installs that public key on the new instance.
+4. Do not finish creating the instance until the private-key download is complete. OCI
+   cannot display or download this private key again later.
+
+You need the downloaded **private key** to connect. You do not pass the downloaded
+public-key file to the `ssh` command. OCI-generated downloads commonly look similar to:
+
+```text
+ssh-key-2026-08-16.key       <- PRIVATE key: use this with ssh -i
+ssh-key-2026-08-16.key.pub   <- PUBLIC key: do not use this with ssh -i
+```
+
+The `.pub` suffix means "public key." If your intended path ends in `.pub`, stop and
+select the matching file without `.pub`. If you saved only the `.pub` file and did not
+save the private key, that public file cannot be converted into the private key. Before
+creating the instance, use **Save private key**; after creating it, you would need to
+install a different public key through an OCI recovery method or recreate the instance.
+
+#### Option B: Upload a public key you already own
+
+Select **Upload public key files** or **Paste public keys**, then provide your existing
+`.pub` key. In this case, do not download or generate another key: connect using the
+matching private key already stored on your computer. For example, an uploaded
+`~/.ssh/id_ed25519.pub` matches the private key `~/.ssh/id_ed25519`.
+
+Never upload, paste, email, or commit a private key. Do not store it in this repository.
+
+### Create the instance and find its temporary public IP
+
+After reviewing the remaining instance settings, select **Create**. Wait until the
+instance's **State** or **Lifecycle state** becomes **Running**. Then:
+
+1. Open **Compute -> Instances -> penny-saved-prod-1**.
+2. On the instance details page, find **Public IPv4 address** or **Public IP address**.
+3. Copy that address. This is the value represented below by
+   `REPLACE_WITH_EPHEMERAL_IP`. It will look like `129.146.12.34`, not `10.0.0.x`.
+
+Do not use the **Private IPv4 address** beginning with `10.`. That private address is
+not reachable directly from your personal computer.
+
+### Connect from macOS or Linux
+
+Run the following commands in the Terminal application on your **personal computer**.
+Do not run them in OCI Cloud Shell, the browser console, or this project's server.
+
+If OCI downloaded a file such as `ssh-key-2026-08-15.key` into your Downloads folder,
+move it into your SSH folder and give it a recognizable name:
 
 ```bash
-chmod 600 REPLACE_WITH_PRIVATE_KEY_PATH
-ssh -i REPLACE_WITH_PRIVATE_KEY_PATH ubuntu@REPLACE_WITH_EPHEMERAL_IP
+mkdir -p "$HOME/.ssh"
+mv "$HOME/Downloads/ssh-key-2026-08-15.key" "$HOME/.ssh/penny-saved-oci.key"
+chmod 600 "$HOME/.ssh/penny-saved-oci.key"
 ```
+
+Replace `ssh-key-2026-08-15.key` with the exact downloaded private-key filename. The
+`chmod 600` command permits only your user account to read or change the private key;
+OpenSSH commonly refuses keys with broader permissions.
+
+For the concrete example of macOS user `angelahu` with files downloaded on August 16,
+the private-key source path is:
+
+```text
+/Users/angelahu/Downloads/ssh-key-2026-08-16.key
+```
+
+It is **not**:
+
+```text
+/Users/angelahu/Downloads/ssh-key-2026-08-16.key.pub
+```
+
+To verify both downloaded files before moving anything, run this in Terminal on the
+Mac:
+
+```bash
+ls -l /Users/angelahu/Downloads/ssh-key-2026-08-16.key*
+```
+
+Then move and secure only the private file:
+
+```bash
+mkdir -p /Users/angelahu/.ssh
+mv /Users/angelahu/Downloads/ssh-key-2026-08-16.key \
+  /Users/angelahu/.ssh/penny-saved-oci.key
+chmod 600 /Users/angelahu/.ssh/penny-saved-oci.key
+```
+
+It is correct that this private key remains on the Mac while the server runs Ubuntu.
+SSH is a connection between two different computers: the Mac's SSH client reads the
+private key locally, and the Ubuntu VM checks it against the corresponding public key
+OCI installed on the VM. Never upload the private key to the Ubuntu VM.
+
+Connect using the public IPv4 copied from the OCI instance page. For example, if OCI
+shows `129.146.12.34`, run:
+
+```bash
+ssh -i "$HOME/.ssh/penny-saved-oci.key" ubuntu@129.146.12.34
+```
+
+Therefore, the placeholders mean:
+
+```text
+REPLACE_WITH_PRIVATE_KEY_PATH = $HOME/.ssh/penny-saved-oci.key
+REPLACE_WITH_EPHEMERAL_IP     = the instance's Public IPv4 address, such as 129.146.12.34
+ubuntu                        = the login username for the recommended Ubuntu image
+```
+
+The first connection normally asks whether to trust the host fingerprint. Confirm the
+IP is the one shown by OCI, type `yes`, and press Enter. A successful login changes the
+prompt to one on the Ubuntu instance. Run `whoami`; it should print `ubuntu`.
+
+If you uploaded an existing public key instead, substitute its matching private-key
+path. For example:
+
+```bash
+chmod 600 "$HOME/.ssh/id_ed25519"
+ssh -i "$HOME/.ssh/id_ed25519" ubuntu@129.146.12.34
+```
+
+#### Connect from Windows PowerShell
+
+Run these commands in **PowerShell on your personal Windows computer**. Replace the
+filename and IP with your real values:
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.ssh"
+Move-Item "$HOME\Downloads\ssh-key-2026-08-15.key" "$HOME\.ssh\penny-saved-oci.key"
+icacls "$HOME\.ssh\penny-saved-oci.key" /inheritance:r
+icacls "$HOME\.ssh\penny-saved-oci.key" /grant:r "$($env:USERNAME):(R)"
+ssh -i "$HOME\.ssh\penny-saved-oci.key" ubuntu@129.146.12.34
+```
+
+Windows uses `icacls` rather than `chmod` to restrict the key. Recent Windows versions
+include the OpenSSH `ssh` command. If PowerShell reports that `ssh` is unknown, install
+the Windows **OpenSSH Client** optional feature, reopen PowerShell, and retry.
+
+If SSH times out, check the instance is running, the public IP is correct, and the OCI
+NSG port 22 source still matches your current public IPv4 from the earlier
+`curl -4 https://icanhazip.com` check. If SSH says `Permission denied (publickey)`, the
+selected private key does not match the public key installed on the instance, the login
+username is wrong, or the private-key file permissions are too broad.
 
 If A1 capacity is unavailable, try another availability domain or later time. The
 fallback **VM.Standard.E2.1.Micro** uses an AMD64 image, but its 1 GB RAM is tight; add
