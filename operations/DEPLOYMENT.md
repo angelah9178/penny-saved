@@ -1042,15 +1042,76 @@ sudo -u postgres psql
 
 At the `postgres=#` prompt:
 
-```sql
-CREATE ROLE penny_saved LOGIN;
-\password penny_saved
-CREATE DATABASE penny_saved OWNER penny_saved;
-REVOKE ALL ON DATABASE penny_saved FROM PUBLIC;
-\q
+1. Type only this line and press Enter. Wait for `CREATE ROLE` and the next
+   `postgres=#` prompt:
+
+   ```sql
+   CREATE ROLE penny_saved LOGIN;
+   ```
+
+2. Type only this line and press Enter:
+
+   ```text
+   \password penny_saved
+   ```
+
+3. Paste the generated password at `Enter new password`, press Enter, paste it again at
+   `Enter it again`, and press Enter. Wait until the `postgres=#` prompt returns.
+4. Only after the password prompts are finished, type each SQL statement separately,
+   pressing Enter and waiting for the success message after each one:
+
+   ```sql
+   CREATE DATABASE penny_saved OWNER penny_saved;
+   ```
+
+   Expected response: `CREATE DATABASE`.
+
+   ```sql
+   REVOKE ALL ON DATABASE penny_saved FROM PUBLIC;
+   ```
+
+   Expected response: `REVOKE`.
+
+5. Exit psql:
+
+   ```text
+   \q
+   ```
+
+Do not paste `\password` and the later SQL statements as one block. `\password` is a
+psql meta-command rather than SQL; a multi-line paste can cause it to consume the
+following words as extra arguments, producing messages such as `\password: extra
+argument "CREATE" ignored` and leaving the database uncreated.
+
+### Recover from `\password: extra argument ... ignored`
+
+If `CREATE ROLE` succeeded, the password prompts completed, and the later connection
+test says `database "penny_saved" does not exist`, the role/password are already valid;
+only the database and revoke statements were skipped. At the normal Ubuntu shell
+prompt—not inside psql—run:
+
+```bash
+sudo -u postgres psql --set=ON_ERROR_STOP=1 \
+  --command='CREATE DATABASE penny_saved OWNER penny_saved;'
+sudo -u postgres psql --set=ON_ERROR_STOP=1 \
+  --command='REVOKE ALL ON DATABASE penny_saved FROM PUBLIC;'
 ```
 
-Paste the generated password twice when `\password` prompts. Test TCP/password auth:
+Expected output:
+
+```text
+CREATE DATABASE
+REVOKE
+```
+
+Do not run `CREATE ROLE penny_saved LOGIN;` again; PostgreSQL will correctly report
+that the role already exists. Confirm the database now exists:
+
+```bash
+sudo -u postgres psql --list --tuples-only | grep penny_saved
+```
+
+Then test TCP/password auth:
 
 ```bash
 psql --host=127.0.0.1 --username=penny_saved --password --dbname=penny_saved \
