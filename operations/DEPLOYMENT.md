@@ -296,6 +296,88 @@ In **Compute -> Instances -> Create instance**, choose:
 | Public IPv4 | temporarily assign an ephemeral IP | Needed for initial SSH; it will be replaced by a reserved IP. |
 | NSG | `penny-saved-web-nsg` | Applies only the three intended inbound ports. |
 
+### Complete Step 3: Primary VNIC information / Networking
+
+OCI calls the instance's virtual network card a **VNIC** (virtual network interface
+card). The primary VNIC is how this VM joins `penny-saved-vcn`. You are not creating a
+second VCN or subnet here; select the existing resources from section 3.
+
+In the instance creation flow, expand **3. Networking**. In some console layouts this
+section is titled **Primary VNIC information**. Enter or select the following:
+
+| OCI field | Exact selection or value |
+| --- | --- |
+| **Primary network** | `Select existing virtual cloud network` |
+| **Virtual cloud network (VCN)** | `penny-saved-vcn` |
+| **Subnet** | `Select existing subnet` |
+| **Subnet name** | `penny-saved-public-subnet` |
+| **VNIC name** | `penny-saved-prod-1-vnic` |
+
+If OCI shows a separate compartment selector above either list, select
+`penny-saved-production`. If `penny-saved-vcn` or `penny-saved-public-subnet` does not
+appear, first confirm that the instance, VCN, and subnet compartments and regions match.
+Do not select **Create new virtual cloud network** or **Create new public subnet**.
+
+Under **Primary VNIC IP addresses**, enter:
+
+| OCI field | Exact selection or value | Why |
+| --- | --- | --- |
+| **Private IPv4 address** | `Automatically assign private IPv4 address` | OCI safely chooses an unused address from `10.0.0.0/24`; there is no need to choose one manually. |
+| **Automatically assign public IPv4 address** or **Assign a public IPv4 address** | selected/on | Required for initial SSH and public web traffic. OCI assigns a temporary ephemeral address at creation. |
+| **Assign IPv6 addresses from subnet prefixes** | cleared/off | This deployment did not create an IPv6 prefix or IPv6 firewall rules. |
+
+If the public IPv4 option is disabled, greyed out, or absent, stop and fix the subnet:
+
+1. Open **Networking -> Virtual cloud networks -> penny-saved-vcn -> Subnets**.
+2. Open `penny-saved-public-subnet`.
+3. Confirm it says **Public Subnet**. If OCI instead says **Private Subnet** or
+   **Prohibit public IP addresses on VNICs in this subnet: Yes**, the subnet was created
+   with the wrong access setting. Recreate the subnet as public using section 3.4; do
+   not continue without a public IPv4 address.
+
+Next, find **Network security groups** or expand **Show advanced options** and then the
+**Network security groups** area:
+
+1. Select/check **Use network security groups to control traffic**.
+2. Select **Add network security group** if OCI presents that button.
+3. For the NSG compartment, select `penny-saved-production`.
+4. Select `penny-saved-web-nsg`.
+5. Confirm it appears in the selected-NSG list before continuing.
+
+Attaching the NSG is essential. Merely creating `penny-saved-web-nsg` does not apply its
+SSH, HTTP, and HTTPS rules to the VM.
+
+Under the remaining **Advanced options**, use:
+
+| OCI field | Exact selection or value |
+| --- | --- |
+| **DNS record** | `Assign a private DNS record` selected/on |
+| **Hostname** | `penny-saved-prod-1` if the field is editable; otherwise accept OCI's generated value |
+| **Fully qualified domain name** | read-only; accept the displayed value |
+| **Launch options** or **Networking type** | `Let Oracle Cloud Infrastructure choose the best networking type` |
+| **Route table** / **Use a custom route table for this VNIC** | leave empty/off |
+| **Security attributes** / **Zero Trust Packet Routing** | leave empty/default |
+| **VNIC tags** | leave empty unless your organization requires tags |
+
+Do not assign a custom route table directly to the VNIC. The VNIC should inherit
+`penny-saved-public-route-table` from its subnet; a VNIC-level route table would override
+the subnet route and can silently break internet access.
+
+Before leaving step 3, verify this summary:
+
+```text
+VCN:             penny-saved-vcn
+Subnet:          penny-saved-public-subnet
+Private IPv4:    automatically assigned
+Public IPv4:     automatically assigned
+IPv6:            not assigned
+NSG:             penny-saved-web-nsg
+Custom route:    none
+```
+
+The public IPv4 created here is temporary. Section 5 replaces it with the stable
+reserved public IP that will be placed in GoDaddy DNS.
+
 Under SSH keys, upload an existing **Ed25519 public key** or let OCI generate a key and
 download the private key immediately. OCI cannot show a generated private key again.
 Never email or commit it. On the administrator's computer:
