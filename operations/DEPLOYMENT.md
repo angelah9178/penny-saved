@@ -18,6 +18,11 @@ host firewall. This is a practical single-server V1 design, but it is not highly
 available: an instance, boot-volume, or availability-domain failure can take down both
 the app and database. Use tested, encrypted, off-host backups.
 
+This guide uses one compute profile throughout: **VM.Standard.E2.1.Micro** with the
+**Canonical Ubuntu 24.04 LTS Minimal x86_64/AMD64** image, a 2 GB swap file, and one
+Uvicorn worker. It is intentionally sized for approximately one or two simultaneous
+users. Do not substitute an Arm/aarch64 image.
+
 > **Before production:** replace every value shown as `REPLACE_WITH_...`, choose named
 > owners for deployment, incidents, TLS renewal, and database restores, and resolve the
 > blocked decisions in `development/release-decisions.md`. Commands using `sudo` change
@@ -287,10 +292,10 @@ In **Compute -> Instances -> Create instance**, choose:
 | Setting | Selection | Why |
 | --- | --- | --- |
 | Name | `penny-saved-prod-1` | Clear operational identity. |
-| Placement | any available AD in the chosen region | A single VM has no cross-AD failover; choose one with shape capacity. |
-| Image | **Canonical Ubuntu 24.04 LTS Minimal, aarch64** | Ubuntu 24.04 supplies Python 3.12 and PostgreSQL 16; LTS has a long security-maintenance window. The Arm image matches A1. |
-| Shape | **VM.Standard.A1.Flex** | Ampere Arm is OCI's Always Free flexible option and has much more usable memory than E2.1.Micro. |
-| OCPUs / memory | **1 OCPU / 6 GB** to start | Enough for this small app and a frontend build while staying within the documented A1 free-tier aggregate. Increase only after measuring and checking cost limits. |
+| Placement | the AD in which OCI offers `VM.Standard.E2.1.Micro`; fault domain set to **Let Oracle choose** | OCI offers E2.1.Micro in only one AD in multi-AD regions. A single VM has no cross-AD failover. |
+| Image | **Canonical Ubuntu 24.04 LTS Minimal, x86_64/AMD64** | Ubuntu 24.04 supplies Python 3.12 and PostgreSQL 16; the AMD64 image matches the E2 processor. Do not select an Arm/aarch64 image. |
+| Shape | **VM.Standard.E2.1.Micro** | This is OCI's fixed-size Always Free AMD micro shape and is sufficient for the expected one or two simultaneous users. |
+| OCPUs / memory | fixed by OCI: burstable **1/8 OCPU and 1 GB RAM** | These values are not editable for E2.1.Micro. The required swap and one-worker configuration later in this guide accommodate the small memory limit. |
 | Boot volume | **50 GB**, default performance, encryption enabled | Accommodates OS, database, logs, releases, and local backup staging; monitor free space. |
 | VCN/subnet | `penny-saved-vcn` / `penny-saved-public-subnet` | Required for direct internet access. Select the existing subnet created in section 3. |
 | Public IPv4 | temporarily assign an ephemeral IP | Needed for initial SSH; it will be replaced by a reserved IP. |
@@ -550,10 +555,24 @@ NSG port 22 source still matches your current public IPv4 from the earlier
 selected private key does not match the public key installed on the instance, the login
 username is wrong, or the private-key file permissions are too broad.
 
-If A1 capacity is unavailable, try another availability domain or later time. The
-fallback **VM.Standard.E2.1.Micro** uses an AMD64 image, but its 1 GB RAM is tight; add
-swap, build the frontend elsewhere, and expect lower capacity. Do not choose a paid
-shape accidentally.
+### Confirm the E2 image, shape, and placement
+
+In **Image and shape**, select **Change image**, choose **Canonical Ubuntu**, select
+Ubuntu 24.04 Minimal, and confirm the displayed architecture is **x86_64** or **AMD64**.
+Then select **Change shape -> Specialty and previous generation ->
+VM.Standard.E2.1.Micro** (the shape-category wording can vary).
+
+Confirm the shape row says **Always Free eligible** before creating the instance. Do
+not assume another similarly named E-series shape is free. Oracle documents
+E2.1.Micro as 1 GB RAM, burstable 1/8 OCPU, and limited public bandwidth. It is a good
+cost-conscious fit for one or two simultaneous users, but updates and frontend builds
+will be slow.
+
+Oracle makes E2.1.Micro available in only one availability domain in regions that have
+multiple ADs. If OCI changes or restricts **Placement**, accept the AD where
+E2.1.Micro is available. Set **Fault domain** to **Let Oracle choose the best fault
+domain** or **No preference**. If OCI reports E2 capacity is unavailable even in the
+allowed AD, retry later; do not silently select a paid shape.
 
 ## 5. Assign a reserved public IP
 
@@ -607,7 +626,41 @@ to the VM; it does not provide TLS or open a firewall.
 
 ## 7. Patch and secure Ubuntu
 
-SSH to the reserved address, then run:
+SSH to the reserved address.
+
+### Add swap before installing or building
+
+E2.1.Micro has only 1 GB RAM, so this step is required. Confirm the machine has about
+1 GB RAM and little or no swap:
+
+```bash
+uname -m
+free -h
+swapon --show
+```
+
+`uname -m` should print `x86_64`. Create a 2 GB root-only swap file:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-penny-saved-swap.conf
+sudo sysctl --system
+free -h
+swapon --show
+```
+
+The final two commands must show `/swapfile` with approximately 2 GB. Swap prevents an
+abrupt out-of-memory kill during installation or a build, but it uses much slower disk
+storage and does not turn E2.1.Micro into a high-capacity server. Do not run the setup
+twice: first check `swapon --show` and `/etc/fstab` so `/swapfile` is not duplicated.
+
+### Install and update packages
+
+Run:
 
 ```bash
 sudo apt update
@@ -627,7 +680,7 @@ psql --version
 nginx -v
 ```
 
-For the recommended image, `uname -m` should be `aarch64`, Python should be 3.12, and
+For the recommended image, `uname -m` should be `x86_64`, Python should be 3.12, and
 PostgreSQL should be major version 16. Stop if those assumptions are false.
 
 ### Configure the host firewall
@@ -752,6 +805,11 @@ python3 -m venv .venv
 .venv/bin/python -m pip install --requirement backend/requirements.txt
 ```
 
+On E2.1.Micro these commands can take several minutes and may appear quiet while using
+swap. Before starting, `swapon --show` must list the 2 GB `/swapfile` created in section
+7. In another SSH session, `free -h` can be used to observe memory. Do not run another
+build or package upgrade concurrently.
+
 Run the repository's secret-free checks and confirm the build exists:
 
 ```bash
@@ -836,6 +894,34 @@ sudo mv -T /srv/penny-saved/current.next /srv/penny-saved/current
 ```bash
 sudo cp /srv/penny-saved/current/operations/systemd/penny-saved.service.example \
   /etc/systemd/system/penny-saved.service
+```
+
+The example service starts two Uvicorn worker processes, which is too aggressive for
+the E2.1.Micro 1 GB VM. Open the installed unit:
+
+```bash
+sudoedit /etc/systemd/system/penny-saved.service
+```
+
+On its `ExecStart=` line, change only:
+
+```text
+--workers 2
+```
+
+to:
+
+```text
+--workers 1
+```
+
+Save and exit. This deployment must use one worker. A single worker is sufficient for
+the expected one or two simultaneous users and leaves more memory for PostgreSQL,
+Nginx, and the operating system.
+
+For either shape, continue with:
+
+```bash
 sudo systemd-analyze verify /etc/systemd/system/penny-saved.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now penny-saved
@@ -1066,20 +1152,20 @@ sudo certbot certificates
 | Login fails only in browser | exact HTTPS `FRONTEND_ORIGIN`, secure cookie, system clock, Origin header, trusted host |
 | Frontend route returns 404 on refresh | Nginx `try_files ... /index.html` and correct `frontend/dist` path |
 | Certbot validation fails | both DNS names resolve here, port 80 public, challenge root, no conflicting redirect/config |
-| A1 build crashes | memory/disk pressure; build on a compatible Arm runner or carefully add swap, then measure capacity |
+| E2.1.Micro build crashes or freezes | confirm the 2 GB swap file is active with `swapon --show`, check `free -h` and disk space, stop other memory-heavy processes, then retry; build the frontend on an AMD64 build machine if necessary |
 
 ## Official references
 
-- [OCI Virtual Networking Wizards](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/quickstartnetworking.htm)
+- [OCI creating a VCN manually](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/create_vcn.htm)
 - [OCI public-subnet networking scenario](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/scenarioa.htm)
 - [OCI internet gateway configuration](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/managingIGs.htm)
 - [OCI creating a compute instance](https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/launchinginstance.htm)
-- [OCI Always Free resources](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier.htm)
+- [OCI Always Free resources and E2.1.Micro limits](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm)
 - [OCI reserved public IPs](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/reserved-public-ip-create.htm)
 - [GoDaddy A-record instructions](https://www.godaddy.com/help/edit-an-a-record-19239)
 - [Certbot Nginx instructions](https://certbot.eff.org/instructions?ws=nginx&os=snap)
 - [Ubuntu Server web-service documentation](https://documentation.ubuntu.com/server/how-to/web-services/)
 
 Cloud consoles, pricing, available images, and package versions change. This guide was
-checked against the linked official documentation on **2026-08-13**. Reconfirm the image,
+checked against the linked official documentation on **2026-08-15**. Reconfirm the image,
 shape price/free-tier marker, and console labels at deployment time.
