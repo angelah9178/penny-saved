@@ -57,14 +57,14 @@ def _settings(
     frontend_origin = {
         AppEnvironment.TEST: None,
         AppEnvironment.DEVELOPMENT: "http://localhost:5173",
-        AppEnvironment.PRODUCTION: "https://stopimpulsebuying.us",
+        AppEnvironment.PRODUCTION: "https://stopimpulsebuying.online",
     }[app_env]
     return Settings(
         app_env=app_env,
         database_url=database_url,
         frontend_origin=frontend_origin,
         session_cookie_secure=app_env == AppEnvironment.PRODUCTION,
-        trusted_hosts=("stopimpulsebuying.us",)
+        trusted_hosts=("stopimpulsebuying.online",)
         if app_env == AppEnvironment.PRODUCTION
         else ("localhost", "127.0.0.1"),
         rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes"

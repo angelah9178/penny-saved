@@ -201,7 +201,7 @@ Implement:
 - Define explicit environment names for frontend base URL, backend URL,
   `E2E_DATABASE_URL`, run ID, test email domain, and ephemeral credential input.
 - Refuse public/non-loopback base URLs locally and refuse
-  `https://stopimpulsebuying.us` in every test mode.
+  `https://stopimpulsebuying.online` in every test mode.
 - Configure screenshots, trace, console capture, and bounded process logs for failure
   diagnosis; do not record artifacts for successful runs by default.
 - Add helpers for role/label-based interactions and observable waits without wrapping
@@ -614,7 +614,7 @@ git status --short
 - Visual-regression snapshots and pixel-perfect screenshot approval are not introduced.
 - Performance/load testing, synthetic production monitoring, uptime checks, and
   production browser probes are separate operational decisions.
-- The suite does not target `stopimpulsebuying.us`, a developer database, staging, or
+- The suite does not target `stopimpulsebuying.online`, a developer database, staging, or
   production, and it does not provision cloud infrastructure or deploy the product.
 - A test-only API route, production clock override, shortened 48-hour product rule,
   shared demo credentials, CAPTCHA bypass, or security-control bypass is forbidden.

@@ -140,7 +140,7 @@ def validate_config(config: E2EDataConfig, *, environment: Mapping[str, str]) ->
         raise E2EDataSafetyError("E2E_RUN_ID must be 8-64 lowercase letters, digits, or hyphens.")
     if not EMAIL_DOMAIN_PATTERN.fullmatch(config.email_domain):
         raise E2EDataSafetyError("E2E_EMAIL_DOMAIN must be a valid dedicated domain.")
-    if config.email_domain in {"penny-saved.local", "stopimpulsebuying.us"}:
+    if config.email_domain in {"penny-saved.local", "stopimpulsebuying.online"}:
         raise E2EDataSafetyError("E2E_EMAIL_DOMAIN must not be a demo or production domain.")
     if not 8 <= len(config.password) <= 128:
         raise E2EDataSafetyError("E2E_PASSWORD must contain 8-128 characters.")

@@ -57,7 +57,7 @@ def test_only_exact_loopback_origins_are_accepted() -> None:
     )
 
     for unsafe in (
-        "https://stopimpulsebuying.us",
+        "https://stopimpulsebuying.online",
         "http://example.com:4173",
         "http://127.0.0.1:4173/path",
         "http://user:secret@127.0.0.1:4173",

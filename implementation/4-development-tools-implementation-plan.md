@@ -90,7 +90,7 @@ Production values are supplied through the Oracle VPS service manager or a root-
 ```dotenv
 APP_ENV=production
 DATABASE_URL=postgresql+psycopg://...
-FRONTEND_ORIGIN=https://stopimpulsebuying.us
+FRONTEND_ORIGIN=https://stopimpulsebuying.online
 SESSION_COOKIE_SECURE=true
 ```
 
@@ -242,7 +242,7 @@ Never modify an applied migration. Do not run `db-downgrade` against shared stag
 
 ## Oracle VPS Operations Boundary
 
-Production runs on the Oracle Cloud VPS behind a reverse proxy that terminates TLS for `stopimpulsebuying.us`. The reverse proxy serves the built frontend assets and proxies `/api` to the FastAPI process over the VPS loopback network. PostgreSQL listens only on localhost or a private container/network interface and is never publicly exposed.
+Production runs on the Oracle Cloud VPS behind a reverse proxy that terminates TLS for `stopimpulsebuying.online`. The reverse proxy serves the built frontend assets and proxies `/api` to the FastAPI process over the VPS loopback network. PostgreSQL listens only on localhost or a private container/network interface and is never publicly exposed.
 
 The eventual deployment workflow must:
 
@@ -251,7 +251,7 @@ The eventual deployment workflow must:
 3. Install locked dependencies/build frontend assets.
 4. Run `alembic upgrade head`.
 5. Restart the application service with a health check.
-6. Verify `https://stopimpulsebuying.us/api/health` and browser access.
+6. Verify `https://stopimpulsebuying.online/api/health` and browser access.
 7. Retain the prior release artifact for rollback; database rollback is a separate, reviewed decision.
 
 Use a non-root deployment account. Application processes run under `systemd` or an equivalent supervisor and restart on failure. Firewall rules expose only SSH (restricted where possible), HTTP, and HTTPS. SSH uses keys, not passwords.
@@ -262,7 +262,7 @@ No `make deploy` target is included initially: deployment changes production sta
 
 Amazon AWS is the transactional email provider when an email-dependent feature exists, such as password reset or account notifications. The application will use Amazon SES through its supported AWS SDK/client library.
 
-- Verify `stopimpulsebuying.us` and configure DKIM/SPF/DMARC before sending production email.
+- Verify `stopimpulsebuying.online` and configure DKIM/SPF/DMARC before sending production email.
 - Keep SES credentials in Oracle VPS secret configuration, never frontend variables or the repository.
 - Use a restricted IAM policy that permits only required SES actions and identities.
 - Log message correlation IDs and delivery failures without logging email bodies, reset tokens, or credentials.

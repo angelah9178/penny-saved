@@ -58,7 +58,7 @@ def test_load_config_requires_explicit_isolated_inputs(tmp_path: Path) -> None:
     [
         ({"APP_ENV": "development"}, "APP_ENV"),
         ({"E2E_RUN_ID": "short"}, "E2E_RUN_ID"),
-        ({"E2E_EMAIL_DOMAIN": "stopimpulsebuying.us"}, "production domain"),
+        ({"E2E_EMAIL_DOMAIN": "stopimpulsebuying.online"}, "production domain"),
         ({"E2E_DATABASE_URL": "postgresql+psycopg://x:y@db:5432/app_e2e_test"}, "loopback"),
         (
             {"E2E_DATABASE_URL": "postgresql+psycopg://x:y@localhost:5432/app_test"},

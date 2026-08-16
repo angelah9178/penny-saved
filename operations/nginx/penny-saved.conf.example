@@ -2,24 +2,24 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name stopimpulsebuying.us www.stopimpulsebuying.us;
+    server_name stopimpulsebuying.online www.stopimpulsebuying.online;
 
     location /.well-known/acme-challenge/ {
         root /var/www/letsencrypt;
     }
 
     location / {
-        return 301 https://stopimpulsebuying.us$request_uri;
+        return 301 https://stopimpulsebuying.online$request_uri;
     }
 }
 
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name stopimpulsebuying.us;
+    server_name stopimpulsebuying.online;
 
-    ssl_certificate /etc/letsencrypt/live/stopimpulsebuying.us/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/stopimpulsebuying.us/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/stopimpulsebuying.online/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/stopimpulsebuying.online/privkey.pem;
 
     root /srv/penny-saved/current/frontend/dist;
     index index.html;
@@ -49,9 +49,9 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name www.stopimpulsebuying.us;
+    server_name www.stopimpulsebuying.online;
 
-    ssl_certificate /etc/letsencrypt/live/stopimpulsebuying.us/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/stopimpulsebuying.us/privkey.pem;
-    return 301 https://stopimpulsebuying.us$request_uri;
+    ssl_certificate /etc/letsencrypt/live/stopimpulsebuying.online/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/stopimpulsebuying.online/privkey.pem;
+    return 301 https://stopimpulsebuying.online$request_uri;
 }

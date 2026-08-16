@@ -18,7 +18,7 @@ be resolved before release authorization; it is not permission to guess an answe
 ## domain-dns — Who owns the production domain and DNS changes?
 
 - Owner: Product owner
-- Decision: stopimpulsebuying.us is the configured canonical origin, but DNS ownership and records are unverified.
+- Decision: stopimpulsebuying.online is the configured canonical origin, but DNS ownership and records are unverified.
 - Evidence: Named owner plus verified production DNS records and rollback values.
 - Source: operations/production.env.example and DEV-022
 - Deadline: before-release-authorization

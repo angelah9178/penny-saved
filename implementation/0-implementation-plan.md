@@ -205,7 +205,7 @@ Record material implementation decisions at the end of the relevant implementati
 
 ## Open Items to Resolve Before Production
 
-- Deploy the application and PostgreSQL database on an Oracle Cloud VPS. Use `https://stopimpulsebuying.us` as the production origin, subject to final domain registration and DNS confirmation.
+- Deploy the application and PostgreSQL database on an Oracle Cloud VPS. Use `https://stopimpulsebuying.online` as the production origin, subject to final domain registration and DNS confirmation.
 - Use Amazon Web Services for transactional email. The specific AWS email service, sender-domain verification, credentials, templates, delivery monitoring, and password-reset flow must be finalized before email-dependent features are implemented.
 - Session lifetime and retention policy should be confirmed; this design defaults to 30 days.
 - Whether V1 supports only USD or adds a stored currency code. This design fixes USD to avoid implying unsupported multi-currency totals.

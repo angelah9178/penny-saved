@@ -33,7 +33,7 @@ def test_production_environment_example_constructs_safe_typed_settings(
     settings = Settings(_env_file=ENV_EXAMPLE)
 
     assert settings.app_env is AppEnvironment.PRODUCTION
-    assert settings.frontend_origin == "https://stopimpulsebuying.us"
+    assert settings.frontend_origin == "https://stopimpulsebuying.online"
     assert settings.session_cookie_secure is True
     assert settings.log_format is LogFormat.JSON
     assert settings.metrics_enabled is True

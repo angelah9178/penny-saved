@@ -458,7 +458,7 @@ git diff --check
 
 Commit 5 turns the application behavior into instructions an authorized operator can
 follow later. It provides a secret-free production configuration example for
-`stopimpulsebuying.us` and explains how the reverse proxy, application supervisor,
+`stopimpulsebuying.online` and explains how the reverse proxy, application supervisor,
 PostgreSQL, TLS, logs, metrics, backups, and restores fit together on the Oracle VPS.
 
 The production environment example lists required settings such as
@@ -506,7 +506,7 @@ Implement:
 
 - Add a tracked, secret-free production environment example documenting every
   required variable, whether it is secret, its source, and safe formatting rules.
-- Use the approved same-origin `https://stopimpulsebuying.us` topology: the reverse
+- Use the approved same-origin `https://stopimpulsebuying.online` topology: the reverse
   proxy serves frontend assets and proxies `/api` over loopback to the backend.
 - Provide reviewed example configuration for trusted proxy/host handling, request
   size, timeouts, security headers, request-ID forwarding, health checks, metrics

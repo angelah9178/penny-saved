@@ -1,5 +1,5 @@
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
-const PRODUCTION_ORIGIN = "https://stopimpulsebuying.us";
+const PRODUCTION_ORIGIN = "https://stopimpulsebuying.online";
 
 export const E2E_ENVIRONMENT_NAMES = [
   "E2E_FRONTEND_URL",

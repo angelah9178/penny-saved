@@ -388,9 +388,9 @@ async def test_production_hides_interactive_api_documentation() -> None:
         _env_file=None,
         app_env=AppEnvironment.PRODUCTION,
         database_url=DATABASE_URL,
-        frontend_origin="https://stopimpulsebuying.us",
+        frontend_origin="https://stopimpulsebuying.online",
         session_cookie_secure=True,
-        trusted_hosts=("stopimpulsebuying.us",),
+        trusted_hosts=("stopimpulsebuying.online",),
         rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
     )
     app = create_app(settings, lifespan=no_database_lifespan)

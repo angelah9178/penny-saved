@@ -59,7 +59,7 @@ does not have secret-grade access controls.
 
 The example deliberately uses:
 
-- `https://stopimpulsebuying.us` and secure cookies;
+- `https://stopimpulsebuying.online` and secure cookies;
 - exact hostnames and loopback-only trusted proxy networks;
 - newline-delimited JSON logs at `INFO`;
 - a one-megabyte request limit at both Nginx and FastAPI;
@@ -120,8 +120,8 @@ in a disposable environment.
 From the VPS, liveness and readiness are checked independently:
 
 ```bash
-curl --fail --silent --show-error https://stopimpulsebuying.us/api/health
-curl --fail --silent --show-error https://stopimpulsebuying.us/api/ready
+curl --fail --silent --show-error https://stopimpulsebuying.online/api/health
+curl --fail --silent --show-error https://stopimpulsebuying.online/api/ready
 ```
 
 A `200` liveness response with `503` readiness means the process is alive but cannot

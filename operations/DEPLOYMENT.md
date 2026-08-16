@@ -1,6 +1,6 @@
 # Oracle Cloud + GoDaddy Deployment Guide
 
-This guide deploys **A Penny Saved** at `https://stopimpulsebuying.us` on one Oracle
+This guide deploys **A Penny Saved** at `https://stopimpulsebuying.online` on one Oracle
 Cloud Infrastructure (OCI) virtual machine, with DNS hosted by GoDaddy.
 
 The production path is:
@@ -37,7 +37,7 @@ Keep these in a password manager or deployment record, not in Git:
 | --- | --- | --- |
 | OCI region | closest home region to most users | Region affects latency, capacity, and where the instance and public IP exist. |
 | OCI compartment | `penny-saved-production` | Keeps production resources grouped for IAM, billing, and cleanup. |
-| Canonical domain | `stopimpulsebuying.us` | Used by DNS, TLS, Nginx, cookies, CORS, and trusted-host checks. |
+| Canonical domain | `stopimpulsebuying.online` | Used by DNS, TLS, Nginx, cookies, CORS, and trusted-host checks. |
 | Admin email | `REPLACE_WITH_ADMIN_EMAIL` | Let's Encrypt expiry and recovery contact. |
 | Administrator public IPv4/CIDR | `198.51.100.10/32` | Restricts SSH to the administrator instead of the whole internet. |
 | Repository URL | `REPLACE_WITH_REPOSITORY_URL` | Source used to create immutable releases. |
@@ -728,7 +728,7 @@ planned separately with a controlled DNS update. It is not required to continue 
 Do this after the final public address (reserved when available, otherwise ephemeral)
 answers SSH and before requesting TLS.
 
-1. Sign in to GoDaddy, open **Domain Portfolio**, select `stopimpulsebuying.us`, then
+1. Sign in to GoDaddy, open **Domain Portfolio**, select `stopimpulsebuying.online`, then
    open **DNS**.
 2. Record the old values before changing them; this is the DNS rollback record.
 3. Add or edit the apex record:
@@ -741,7 +741,7 @@ answers SSH and before requesting TLS.
 
    | Type | Name | Value | TTL |
    | --- | --- | --- | --- |
-   | CNAME | `www` | `@` (or `stopimpulsebuying.us`) | 1 hour |
+   | CNAME | `www` | `@` (or `stopimpulsebuying.online`) | 1 hour |
 
 5. Remove only conflicting website records for `@` or `www`. Do not alter MX, TXT, or
    mail-related CNAME records. GoDaddy may reject a CNAME when another `www` record
@@ -749,9 +749,9 @@ answers SSH and before requesting TLS.
 6. Verify from a machine outside OCI:
 
 ```bash
-dig +short A stopimpulsebuying.us
-dig +short CNAME www.stopimpulsebuying.us
-dig +short A www.stopimpulsebuying.us
+dig +short A stopimpulsebuying.online
+dig +short CNAME www.stopimpulsebuying.online
+dig +short A www.stopimpulsebuying.online
 ```
 
 Both names must ultimately resolve to the final public IP. GoDaddy says most changes are
@@ -977,7 +977,7 @@ Do not reuse passwords or commit this file. Because a SQLAlchemy URL is used, a 
 with characters such as `@`, `:`, `/`, or `%` would need percent-encoding; the generated
 hex password avoids that error. The file already enables secure cookies, exact origins,
 trusted hosts, proxy restrictions, JSON logs, and request-size/rate limits for
-`stopimpulsebuying.us`.
+`stopimpulsebuying.online`.
 
 Validate configuration construction without printing secrets:
 
@@ -1086,7 +1086,7 @@ sudo tee /etc/nginx/sites-available/penny-saved-bootstrap >/dev/null <<'NGINX'
 server {
     listen 80;
     listen [::]:80;
-    server_name stopimpulsebuying.us www.stopimpulsebuying.us;
+    server_name stopimpulsebuying.online www.stopimpulsebuying.online;
     root /srv/penny-saved/current/frontend/dist;
 
     location /.well-known/acme-challenge/ {
@@ -1110,7 +1110,7 @@ sudo ln -s /etc/nginx/sites-available/penny-saved-bootstrap \
   /etc/nginx/sites-enabled/penny-saved-bootstrap
 sudo nginx -t
 sudo systemctl reload nginx
-curl -I http://stopimpulsebuying.us
+curl -I http://stopimpulsebuying.online
 ```
 
 The `rm` removes only Ubuntu's default enabled-site symlink, not application data. If
@@ -1123,7 +1123,7 @@ Install Certbot from its recommended snap distribution and request both names:
 sudo snap install --classic certbot
 sudo ln -s /snap/bin/certbot /usr/local/bin/certbot
 sudo certbot certonly --webroot --webroot-path /var/www/letsencrypt \
-  --domain stopimpulsebuying.us --domain www.stopimpulsebuying.us \
+  --domain stopimpulsebuying.online --domain www.stopimpulsebuying.online \
   --email REPLACE_WITH_ADMIN_EMAIL --agree-tos --no-eff-email
 ```
 
@@ -1149,15 +1149,15 @@ the dry run proves the validation and reload path before expiry.
 Run from outside the OCI instance:
 
 ```bash
-curl --fail --silent --show-error https://stopimpulsebuying.us/api/health
-curl --fail --silent --show-error https://stopimpulsebuying.us/api/ready
-curl --head http://stopimpulsebuying.us
-curl --head https://www.stopimpulsebuying.us
+curl --fail --silent --show-error https://stopimpulsebuying.online/api/health
+curl --fail --silent --show-error https://stopimpulsebuying.online/api/ready
+curl --head http://stopimpulsebuying.online
+curl --head https://www.stopimpulsebuying.online
 ```
 
 Confirm HTTP and `www` redirect to canonical HTTPS. In a private/incognito browser:
 
-1. Open `https://stopimpulsebuying.us` and confirm the certificate is valid.
+1. Open `https://stopimpulsebuying.online` and confirm the certificate is valid.
 2. Sign up with a new production test account.
 3. Log out and back in.
 4. Create, edit, and delete a disposable entry.
@@ -1169,7 +1169,7 @@ On the server, confirm only intended public listeners and private app/database p
 sudo ss -lntp
 curl --fail --silent --show-error http://127.0.0.1:8000/internal/metrics | head
 curl --fail --silent --show-error --output /dev/null --write-out '%{http_code}\n' \
-  https://stopimpulsebuying.us/internal/metrics
+  https://stopimpulsebuying.online/internal/metrics
 ```
 
 The public metrics request must be `404`. Record the release SHA, migration revision,

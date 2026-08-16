@@ -184,7 +184,7 @@ def validate() -> list[str]:
         )
     if environment.get("APP_ENV") != "production":
         errors.append("APP_ENV must be production")
-    if environment.get("FRONTEND_ORIGIN") != "https://stopimpulsebuying.us":
+    if environment.get("FRONTEND_ORIGIN") != "https://stopimpulsebuying.online":
         errors.append("FRONTEND_ORIGIN must use the approved canonical HTTPS origin")
     if environment.get("SESSION_COOKIE_SECURE") != "true":
         errors.append("Production session cookies must be secure")
@@ -212,7 +212,7 @@ def validate() -> list[str]:
 
     nginx = NGINX_EXAMPLE.read_text()
     for fragment in (
-        "server_name stopimpulsebuying.us",
+        "server_name stopimpulsebuying.online",
         "proxy_pass http://127.0.0.1:8000",
         "proxy_set_header X-Forwarded-For",
         "proxy_set_header X-Forwarded-Proto https",

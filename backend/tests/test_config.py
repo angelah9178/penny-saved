@@ -242,7 +242,7 @@ def test_production_requires_secure_cookie() -> None:
             _env_file=None,
             app_env=AppEnvironment.PRODUCTION,
             database_url=DATABASE_URL,
-            frontend_origin="https://stopimpulsebuying.us",
+            frontend_origin="https://stopimpulsebuying.online",
         )
 
 
@@ -252,7 +252,7 @@ def test_production_requires_https_frontend_origin() -> None:
             _env_file=None,
             app_env=AppEnvironment.PRODUCTION,
             database_url=DATABASE_URL,
-            frontend_origin="http://stopimpulsebuying.us",
+            frontend_origin="http://stopimpulsebuying.online",
             session_cookie_secure=True,
         )
 
@@ -262,10 +262,10 @@ def test_valid_production_configuration() -> None:
         _env_file=None,
         app_env=AppEnvironment.PRODUCTION,
         database_url=DATABASE_URL,
-        frontend_origin="https://stopimpulsebuying.us",
+        frontend_origin="https://stopimpulsebuying.online",
         session_cookie_secure=True,
         log_level=LogLevel.WARNING,
-        trusted_hosts=("stopimpulsebuying.us",),
+        trusted_hosts=("stopimpulsebuying.online",),
         rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
     )
 
@@ -279,10 +279,10 @@ def test_production_requires_json_log_format() -> None:
             _env_file=None,
             app_env=AppEnvironment.PRODUCTION,
             database_url=DATABASE_URL,
-            frontend_origin="https://stopimpulsebuying.us",
+            frontend_origin="https://stopimpulsebuying.online",
             session_cookie_secure=True,
             log_format=LogFormat.TEXT,
-            trusted_hosts=("stopimpulsebuying.us",),
+            trusted_hosts=("stopimpulsebuying.online",),
             rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
         )
 
@@ -324,9 +324,9 @@ def test_production_rejects_trusting_every_proxy(network: str) -> None:
             _env_file=None,
             app_env=AppEnvironment.PRODUCTION,
             database_url=DATABASE_URL,
-            frontend_origin="https://stopimpulsebuying.us",
+            frontend_origin="https://stopimpulsebuying.online",
             session_cookie_secure=True,
-            trusted_hosts=("stopimpulsebuying.us",),
+            trusted_hosts=("stopimpulsebuying.online",),
             trusted_proxy_networks=(network,),
             rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
         )
@@ -338,9 +338,9 @@ def test_production_host_must_cover_frontend_origin() -> None:
             _env_file=None,
             app_env=AppEnvironment.PRODUCTION,
             database_url=DATABASE_URL,
-            frontend_origin="https://stopimpulsebuying.us",
+            frontend_origin="https://stopimpulsebuying.online",
             session_cookie_secure=True,
-            trusted_hosts=("api.stopimpulsebuying.us",),
+            trusted_hosts=("api.stopimpulsebuying.online",),
             rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
         )
 
@@ -351,9 +351,9 @@ def test_production_requires_a_non_default_rate_limit_secret() -> None:
             _env_file=None,
             app_env=AppEnvironment.PRODUCTION,
             database_url=DATABASE_URL,
-            frontend_origin="https://stopimpulsebuying.us",
+            frontend_origin="https://stopimpulsebuying.online",
             session_cookie_secure=True,
-            trusted_hosts=("stopimpulsebuying.us",),
+            trusted_hosts=("stopimpulsebuying.online",),
         )
 
 

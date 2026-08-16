@@ -10,7 +10,7 @@ const forbiddenInSpecs = [
   [/\.only\s*\(/u, "focused tests"],
   [/waitForTimeout\s*\(/u, "waitForTimeout"],
   [/\b(?:sleep|setTimeout)\s*\(/u, "fixed sleeps"],
-  [/stopimpulsebuying\.us/iu, "the production hostname"],
+  [/stopimpulsebuying\.online/iu, "the production hostname"],
 ];
 
 for (const entry of await readdir(e2eRoot, { withFileTypes: true })) {

@@ -47,7 +47,7 @@ async def api_client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
     async with httpx.AsyncClient(
         transport=transport,
-        base_url="https://stopimpulsebuying.us",
+        base_url="https://stopimpulsebuying.online",
     ) as client:
         yield client
 
@@ -57,11 +57,11 @@ def production_settings() -> Settings:
         _env_file=None,
         app_env=AppEnvironment.PRODUCTION,
         database_url=DATABASE_URL,
-        frontend_origin="https://stopimpulsebuying.us",
+        frontend_origin="https://stopimpulsebuying.online",
         session_cookie_secure=True,
         log_format=LogFormat.JSON,
         metrics_enabled=True,
-        trusted_hosts=("stopimpulsebuying.us",),
+        trusted_hosts=("stopimpulsebuying.online",),
         trusted_proxy_networks=("127.0.0.1/32",),
         max_request_body_bytes=1_024,
         rate_limit_key_secret="production-rate-limit-secret-at-least-32-bytes",
