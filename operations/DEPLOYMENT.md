@@ -883,6 +883,56 @@ make a newly installed kernel active.
 
 The default `ubuntu` user deploys releases. A non-login `penny-saved` user runs the API.
 
+### Why the API does not run as `ubuntu`
+
+The API could technically run as `ubuntu`, but it should not. The `ubuntu` account is
+an administrator account with `sudo` access. It installs packages, changes firewall and
+systemd configuration, deploys releases, and can administer the entire VM. A bug or
+security vulnerability in a public API process running as `ubuntu` would therefore
+give an attacker a much more powerful starting point.
+
+The `penny-saved` service account follows the **least privilege** principle: give each
+process only the permissions needed for its job. This account has no interactive login,
+normal home directory, password-based SSH access, or `sudo` permission. It can read the
+application and protected production configuration and run FastAPI, but it cannot
+administer the operating system.
+
+The production responsibility split is:
+
+```text
+ubuntu
+  - administrator/deployment user
+  - connects through SSH
+  - installs packages and releases
+  - manages UFW, Nginx, PostgreSQL, and systemd with sudo
+
+penny-saved
+  - non-login application service user
+  - runs only the FastAPI/Uvicorn backend
+  - reads only the application and configuration it needs
+  - has no sudo access
+
+www-data
+  - Nginx service user
+  - serves the built React frontend
+  - proxies /api requests to FastAPI on loopback
+
+postgres
+  - PostgreSQL operating-system administrator
+  - owns the database server files and processes
+
+penny_saved (inside PostgreSQL)
+  - database login used by FastAPI
+  - owns only the penny_saved application database
+  - is not a PostgreSQL superuser
+```
+
+The hyphenated `penny-saved` name is a Linux user; the underscored `penny_saved` name is
+a PostgreSQL role. They are separate identities. If the API is exploited, the attacker
+initially receives the limited permissions of `penny-saved` rather than the
+administrator privileges of `ubuntu`. This separation does not prevent every attack,
+but it substantially reduces the potential damage.
+
 ```bash
 sudo adduser --system --group --home /nonexistent --no-create-home penny-saved
 sudo usermod --append --groups penny-saved ubuntu
@@ -892,9 +942,77 @@ sudo install -d -o root -g penny-saved -m 0750 /etc/penny-saved
 sudo install -d -o postgres -g postgres -m 0750 /var/backups/penny-saved
 ```
 
-Log out and back in so `ubuntu` receives its new group. The set-group-ID directory
-causes new releases to inherit the `penny-saved` group. Nginx gets read-only access to
-the frontend via group membership; the API cannot write application releases.
+The `adduser` command is expected to print messages similar to:
+
+```text
+The home dir /nonexistent you specified can't be accessed: No such file or directory
+Adding system user `penny-saved' ...
+Not creating `/nonexistent'.
+```
+
+Those are informational messages, not a failure. `/nonexistent` is intentional: the
+`penny-saved` account runs the backend service but should not be used for interactive
+login or receive a normal home directory. Confirm creation and permissions:
+
+```bash
+getent passwd penny-saved
+id penny-saved
+id ubuntu
+id www-data
+ls -ld /srv/penny-saved/releases /etc/penny-saved /var/backups/penny-saved
+```
+
+`id ubuntu` and `id www-data` should list `penny-saved` among their groups. The current
+Ubuntu shell does not automatically receive group memberships added after login, so
+reconnect before continuing.
+
+Before closing this session, open a **second Terminal window on the Mac** and verify a
+new SSH connection succeeds—this is especially important after changing UFW:
+
+```bash
+ssh -i /Users/angelahu/.ssh/penny-saved-oci.key ubuntu@132.145.170.34
+```
+
+If the second connection succeeds, type this in the original Ubuntu session:
+
+```bash
+exit
+```
+
+The prompt should return from something like:
+
+```text
+ubuntu@penny-saved-prod-1-vnic:~$
+```
+
+to the Mac's local prompt. If the second SSH window is already connected, it is a fresh
+login and can be used to continue. Otherwise, reconnect with the same `ssh` command.
+In the fresh Ubuntu login, verify the active session has the group:
+
+```bash
+id
+```
+
+For this instance, the expected output is similar to:
+
+```text
+uid=1001(ubuntu) gid=1001(ubuntu) groups=1001(ubuntu),4(adm),24(cdrom),27(sudo),30(dip),101(lxd),110(penny-saved)
+```
+
+The numeric group IDs can differ, but the output must include both `sudo` and
+`penny-saved`. Seeing `110(penny-saved)` confirms the new login received the service
+group membership. The other groups such as `adm`, `cdrom`, `dip`, and `lxd` are normal
+for this Ubuntu image.
+
+After the second SSH session connects successfully and `id` includes `penny-saved`, it
+is safe to type `exit` in the original SSH window. Keep the second session open and use
+it to continue with section 9, **Configure PostgreSQL**. If `penny-saved` is absent,
+verify the earlier `usermod` command before continuing. Do not close your only working
+SSH session while a second connection still times out.
+
+The set-group-ID directory causes new releases to inherit the `penny-saved` group.
+Nginx gets read-only access to the frontend via group membership; the API cannot write
+application releases.
 
 ## 9. Configure PostgreSQL
 
