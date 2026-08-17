@@ -6,6 +6,11 @@
   line-height: 1.5;
 }
 
+:root[data-theme="dark"] {
+  color: #e5e7eb;
+  background: #111827;
+}
+
 *,
 *::before,
 *::after {
@@ -103,6 +108,24 @@ button:disabled,
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #6b7280;
+  color: #1f2937;
+  background: #ffffff;
 }
 
 .page-content {
@@ -846,6 +869,8 @@ button:disabled,
   }
 
   .site-header__content nav,
+  .header-actions,
+  .theme-toggle,
   .account-control,
   .account-control button,
   .opportunity-cost-settings__header > button {
@@ -890,6 +915,89 @@ button:disabled,
     max-height: calc(100dvh - 1.5rem);
     padding: 1rem;
   }
+}
+
+:root[data-theme="dark"] .site-header,
+:root[data-theme="dark"] .request-state--empty,
+:root[data-theme="dark"] .check-in-context,
+:root[data-theme="dark"] .entry-detail-list,
+:root[data-theme="dark"] .delete-dialog,
+:root[data-theme="dark"] .opportunity-cost-settings__form,
+:root[data-theme="dark"] .opportunity-cost-card,
+:root[data-theme="dark"] .statistics__card,
+:root[data-theme="dark"] .statistics__equivalent-list li,
+:root[data-theme="dark"] .statistics__empty,
+:root[data-theme="dark"] .entry-section,
+:root[data-theme="dark"] .entry-card,
+:root[data-theme="dark"] .purchased-disclosure {
+  border-color: #475569;
+  background: #1e293b;
+}
+
+:root[data-theme="dark"] .statistics {
+  border-color: #475569;
+  background: #172033;
+}
+
+:root[data-theme="dark"] .form-field input,
+:root[data-theme="dark"] .form-field textarea,
+:root[data-theme="dark"] .statistics__filter select {
+  border-color: #94a3b8;
+  color: #f8fafc;
+  background: #0f172a;
+}
+
+:root[data-theme="dark"] .theme-toggle,
+:root[data-theme="dark"] .dashboard-settings-link {
+  border-color: #93c5fd;
+  color: #bfdbfe;
+  background: #1e293b;
+}
+
+:root[data-theme="dark"] .form-help,
+:root[data-theme="dark"] .statistics__card dt,
+:root[data-theme="dark"] .statistics__empty,
+:root[data-theme="dark"] .entry-section__empty {
+  color: #cbd5e1;
+}
+
+:root[data-theme="dark"] .statistics__card dd,
+:root[data-theme="dark"] .entry-card__header h3,
+:root[data-theme="dark"] .entry-card__price {
+  color: #f8fafc;
+}
+
+:root[data-theme="dark"] .entry-card__header,
+:root[data-theme="dark"] .entry-card__actions,
+:root[data-theme="dark"] .purchased-disclosure[open] summary {
+  border-color: #475569;
+}
+
+:root[data-theme="dark"] .request-state--error {
+  border-color: #f87171;
+  color: #fecaca;
+  background: #450a0a;
+}
+
+:root[data-theme="dark"] .request-state--success {
+  border-color: #4ade80;
+  color: #bbf7d0;
+  background: #052e16;
+}
+
+:root[data-theme="dark"] .form-field input[aria-invalid="true"],
+:root[data-theme="dark"] .form-field textarea[aria-invalid="true"] {
+  border-color: #f87171;
+  background: #450a0a;
+}
+
+:root[data-theme="dark"] .field-error {
+  color: #fca5a5;
+}
+
+:root[data-theme="dark"] :focus-visible {
+  outline-color: #f8fafc;
+  box-shadow: 0 0 0 0.375rem #0f172a;
 }
 
 @media (prefers-reduced-motion: reduce) {
