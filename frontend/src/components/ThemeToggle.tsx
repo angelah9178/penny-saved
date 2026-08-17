@@ -39,7 +39,6 @@ export function ThemeToggle() {
         setTheme(isDark ? "light" : "dark");
       }}
     >
-      <span aria-hidden="true">{isDark ? "☀️" : "🌙"}</span>
       <span>{isDark ? "Light mode" : "Dark mode"}</span>
     </button>
   );

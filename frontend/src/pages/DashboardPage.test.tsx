@@ -43,9 +43,10 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Running shoes")).toBeInTheDocument();
     expect(screen.getByText("Coffee grinder")).toBeInTheDocument();
 
-    const purchased = screen.getByText("Purchased (1)").closest("details");
-    expect(purchased).not.toBeNull();
-    expect(purchased).not.toHaveAttribute("open");
+    expect(screen.getByRole("button", { name: "Purchased" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 
   it("shows a separate explanation for every empty backend array", async () => {
@@ -71,8 +72,8 @@ describe("DashboardPage", () => {
       screen.getByText("Entries you decide to buy will appear here."),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Purchased (0)").closest("details"),
-    ).not.toHaveAttribute("open");
+      screen.getByText("Entries you decide to buy will appear here."),
+    ).not.toBeVisible();
   });
 
   it("preserves the order supplied by the backend", async () => {
@@ -259,7 +260,7 @@ describe("DashboardPage", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("opens the Purchased disclosure from the keyboard", async () => {
+  it("toggles the Purchased section from the keyboard", async () => {
     const user = userEvent.setup();
     useDashboardResponse(emptyDashboard());
     renderWithApp(<DashboardPage />, { initialEntry: "/dashboard" });
@@ -274,15 +275,27 @@ describe("DashboardPage", () => {
       screen.getByRole("link", { name: "Manage opportunity-cost examples" }),
     ).toHaveFocus();
     await user.tab();
+    expect(
+      screen.getByRole("button", { name: "Savings statistics" }),
+    ).toHaveFocus();
+    await user.tab();
     expect(screen.getByRole("combobox", { name: "Time range" })).toHaveFocus();
     await user.tab();
-    const summary = screen.getByText("Purchased (0)");
-    expect(summary).toHaveFocus();
+    expect(
+      screen.getByRole("button", { name: "Needs check-in" }),
+    ).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Waiting" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Saved" })).toHaveFocus();
+    await user.tab();
+    const purchasedToggle = screen.getByRole("button", { name: "Purchased" });
+    expect(purchasedToggle).toHaveFocus();
 
     await user.keyboard("{Enter}");
-    expect(summary.closest("details")).toHaveAttribute("open");
+    expect(purchasedToggle).toHaveAttribute("aria-expanded", "true");
     await user.keyboard(" ");
-    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(purchasedToggle).toHaveAttribute("aria-expanded", "false");
   });
 
   it("requires confirmation and restores focus when deletion is cancelled", async () => {

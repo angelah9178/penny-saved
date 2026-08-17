@@ -4,6 +4,7 @@ import { ErrorAlert } from "../../components/ErrorAlert";
 import { FeedbackMessage } from "../../components/FeedbackMessage";
 import { Loading } from "../../components/Loading";
 import { formatUsd } from "../../lib/currency";
+import { usePersistentDisclosure } from "../../hooks/usePersistentDisclosure";
 import type { OpportunityCostEquivalent, StatsRange } from "../../types/api";
 import { useStatsSummary } from "./queries";
 
@@ -23,6 +24,10 @@ const NUMBER_FORMATTER = new Intl.NumberFormat("en-US", {
 });
 
 export function StatisticsSection() {
+  const [isExpanded, setIsExpanded] = usePersistentDisclosure(
+    "statistics",
+    true,
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const range = parseStatsRange(searchParams.get("range"));
   const summary = useStatsSummary(range);
@@ -37,71 +42,91 @@ export function StatisticsSection() {
 
   return (
     <section className="statistics" aria-labelledby="statistics-heading">
-      <div className="statistics__header">
-        <div>
-          <h2 id="statistics-heading">Savings statistics</h2>
-          <p>See what your completed decisions have added up to.</p>
-        </div>
-        <div className="statistics__filter">
-          <label htmlFor="statistics-range">Time range</label>
-          <select
-            id="statistics-range"
-            value={range}
-            onChange={(event) => {
-              selectRange(event.target.value as StatsRange);
-            }}
-          >
-            {RANGE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {summary.isPending ? (
-        <Loading message="Loading your statistics…" />
-      ) : null}
-      {summary.isError ? (
-        <ErrorAlert
-          message="We could not load your statistics. Please try again."
-          isRetrying={summary.isFetching}
-          retryLabel="Retry statistics"
-          retryingLabel="Retrying statistics…"
-          onRetry={() => {
-            void summary.refetch();
+      <h2 id="statistics-heading" className="statistics__disclosure-heading">
+        <button
+          aria-controls="statistics-content"
+          aria-expanded={isExpanded}
+          className="section-toggle"
+          type="button"
+          onClick={() => {
+            setIsExpanded((expanded) => !expanded);
           }}
-        />
-      ) : null}
-      {summary.isFetching && summary.data !== undefined ? (
-        <FeedbackMessage
-          className="statistics__updating"
-          message="Updating statistics…"
-          tone="status"
-        />
-      ) : null}
-      {summary.data === undefined ? null : (
-        <>
-          <dl className="statistics__cards">
-            <StatisticCard
-              label="Total saved"
-              value={formatUsd(summary.data.total_saved_cents)}
-            />
-            <StatisticCard
-              label="Purchases avoided"
-              value={NUMBER_FORMATTER.format(
-                summary.data.avoided_purchase_count,
-              )}
-            />
-            <StatisticCard
-              label="Items purchased"
-              value={NUMBER_FORMATTER.format(summary.data.purchased_count)}
-            />
-          </dl>
-          <OpportunityCostList equivalents={summary.data.opportunity_costs} />
-        </>
-      )}
+        >
+          <span aria-hidden="true" className="section-toggle__indicator">
+            ▾
+          </span>
+          <span>Savings statistics</span>
+        </button>
+      </h2>
+
+      <div
+        className="statistics__collapsible-content"
+        id="statistics-content"
+        hidden={!isExpanded}
+      >
+        <div className="statistics__header">
+          <p>See what your completed decisions have added up to.</p>
+          <div className="statistics__filter">
+            <label htmlFor="statistics-range">Time range</label>
+            <select
+              id="statistics-range"
+              value={range}
+              onChange={(event) => {
+                selectRange(event.target.value as StatsRange);
+              }}
+            >
+              {RANGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {summary.isPending ? (
+          <Loading message="Loading your statistics…" />
+        ) : null}
+        {summary.isError ? (
+          <ErrorAlert
+            message="We could not load your statistics. Please try again."
+            isRetrying={summary.isFetching}
+            retryLabel="Retry statistics"
+            retryingLabel="Retrying statistics…"
+            onRetry={() => {
+              void summary.refetch();
+            }}
+          />
+        ) : null}
+        {summary.isFetching && summary.data !== undefined ? (
+          <FeedbackMessage
+            className="statistics__updating"
+            message="Updating statistics…"
+            tone="status"
+          />
+        ) : null}
+        {summary.data === undefined ? null : (
+          <>
+            <dl className="statistics__cards">
+              <StatisticCard
+                label="Total saved"
+                value={formatUsd(summary.data.total_saved_cents)}
+              />
+              <StatisticCard
+                label="Purchases avoided"
+                value={NUMBER_FORMATTER.format(
+                  summary.data.avoided_purchase_count,
+                )}
+              />
+              <StatisticCard
+                label="Items purchased"
+                value={NUMBER_FORMATTER.format(summary.data.purchased_count)}
+              />
+            </dl>
+            <OpportunityCostList equivalents={summary.data.opportunity_costs} />
+          </>
+        )}
+      </div>
     </section>
   );
 }
