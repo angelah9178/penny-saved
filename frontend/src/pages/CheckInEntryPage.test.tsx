@@ -47,7 +47,7 @@ describe("CheckInEntryPage", () => {
       screen.getByRole("group", { name: "What happened with this purchase?" }),
     ).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Back to dashboard" }),
+      screen.getByRole("link", { name: "Return to dashboard" }),
     ).toHaveAttribute("href", "/dashboard");
   });
 

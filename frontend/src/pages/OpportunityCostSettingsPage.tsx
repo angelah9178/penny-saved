@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 
 import { ApiError } from "../api/errors";
+import { DashboardReturnLink } from "../components/DashboardReturnLink";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FeedbackMessage } from "../components/FeedbackMessage";
@@ -70,7 +70,7 @@ export function OpportunityCostSettingsPage() {
   return (
     <div className="opportunity-cost-settings">
       <nav aria-label="Breadcrumb">
-        <Link to="/dashboard">Return to dashboard</Link>
+        <DashboardReturnLink />
       </nav>
       <div className="opportunity-cost-settings__header">
         <div>

@@ -1,8 +1,9 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { ApiError } from "../api/errors";
+import { DashboardReturnLink } from "../components/DashboardReturnLink";
 import { DateTime } from "../components/DateTime";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -36,7 +37,7 @@ export function EntryDetailPage() {
           retryingLabel="Retrying entry…"
           {...(unavailable ? {} : { onRetry: () => void detail.refetch() })}
         />
-        <Link to="/dashboard">Back to dashboard</Link>
+        <DashboardReturnLink />
       </div>
     );
   }
@@ -121,7 +122,7 @@ export function EntryDetailPage() {
           <p>Comments can be edited after this entry is saved or purchased.</p>
         </div>
       )}
-      <Link to="/dashboard">Back to dashboard</Link>
+      <DashboardReturnLink />
     </div>
   );
 }

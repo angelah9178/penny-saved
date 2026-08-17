@@ -311,7 +311,7 @@ describe("authentication routes", () => {
 
   it.each([
     ["saved", "I did not buy it", "Saved"],
-    ["purchased", "I bought it", "Purchased entries"],
+    ["purchased", "I bought it", "Purchased"],
   ] as const)(
     "completes a %s check-in and returns to the matching dashboard section",
     async (status, choice, sectionHeading) => {
@@ -367,7 +367,9 @@ describe("authentication routes", () => {
       );
 
       if (status === "purchased") {
-        await user.click(await screen.findByText("Purchased (1)"));
+        await user.click(
+          await screen.findByRole("button", { name: "Purchased" }),
+        );
       }
       expect(
         await screen.findByRole("heading", {

@@ -1,8 +1,9 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { ApiError } from "../api/errors";
+import { DashboardReturnLink } from "../components/DashboardReturnLink";
 import { DateTime } from "../components/DateTime";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -165,9 +166,7 @@ function CheckInConfirmation({ entry }: { entry: Entry }) {
           </p>
         )}
       </div>
-      <Link className="dashboard-add-link" to="/dashboard">
-        Return to dashboard
-      </Link>
+      <DashboardReturnLink />
     </div>
   );
 }
@@ -183,7 +182,7 @@ function CheckInPageLayout({
     <div className="check-in-page">
       <h1>{title}</h1>
       {children}
-      <Link to="/dashboard">Back to dashboard</Link>
+      <DashboardReturnLink />
     </div>
   );
 }
