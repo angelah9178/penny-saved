@@ -1583,6 +1583,258 @@ sudo certbot certificates
 | Certbot validation fails | both DNS names resolve here, port 80 public, challenge root, no conflicting redirect/config |
 | E2.1.Micro build crashes or freezes | confirm the 2 GB swap file is active with `swapon --show`, check `free -h` and disk space, stop other memory-heavy processes, then retry; build the frontend on an AMD64 build machine if necessary |
 
+## 20. Update the live app after pushing code to GitHub
+
+Pushing to GitHub does **not** update the production website automatically. Use this
+procedure after the intended changes have been committed and pushed to the `main`
+branch. It creates a new immutable release and leaves the previous release available
+for application rollback.
+
+The three systems have different jobs:
+
+1. Make, test, commit, and push code from the **development Ubuntu VM**.
+2. Use a **Mac Terminal** to SSH into the Oracle production VM. Merely viewing GitHub
+   in the Mac browser does not deploy anything.
+3. Run the update command only inside the **Oracle production VM**, after its prompt
+   shows `ubuntu@penny-saved-prod-1-vnic`.
+
+Do not run `sudo penny-saved-update` on the development Ubuntu VM. It expects the
+production database, services, secrets, and `/srv/penny-saved` directories.
+
+### 20.0 Install the one-command updater once
+
+The repository includes `operations/update.sh`. First commit and push this file from
+the development Ubuntu VM. Then open a Mac Terminal and connect to production:
+
+```bash
+ssh -i /Users/angelahu/.ssh/penny-saved-oci.key ubuntu@132.145.170.34
+```
+
+Confirm the prompt now starts with `ubuntu@penny-saved-prod-1-vnic`. In that Oracle
+Ubuntu SSH session, use the existing read-only GitHub deploy key to download the
+pushed repository, then inspect and install the updater as a root-owned executable:
+
+```bash
+test ! -e /tmp/penny-saved-updater-install
+git clone --depth 1 git@github.com:angelah9178/penny-saved.git \
+  /tmp/penny-saved-updater-install
+less /tmp/penny-saved-updater-install/operations/update.sh
+sudo install --owner=root --group=root --mode=0755 \
+  /tmp/penny-saved-updater-install/operations/update.sh \
+  /usr/local/sbin/penny-saved-update
+sudo /usr/local/sbin/penny-saved-update --help
+```
+
+The last command prints usage information without deploying anything. Install the
+script only after reviewing the file.
+
+For every later update, first test, commit, and push `main` from the development Ubuntu
+VM as described in 20.1. Then use the Mac to SSH into the Oracle VM as described in
+20.2 and deploy the newest pushed `main` commit with one command:
+
+```bash
+sudo penny-saved-update
+```
+
+The updater refuses concurrent runs and existing release directories. It retrieves
+the newest `main` SHA, builds an immutable release as `ubuntu`, validates production
+configuration, creates and checks a PostgreSQL dump, applies migrations as the
+`penny-saved` service account, switches the `current` symlink, restarts the API, and
+runs local and public health checks. Keep the SSH window open until it prints
+`Deployment succeeded`, then perform the browser test in 20.9.
+
+To deliberately deploy a particular reviewed commit instead of the newest `main`, pass
+its full 40-character lowercase SHA:
+
+```bash
+sudo penny-saved-update 0123456789abcdef0123456789abcdef01234567
+```
+
+The script does not automatically reverse database migrations or restore a database.
+If it fails after migrations or activation, preserve its output and follow 20.10. The
+remaining subsections document the individual operations performed by the updater and
+serve as the manual recovery procedure.
+
+### 20.1 Test and push from the development Ubuntu VM
+
+Run these commands in the Penny Saved repository on the development Ubuntu VM. Do not
+run them in the Oracle production SSH session:
+
+```bash
+cd /home/angelahu/projects/penny-saved
+make check
+make security-check
+git status
+git push origin main
+git status --short --branch
+```
+
+Do not deploy if tests fail, if `git push` fails, or if `git status` says the local
+branch is ahead of `origin/main`. Commit intended source changes before pushing; do not
+commit `.env` files, passwords, private keys, database dumps, or other secrets.
+
+### 20.2 Connect to the production VM
+
+From a Mac Terminal window:
+
+```bash
+ssh -i /Users/angelahu/.ssh/penny-saved-oci.key ubuntu@132.145.170.34
+```
+
+The prompt must change to `ubuntu@penny-saved-prod-1-vnic`. All remaining commands in
+this section run in that Ubuntu SSH session.
+
+### 20.3 Select the newest pushed `main` commit
+
+Retrieve the full commit SHA directly from GitHub and construct its release path:
+
+```bash
+NEW_COMMIT="$(git ls-remote git@github.com:angelah9178/penny-saved.git refs/heads/main | awk '{print $1}')"
+test "${#NEW_COMMIT}" -eq 40
+RELEASE_DIR="/srv/penny-saved/releases/$NEW_COMMIT"
+printf 'Deploying commit: %s\nRelease directory: %s\n' "$NEW_COMMIT" "$RELEASE_DIR"
+test ! -e "$RELEASE_DIR"
+```
+
+Read the printed SHA and confirm it is the commit intended for production. The final
+`test` must print nothing. If it reports an error, that commit already has a release
+directory; stop instead of overwriting it.
+
+### 20.4 Download and build the new release
+
+```bash
+cd /srv/penny-saved/releases
+git clone git@github.com:angelah9178/penny-saved.git "$NEW_COMMIT"
+cd "$RELEASE_DIR"
+git checkout --detach "$NEW_COMMIT"
+test "$(git rev-parse HEAD)" = "$NEW_COMMIT"
+source "$HOME/.nvm/nvm.sh"
+nvm install "$(cat .nvmrc)"
+npm --prefix frontend ci
+npm --prefix frontend run build
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install --requirement backend/requirements.txt
+.venv/bin/python scripts/check_operations.py
+test -f frontend/dist/index.html
+```
+
+On the E2.1.Micro VM, the build may take several minutes. Confirm `swapon --show` lists
+the 2 GB swap file and do not run another build concurrently.
+
+### 20.5 Validate the new release before changing production
+
+```bash
+cd "$RELEASE_DIR/backend"
+sudo systemd-run --wait --pipe --collect --unit=penny-saved-update-config-check \
+  --uid=penny-saved --gid=penny-saved \
+  --property=WorkingDirectory="$PWD" \
+  --property=EnvironmentFile=/etc/penny-saved/backend.env \
+  "$RELEASE_DIR/.venv/bin/python" \
+  -c 'from app.main import create_app; create_app(); print("configuration valid")'
+```
+
+Stop if this does not print `configuration valid` and finish successfully.
+
+### 20.6 Back up the database before migration
+
+Create and validate a local emergency dump before changing the database schema:
+
+```bash
+BACKUP_TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+BACKUP_FILE="/var/backups/penny-saved/penny_saved_${BACKUP_TIMESTAMP}.dump"
+sudo -u postgres pg_dump --dbname=penny_saved --format=custom \
+  --no-owner --no-acl --file="$BACKUP_FILE"
+sudo -u postgres pg_restore --list "$BACKUP_FILE" >/dev/null
+sudo sha256sum "$BACKUP_FILE"
+sudo ls -lh "$BACKUP_FILE"
+```
+
+Record the checksum. This local dump helps with an immediate deployment problem, but
+it does not replace the encrypted off-VM backups required by section 17.
+
+### 20.7 Apply database migrations
+
+```bash
+cd "$RELEASE_DIR/backend"
+sudo systemd-run --wait --pipe --collect --unit=penny-saved-update-migrate \
+  --uid=penny-saved --gid=penny-saved \
+  --property=WorkingDirectory="$PWD" \
+  --property=EnvironmentFile=/etc/penny-saved/backend.env \
+  "$RELEASE_DIR/.venv/bin/python" -m alembic upgrade head
+sudo systemd-run --wait --pipe --collect --unit=penny-saved-update-migration-status \
+  --uid=penny-saved --gid=penny-saved \
+  --property=WorkingDirectory="$PWD" \
+  --property=EnvironmentFile=/etc/penny-saved/backend.env \
+  "$RELEASE_DIR/.venv/bin/python" -m alembic current
+```
+
+Both transient units must finish successfully. Do not activate the new release if a
+migration fails.
+
+### 20.8 Activate the release and restart the API
+
+Record the old target, atomically change the `current` symlink, and restart the API:
+
+```bash
+OLD_RELEASE="$(readlink -f /srv/penny-saved/current)"
+printf 'Previous release: %s\n' "$OLD_RELEASE"
+test ! -e /srv/penny-saved/current.next
+sudo ln -s "$RELEASE_DIR" /srv/penny-saved/current.next
+sudo mv -T /srv/penny-saved/current.next /srv/penny-saved/current
+sudo systemctl restart penny-saved
+```
+
+Nginx serves the frontend through `/srv/penny-saved/current`, so changing the symlink
+also publishes the new frontend. Nginx itself only needs a reload when its configuration
+changed:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 20.9 Verify the updated website
+
+```bash
+timeout 30 bash -c \
+  'until curl --fail --silent --header "Host: stopimpulsebuying.online" http://127.0.0.1:8000/api/health; do sleep 1; done'
+curl --fail --silent --show-error --header 'Host: stopimpulsebuying.online' \
+  http://127.0.0.1:8000/api/ready
+sudo systemctl status penny-saved --no-pager --full
+curl --fail --silent --show-error https://stopimpulsebuying.online/api/health
+curl --fail --silent --show-error https://stopimpulsebuying.online/api/ready
+```
+
+Then open `https://stopimpulsebuying.online` in a private browser window and test the
+changed behavior, login, and a disposable create/edit/delete flow. Keep the SSH session
+open during this verification. When everything works, record `$NEW_COMMIT`, the backup
+file and checksum, migration result, and verification time, then run `exit` to close
+SSH. The services continue running after SSH closes.
+
+### 20.10 Application rollback if verification fails
+
+Only use this application rollback when the migration is known to be backward-
+compatible with the previous application. Do not run `alembic downgrade` or restore a
+database automatically, because either action can destroy new user data.
+
+The `OLD_RELEASE` variable remains available only in the same SSH session used above.
+Verify it before switching back:
+
+```bash
+printf 'Rolling back to: %s\n' "$OLD_RELEASE"
+test -d "$OLD_RELEASE"
+test ! -e /srv/penny-saved/current.next
+sudo ln -s "$OLD_RELEASE" /srv/penny-saved/current.next
+sudo mv -T /srv/penny-saved/current.next /srv/penny-saved/current
+sudo systemctl restart penny-saved
+curl --fail --silent --show-error --header 'Host: stopimpulsebuying.online' \
+  http://127.0.0.1:8000/api/ready
+```
+
+If the schema is not backward-compatible, stop and follow a migration-specific recovery
+plan using the verified backup rather than guessing.
+
 ## Official references
 
 - [OCI creating a VCN manually](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/create_vcn.htm)

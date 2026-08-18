@@ -47,14 +47,29 @@ export function EntryCard({ entry, section, onNotice }: EntryCardProps) {
       {section === "needs_check_in" || section === "waiting" ? (
         <footer className="entry-card__actions">
           {section === "needs_check_in" ? (
-            <Link to={`/entries/${entry.id}/check-in`}>Check in</Link>
+            <Link
+              className="entry-card__primary-action"
+              to={`/entries/${entry.id}/check-in`}
+            >
+              Check in
+            </Link>
           ) : null}
-          <Link to={`/entries/${entry.id}/edit`}>Edit</Link>
+          <Link
+            className="entry-card__secondary-action"
+            to={`/entries/${entry.id}/edit`}
+          >
+            Edit
+          </Link>
           <DeleteEntryButton entry={entry} onNotice={onNotice} />
         </footer>
       ) : (
         <footer className="entry-card__actions">
-          <Link to={`/entries/${entry.id}`}>Edit comment</Link>
+          <Link
+            className="entry-card__secondary-action"
+            to={`/entries/${entry.id}`}
+          >
+            Edit comment
+          </Link>
         </footer>
       )}
     </article>

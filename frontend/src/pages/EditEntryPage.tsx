@@ -1,8 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/errors";
+import { DashboardReturnLink } from "../components/DashboardReturnLink";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { UnsavedChangesPrompt } from "../components/UnsavedChangesPrompt";
@@ -49,7 +50,7 @@ export function EditEntryPage() {
           retryingLabel="Retrying entry…"
           {...(unavailable ? {} : { onRetry: () => void detail.refetch() })}
         />
-        <Link to="/dashboard">Back to dashboard</Link>
+        <DashboardReturnLink />
       </div>
     );
   }
@@ -60,7 +61,7 @@ export function EditEntryPage() {
       <div className="entry-management-page">
         <h1>Edit {entry.item_name}</h1>
         <ErrorAlert message="This entry is no longer waiting and cannot be edited." />
-        <Link to="/dashboard">Back to dashboard</Link>
+        <DashboardReturnLink />
       </div>
     );
   }
@@ -108,7 +109,7 @@ export function EditEntryPage() {
           }
         }}
       />
-      <Link to="/dashboard">Back to dashboard</Link>
+      <DashboardReturnLink />
       <UnsavedChangesPrompt
         shouldBlock={hasUnsavedChanges && !allowNavigation}
       />

@@ -98,7 +98,7 @@ describe("NewEntryPage", () => {
     });
 
     await user.type(screen.getByLabelText("Item name"), "Coffee grinder");
-    await user.click(screen.getByRole("link", { name: "Back to dashboard" }));
+    await user.click(screen.getByRole("link", { name: "Return to dashboard" }));
 
     const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveTextContent("Your entry has unsaved changes.");
@@ -116,11 +116,11 @@ describe("NewEntryPage", () => {
     expect(router.state.location.pathname).toBe("/entries/new");
     await waitFor(() =>
       expect(
-        screen.getByRole("link", { name: "Back to dashboard" }),
+        screen.getByRole("link", { name: "Return to dashboard" }),
       ).toHaveFocus(),
     );
 
-    await user.click(screen.getByRole("link", { name: "Back to dashboard" }));
+    await user.click(screen.getByRole("link", { name: "Return to dashboard" }));
     await user.click(
       screen.getByRole("button", { name: "Leave without saving" }),
     );

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/errors";
+import { DashboardReturnLink } from "../components/DashboardReturnLink";
 import { UnsavedChangesPrompt } from "../components/UnsavedChangesPrompt";
 import { EntryForm } from "../features/entries/EntryForm";
 import { useCreateEntryMutation } from "../features/entries/queries";
@@ -45,7 +46,7 @@ export function NewEntryPage() {
           }
         }}
       />
-      <Link to="/dashboard">Back to dashboard</Link>
+      <DashboardReturnLink />
       <UnsavedChangesPrompt
         shouldBlock={hasUnsavedChanges && !allowNavigation}
       />

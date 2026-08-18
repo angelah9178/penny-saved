@@ -1,11 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FeedbackMessage } from "../components/FeedbackMessage";
@@ -68,7 +62,9 @@ export function DashboardPage() {
           tone="success"
         />
       )}
-      <p>Review your waiting decisions and the purchases you have resolved.</p>
+      <p className="dashboard-lead">
+        Review your waiting decisions and the purchases you have resolved.
+      </p>
       {dashboard.isFetching ? (
         <FeedbackMessage
           className="dashboard-updating"
@@ -91,6 +87,7 @@ export function DashboardPage() {
       <StatisticsSection />
 
       <EntrySection
+        collapsible
         title="Needs check-in"
         emptyMessage="Nothing needs your attention right now."
         entries={entries.needs_check_in}
@@ -98,6 +95,7 @@ export function DashboardPage() {
         onNotice={setEntryNotice}
       />
       <EntrySection
+        collapsible
         title="Waiting"
         emptyMessage="You have no purchases in the waiting period."
         entries={entries.waiting}
@@ -105,37 +103,23 @@ export function DashboardPage() {
         onNotice={setEntryNotice}
       />
       <EntrySection
+        collapsible
         title="Saved"
         emptyMessage="Entries you decide not to buy will appear here."
         entries={entries.saved}
         section="saved"
       />
 
-      <details className="purchased-disclosure">
-        <summary tabIndex={0} onKeyDown={toggleDisclosureFromKeyboard}>
-          Purchased ({entries.purchased.length})
-        </summary>
-        <EntrySection
-          title="Purchased entries"
-          emptyMessage="Entries you decide to buy will appear here."
-          entries={entries.purchased}
-          section="purchased"
-        />
-      </details>
+      <EntrySection
+        collapsible
+        defaultExpanded={false}
+        title="Purchased"
+        emptyMessage="Entries you decide to buy will appear here."
+        entries={entries.purchased}
+        section="purchased"
+      />
     </DashboardFrame>
   );
-}
-
-function toggleDisclosureFromKeyboard(event: KeyboardEvent<HTMLElement>) {
-  if (event.key !== "Enter" && event.key !== " ") return;
-
-  const disclosure = event.currentTarget.parentElement;
-  if (!(disclosure instanceof HTMLDetailsElement)) return;
-
-  // jsdom and some older assistive-technology/browser combinations do not apply
-  // the native summary keyboard action consistently.
-  event.preventDefault();
-  disclosure.open = !disclosure.open;
 }
 
 function hasEntryCreatedState(state: unknown): boolean {
@@ -159,7 +143,10 @@ function hasEntryUpdatedState(state: unknown): boolean {
 function DashboardFrame({ children }: { children: ReactNode }) {
   return (
     <div className="dashboard">
-      <h1>Dashboard</h1>
+      <header className="dashboard__header">
+        <p className="dashboard__eyebrow">Your money decisions</p>
+        <h1>Dashboard</h1>
+      </header>
       {children}
     </div>
   );

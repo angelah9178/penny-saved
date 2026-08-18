@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A Penny Saved" />
+    <script>
+      try {
+        if (localStorage.getItem("penny-saved-theme") === "dark") {
+          document.documentElement.dataset.theme = "dark";
+          document.documentElement.style.colorScheme = "dark";
+        }
+      } catch {}
+    </script>
     <title>A Penny Saved</title>
   </head>
   <body>
