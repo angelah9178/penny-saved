@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -18,6 +18,20 @@ describe("PageShell", () => {
       screen.getByRole("heading", { level: 1, name: "Dashboard" }),
     );
     expect(screen.getByText("Dashboard content")).toBeVisible();
+  });
+
+  it("shows when the application is healthy", async () => {
+    render(
+      <PageShell>
+        <h1>Dashboard</h1>
+      </PageShell>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "App is healthy" })).toHaveClass(
+        "service-health--ready",
+      );
+    });
   });
 
   it("provides a skip link to the main content", () => {

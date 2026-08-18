@@ -1,5 +1,7 @@
 import { useRef, type MouseEvent, type ReactNode } from "react";
 
+import { ServiceHealthIndicator } from "./ServiceHealthIndicator";
+
 export type PageShellProps = {
   children: ReactNode;
   headerActions?: ReactNode;
@@ -20,7 +22,10 @@ export function PageShell({ children, headerActions }: PageShellProps) {
       </a>
       <header className="site-header">
         <div className="site-header__content">
-          <span>A Penny Saved</span>
+          <span className="site-brand">
+            <span>A Penny Saved</span>
+            <ServiceHealthIndicator />
+          </span>
           {headerActions}
         </div>
       </header>
