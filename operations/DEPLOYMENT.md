@@ -1590,13 +1590,78 @@ procedure after the intended changes have been committed and pushed to the `main
 branch. It creates a new immutable release and leaves the previous release available
 for application rollback.
 
-### 20.1 Test and push from the Mac
+The three systems have different jobs:
 
-Run these commands in the Penny Saved repository on the Mac, not in the Ubuntu SSH
-session:
+1. Make, test, commit, and push code from the **development Ubuntu VM**.
+2. Use a **Mac Terminal** to SSH into the Oracle production VM. Merely viewing GitHub
+   in the Mac browser does not deploy anything.
+3. Run the update command only inside the **Oracle production VM**, after its prompt
+   shows `ubuntu@penny-saved-prod-1-vnic`.
+
+Do not run `sudo penny-saved-update` on the development Ubuntu VM. It expects the
+production database, services, secrets, and `/srv/penny-saved` directories.
+
+### 20.0 Install the one-command updater once
+
+The repository includes `operations/update.sh`. First commit and push this file from
+the development Ubuntu VM. Then open a Mac Terminal and connect to production:
 
 ```bash
-cd /Users/angelahu/projects/penny-saved
+ssh -i /Users/angelahu/.ssh/penny-saved-oci.key ubuntu@132.145.170.34
+```
+
+Confirm the prompt now starts with `ubuntu@penny-saved-prod-1-vnic`. In that Oracle
+Ubuntu SSH session, use the existing read-only GitHub deploy key to download the
+pushed repository, then inspect and install the updater as a root-owned executable:
+
+```bash
+test ! -e /tmp/penny-saved-updater-install
+git clone --depth 1 git@github.com:angelah9178/penny-saved.git \
+  /tmp/penny-saved-updater-install
+less /tmp/penny-saved-updater-install/operations/update.sh
+sudo install --owner=root --group=root --mode=0755 \
+  /tmp/penny-saved-updater-install/operations/update.sh \
+  /usr/local/sbin/penny-saved-update
+sudo /usr/local/sbin/penny-saved-update --help
+```
+
+The last command prints usage information without deploying anything. Install the
+script only after reviewing the file.
+
+For every later update, first test, commit, and push `main` from the development Ubuntu
+VM as described in 20.1. Then use the Mac to SSH into the Oracle VM as described in
+20.2 and deploy the newest pushed `main` commit with one command:
+
+```bash
+sudo penny-saved-update
+```
+
+The updater refuses concurrent runs and existing release directories. It retrieves
+the newest `main` SHA, builds an immutable release as `ubuntu`, validates production
+configuration, creates and checks a PostgreSQL dump, applies migrations as the
+`penny-saved` service account, switches the `current` symlink, restarts the API, and
+runs local and public health checks. Keep the SSH window open until it prints
+`Deployment succeeded`, then perform the browser test in 20.9.
+
+To deliberately deploy a particular reviewed commit instead of the newest `main`, pass
+its full 40-character lowercase SHA:
+
+```bash
+sudo penny-saved-update 0123456789abcdef0123456789abcdef01234567
+```
+
+The script does not automatically reverse database migrations or restore a database.
+If it fails after migrations or activation, preserve its output and follow 20.10. The
+remaining subsections document the individual operations performed by the updater and
+serve as the manual recovery procedure.
+
+### 20.1 Test and push from the development Ubuntu VM
+
+Run these commands in the Penny Saved repository on the development Ubuntu VM. Do not
+run them in the Oracle production SSH session:
+
+```bash
+cd /home/angelahu/projects/penny-saved
 make check
 make security-check
 git status
