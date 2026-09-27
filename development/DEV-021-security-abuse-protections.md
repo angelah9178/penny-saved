@@ -552,7 +552,7 @@ triage links, and limitations.
 
 | Advisory              | Package/path                       | Severity                                | Decision                                                                                          | Owner/follow-up                                                                                       | Review date |
 | --------------------- | ---------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------- |
-| `GHSA-qwww-vcr4-c8h2` | `react-router`, `react-router-dom` | Moderate upstream; reported high by npm | Triaged: the application is a client-rendered SPA and does not use the affected unstable RSC APIs | DEV-024: upgrade when a patched React Router 7 release is available or complete a tested v8 migration | 2026-09-07  |
+| `GHSA-qwww-vcr4-c8h2` | `react-router`, `react-router-dom` | High | Resolved: upgraded both packages to patched 7.18.2 and removed the temporary exception | DEV-024: continue dependency scans | Closed 2026-09-27 |
 
 ### Final Verification
 

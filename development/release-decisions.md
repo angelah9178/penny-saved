@@ -135,8 +135,8 @@ be resolved before release authorization; it is not permission to guess an answe
 ## react-router-advisory — How is GHSA-qwww-vcr4-c8h2 handled for the release candidate?
 
 - Owner: DEV-024 release owner
-- Decision: Temporarily accepted only because this client-rendered SPA does not import or enable the affected unstable RSC APIs; React Router 7.18.1 has no patched 7.x release.
-- Evidence: Current dependency scan, absence of RSC imports/configuration, official advisory review, and upgrade or renewed risk decision.
-- Source: development/security-advisory-triage.json and GitHub Advisory Database
-- Deadline: 2026-09-07
-- Status: deferred
+- Decision: Resolved by upgrading react-router-dom and its react-router dependency to patched version 7.18.2; the temporary advisory exception has been removed.
+- Evidence: frontend/package-lock.json pins both packages to 7.18.2, which the official advisory lists as patched. Reviewed on 2026-09-27.
+- Source: development/security-advisory-triage.json and https://github.com/advisories/GHSA-qwww-vcr4-c8h2
+- Deadline: approved-for-v1
+- Status: ready
