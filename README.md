@@ -2,6 +2,8 @@
 
 A Penny Saved is a React and FastAPI application for tracking impulse purchases that were avoided or completed after a waiting period.
 
+**Live website:** [stopimpulsebuying.online](https://stopimpulsebuying.online)
+
 ## Prerequisites
 
 - Node.js 22 LTS (the exact project version is in `.nvmrc`)
